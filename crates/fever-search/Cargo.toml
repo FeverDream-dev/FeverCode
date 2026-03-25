@@ -1,0 +1,28 @@
+[package]
+name = "fever-search"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+fever-core = { path = "../fever-core" }
+fever-config = { path = "../fever-config" }
+
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+reqwest = { workspace = true }
+scraper = { workspace = true }
+url = { workspace = true }
+chrono = { workspace = true }
+rusqlite = { workspace = true }
+urlencoding = "2.1"
+
+[dev-dependencies]
+mockito = { workspace = true }

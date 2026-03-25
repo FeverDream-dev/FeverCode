@@ -1,0 +1,27 @@
+[package]
+name = "fever-tools"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+fever-core = { path = "../fever-core" }
+
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+async-trait = "0.1"
+walkdir = "2.5"
+ignore = "0.4"
+regex = "1.11"
+urlencoding = "2.0"
+wildmatch = "2.4"
+
+[dev-dependencies]
+tempfile = "3.14"

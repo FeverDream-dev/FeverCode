@@ -1,0 +1,42 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Data/cache
+*.db
+*.sqlite
+*.sqlite3
+.cache/
+data/
+
+# Config (don't commit personal config)
+config.toml
+fevercode/
+
+# Build artifacts
+dist/
+release/
+
+# Test coverage
+*.profraw
+*.profdata
+
+# Temporary files
+*.tmp
+tmp/

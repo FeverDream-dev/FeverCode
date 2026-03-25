@@ -1,0 +1,27 @@
+DUAL LICENSED
+
+This project is dual-licensed under:
+
+1. MIT License - See LICENSE-MIT
+2. Apache License, Version 2.0 - See LICENSE-APACHE
+
+You may choose either license for your use.
+
+---
+
+## MIT License
+
+See LICENSE-MIT file for full text.
+
+## Apache License 2.0
+
+See LICENSE-APACHE file for full text.
+
+## Why Dual License?
+
+The dual license provides flexibility:
+- MIT is permissive and simple
+- Apache 2.0 provides patent protection
+- Users can choose the license that best fits their needs
+
+Both licenses are OSI-approved and widely used in the Rust ecosystem.

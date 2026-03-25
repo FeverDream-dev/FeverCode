@@ -1,0 +1,36 @@
+[package]
+name = "fever-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[[bin]]
+name = "fever"
+path = "src/main.rs"
+
+[[bin]]
+name = "fever-code"
+path = "src/main.rs"
+
+[dependencies]
+fever-core = { path = "../fever-core" }
+fever-agent = { path = "../fever-agent" }
+fever-config = { path = "../fever-config" }
+fever-tui = { path = "../fever-tui" }
+fever-tools = { path = "../fever-tools" }
+fever-search = { path = "../fever-search" }
+fever-browser = { path = "../fever-browser" }
+fever-providers = { path = "../fever-providers" }
+
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

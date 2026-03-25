@@ -1,0 +1,23 @@
+[package]
+name = "fever-browser"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+fever-core = { path = "../fever-core" }
+
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tokio-tungstenite = { workspace = true }
+serde_urlencoded = { workspace = true }
+url = { workspace = true }
+chrono = { workspace = true }
+async-trait = "0.1"

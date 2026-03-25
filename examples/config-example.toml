@@ -1,0 +1,28 @@
+# Example Fever Code Configuration
+
+[defaults]
+provider = "ollama"
+model = "llama3"
+temperature = 0.7
+max_tokens = 4096
+
+[ui]
+theme = "dark"
+auto_scroll = true
+show_thinking = true
+
+[tools]
+browser_enabled = true
+search_enabled = true
+shell_enabled = true
+git_enabled = true
+
+[search]
+engine = "duckduckgo"
+searxng_url = null
+max_results = 10
+cache_enabled = true
+
+[providers.ollama]
+enabled = true
+base_url = "http://localhost:11434"
