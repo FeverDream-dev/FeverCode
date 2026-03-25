@@ -37,6 +37,9 @@ pub enum ProviderError {
     #[error("Parse error: {0}")]
     Parse(String),
 
+    #[error("Request failed: {0}")]
+    RequestFailed(String),
+
     #[error("Unknown error: {0}")]
     Unknown(String),
 }

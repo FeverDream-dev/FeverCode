@@ -1,8 +1,7 @@
 use crate::error::{ProviderError, ProviderResult};
-use crate::models::{ChatMessage, ChatRequest, ChatResponse, ModelCapability, StreamChunk};
+use crate::models::{ChatRequest, ChatResponse, ModelCapability, ModelInfo, StreamChunk};
 use async_trait::async_trait;
 use futures::Stream;
-use serde_json::Value;
 
 #[derive(Debug, Clone)]
 pub struct ProviderCapabilities {
@@ -11,7 +10,7 @@ pub struct ProviderCapabilities {
     pub supports_streaming: bool,
     pub supports_images: bool,
     pub supports_function_calling: bool,
-    pub max_context_length: Option<u32>,
+    pub max_context_length: Option<u64>,
     pub supported_capabilities: Vec<ModelCapability>,
 }
 
@@ -19,7 +18,7 @@ pub struct ProviderCapabilities {
 pub trait ProviderAdapter: Send + Sync {
     fn name(&self) -> &str;
 
-    fn capabilities(&self) -> &ProviderCapabilities;
+    fn capabilities(&self) -> ProviderCapabilities;
 
     async fn chat(&self, request: &ChatRequest) -> ProviderResult<ChatResponse>;
 
@@ -27,7 +26,7 @@ pub trait ProviderAdapter: Send + Sync {
         &self,
         _request: &ChatRequest,
     ) -> ProviderResult<Box<dyn Stream<Item = ProviderResult<StreamChunk>> + Send + Unpin>> {
-        Err(ProviderError::ToolCallingNotSupported(format!(
+        Err(ProviderError::InvalidRequest(format!(
             "Streaming not supported by {}",
             self.name()
         )))
@@ -35,7 +34,7 @@ pub trait ProviderAdapter: Send + Sync {
 
     fn list_models(&self) -> Vec<String>;
 
-    fn get_model_info(&self, model_id: &str) -> Option<crate::models::ModelInfo>;
+    fn get_model_info(&self, model_id: &str) -> Option<ModelInfo>;
 
     async fn validate_config(&self) -> ProviderResult<()>;
 

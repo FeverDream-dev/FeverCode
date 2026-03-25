@@ -16,6 +16,8 @@ pub struct ChatMessage {
 pub struct ChatPane {
     messages: Vec<ChatMessage>,
     scroll: usize,
+    input_buffer: String,
+    input_mode: bool,
 }
 
 impl ChatPane {
@@ -23,6 +25,8 @@ impl ChatPane {
         Self {
             messages: Vec::new(),
             scroll: 0,
+            input_buffer: String::new(),
+            input_mode: false,
         }
     }
 
@@ -32,6 +36,48 @@ impl ChatPane {
             content,
             timestamp: chrono::Utc::now(),
         });
+    }
+
+    pub fn toggle_input_mode(&mut self) {
+        self.input_mode = !self.input_mode;
+    }
+
+    pub fn is_in_input_mode(&self) -> bool {
+        self.input_mode
+    }
+
+    pub fn handle_char(&mut self, c: char) -> Option<String> {
+        if self.input_mode {
+            if c == '\n' || c == '\r' {
+                if !self.input_buffer.is_empty() {
+                    let content = self.input_buffer.clone();
+                    self.input_buffer.clear();
+                    self.add_message("user".to_string(), content.clone());
+                    return Some(content);
+                }
+            } else if c == '\u{0078}' {
+                self.input_buffer.pop();
+            } else {
+                self.input_buffer.push(c);
+            }
+        }
+        None
+    }
+
+    pub fn get_input_buffer(&self) -> &str {
+        &self.input_buffer
+    }
+
+    pub fn clear_input_buffer(&mut self) {
+        self.input_buffer.clear();
+    }
+
+    pub fn backspace(&mut self) {
+        self.input_buffer.pop();
+    }
+
+    pub fn type_char(&mut self, c: char) {
+        self.input_buffer.push(c);
     }
 
     pub fn scroll_down(&mut self) {
@@ -65,6 +111,57 @@ impl ChatPane {
         let inner = block.inner(area);
         f.render_widget(block, area);
 
+        let mut lines: Vec<Line> = Vec::new();
+
+        for msg in self.messages.iter().skip(self.scroll) {
+            let role_color = match msg.role.as_str() {
+                "user" => Color::Cyan,
+                "assistant" => Color::Green,
+                "system" => Color::Yellow,
+                _ => Color::Gray,
+            };
+
+            lines.push(Line::from(Span::styled(
+                format!("[{}] ", msg.role),
+                Style::default().fg(role_color).add_modifier(Modifier::BOLD),
+            )));
+            
+            for line in msg.content.lines() {
+                lines.push(Line::from(line.to_string()));
+            }
+            lines.push(Line::from(""));
+        }
+
+        let input_area = Rect {
+            x: inner.x,
+            y: inner.y + inner.height.saturating_sub(3),
+            width: inner.width,
+            height: 3,
+        };
+
+        let input_block = Block::default()
+            .borders(Borders::ALL)
+            .title("Input (type message, press Enter)")
+            .border_style(Style::default().fg(Color::Yellow));
+
+        let input_inner = input_block.inner(input_area);
+        f.render_widget(input_block, input_area);
+
+        let input_text = Paragraph::new(self.input_buffer.as_str())
+            .style(Style::default().fg(Color::White));
+        f.render_widget(input_text, input_inner);
+
+        let messages_area = Rect {
+            x: inner.x,
+            y: inner.y,
+            width: inner.width,
+            height: inner.height.saturating_sub(3),
+        };
+
+        if !messages_area.is_empty() {
+            return;
+        }
+
         let items: Vec<ListItem> = self
             .messages
             .iter()
@@ -91,7 +188,7 @@ impl ChatPane {
             .collect();
 
         let list = List::new(items);
-        f.render_widget(list, inner);
+        f.render_widget(list, messages_area);
     }
 }
 

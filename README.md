@@ -1,35 +1,53 @@
 # Fever Code
 
-A terminal-first, open-source AI coding platform for Linux.
+An open-source terminal coding agent for Linux.
 
-**Fever Code** is a CLI/TUI-first system that provides a single visible agent with 50+ internal specialist roles, supporting 30+ LLM providers through a clean abstraction layer. It includes Chrome MCP support, free web search, and a polished TUI with chat, plans, tasks, tool logs, and browser panels.
+**Fever Code** is a CLI/TUI-first coding agent that runs in your terminal, understands your local repository, reads and edits files, runs shell commands and tests, and helps you complete real software work end-to-end.
 
-## Features
+## What It Does
 
-- **Single Visible Agent**: One agent with 50+ internal specialist role modules
-- **30+ LLM Provider Support**: Clean abstraction layer supporting OpenAI, Anthropic, Google, Ollama, and many more
-- **No-Paid-API Search**: DuckDuckGo-based search tool requiring no API keys
-- **Chrome MCP Integration**: First-class browser debugging support
-- **Polished TUI**: Chat, plans, tasks, tool logs, and browser panels
-- **Linux-First**: Optimized for Linux with broad distribution support
-- **Open Source**: MIT/Apache-2.0 dual licensed
+A terminal coding agent should:
+- Open a repo and understand its structure
+- Read and search files
+- Edit code safely
+- Run shell commands
+- Run tests and lint
+- Show diffs and logs
+- Maintain a task list and plan
+- Iterate until the work is done
 
-## Quick Start
+Fever Code is building toward this vision.
 
-### Installation
+## Current Status
 
-One-line installer:
+**This is early-stage software.** Here's what actually works:
 
-```bash
-curl -fsSL https://github.com/FeverDream-dev/FeverCode/releases/latest/download/install.sh | bash
-```
+### Working Now
+- **CLI Entry Points**: `fever`, `fever code`, `fever version`, `fever roles`, `fever config`
+- **Core Tools**: Shell execution, filesystem operations (read/write/list), git operations, code search (grep)
+- **TUI**: Terminal UI with chat, plan, tasks, tool log, and browser panels
+- **Configuration**: TOML-based config in `~/.config/fevercode/`
+- **Role System**: 10+ specialist roles for different tasks
+
+### In Progress
+- **LLM Integration**: Provider abstraction exists; OpenAI and Ollama implementations pending
+- **Agent Loop**: The core plan→execute→verify→iterate loop is being built
+- **Chat Input**: TUI display works; typing messages is being added
+
+### Planned (Not Yet)
+- Chrome MCP integration
+- Streaming responses
+- Session persistence
+- Additional LLM providers
+
+## Installation
 
 ### From Source
 
 ```bash
 git clone https://github.com/FeverDream-dev/FeverCode.git
 cd FeverCode
-cargo install --path .
+cargo build --release
 ```
 
 ### Usage
@@ -53,54 +71,19 @@ fever version
 
 ## Architecture
 
-Fever Code is built with Rust and organized into modular crates:
+Fever Code is built with Rust and organized into focused crates:
 
-- `fever-core`: Core orchestration engine (tasks, events, memory, tools)
-- `fever-agent`: Single visible agent with role system
-- `fever-providers`: LLM provider abstraction layer
-- `fever-tools`: System tools (shell, filesystem, git, grep)
-- `fever-search`: No-paid-API search (DuckDuckGo)
-- `fever-browser`: Chrome MCP integration
-- `fever-tui`: Terminal user interface
-- `fever-config`: Configuration management
-- `fever-cli`: Command-line interface
-- `fever-release`: Release and build management
+- **fever-cli**: Command-line interface
+- **fever-tui**: Terminal user interface
+- **fever-core**: Core abstractions (Task, Plan, Tool, EventBus)
+- **fever-agent**: Coding agent with role system
+- **fever-providers**: LLM provider abstraction (OpenAI, Ollama planned)
+- **fever-tools**: Local tools (shell, filesystem, git, grep)
+- **fever-config**: Configuration management
+- **fever-search**: Web search (DuckDuckGo)
+- **fever-browser**: Browser integration (Chrome MCP, planned)
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed technical documentation.
-
-## Provider Support
-
-Fever Code supports 30+ LLM providers:
-
-**Native Adapters:**
-- OpenAI, Anthropic, Google Gemini, Ollama (Local & Cloud)
-- Together AI, Groq, Fireworks, Mistral, Cohere
-- xAI, DeepSeek, Perplexity
-
-**Cloud Providers:**
-- Azure OpenAI, AWS Bedrock, Google Vertex AI
-- Hugging Face Inference, Cloudflare Workers AI
-- SambaNova, Cerebras, Replicate
-
-**Other:**
-- MiniMax, OpenRouter, Z.ai, Nebius, Baseten, Novita, AI21
-- Moonshot/Kimi, Alibaba DashScope, Tencent Hunyuan
-- Generic OpenAI-compatible endpoints
-
-See [ARCHITECTURE.md](ARCHITECTURE.md#provider-system) for configuration details.
-
-## Specialist Roles
-
-The single agent can invoke 50+ internal specialist roles:
-
-- **Core**: Researcher, Planner, Architect, Coder, Refactorer, Tester, Debugger, Reviewer
-- **DevOps**: DevOps Engineer, CI Fixer, Release Manager, Container Specialist
-- **Security**: Security Reviewer, Security Auditor, Crypto Specialist
-- **Quality**: QA Specialist, Accessibility Specialist, i18n Specialist
-- **Data**: Database Specialist, Data Engineer, ML Engineer
-- **Specialized**: Browser Debugger, Performance Investigator, Memory Specialist, etc.
-
-See `fever roles` for the full list.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for technical details.
 
 ## Configuration
 
@@ -113,12 +96,6 @@ model = "gpt-4o"
 temperature = 0.7
 max_tokens = 4096
 
-[search]
-engine = "duckduckgo"
-searxng_url = null
-max_results = 10
-cache_enabled = true
-
 [providers.openai]
 enabled = true
 api_key = "your-api-key"
@@ -128,25 +105,26 @@ enabled = true
 base_url = "http://localhost:11434"
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md#configuration) for all options.
+## Specialist Roles
 
-## Chrome MCP Setup
+The agent can operate in different specialist modes:
 
-Chrome MCP provides browser debugging capabilities. To enable:
-
-1. Install Chrome DevTools MCP server
-2. Configure the connection in Fever Code
-3. Browser panel shows DOM, console, network data
-
-See [ARCHITECTURE.md](ARCHITECTURE.md#chrome-mcp) for setup instructions.
+| Role | Purpose |
+|------|---------|
+| **coder** | Code implementation and modification |
+| **researcher** | Research and information gathering |
+| **planner** | Strategic planning and task breakdown |
+| **architect** | System architecture and design |
+| **debugger** | Debugging and troubleshooting |
+| **tester** | Testing and quality assurance |
+| **reviewer** | Code review and quality assessment |
+| **refactorer** | Code refactoring and improvement |
+| **shell_executor** | Shell command execution |
+| **git_operator** | Git operations |
 
 ## Development
 
 ```bash
-# Clone repository
-git clone https://github.com/FeverDream-dev/FeverCode.git
-cd FeverCode
-
 # Run tests
 cargo test
 
@@ -162,12 +140,15 @@ cargo build --release
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
-## Documentation
+## Philosophy
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) - Technical architecture
-- [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guide
-- [CHANGELOG.md](CHANGELOG.md) - Version history
-- [ROADMAP.md](ROADMAP.md) - Future plans
+Fever Code is built on these principles:
+
+1. **Honest**: No fake claims. If something doesn't work, we we say so.
+2. **Terminal-first**: Optimized for Linux terminal usage.
+3. **Practical**: Real tools that do real work, not abstractions.
+4. **Focused**: A tight core loop, not a sprawling platform.
+5. **Extensible**: Clean interfaces for adding providers and tools.
 
 ## License
 
@@ -175,15 +156,14 @@ Dual licensed under MIT OR Apache-2.0. See [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
-Inspired by the ambition of OpenCode-class tools and Manus-style autonomy, but implemented as a CLI/TUI-first system for Linux with a single visible agent architecture.
+Inspired by tools like OpenCode, Claude Code, and other terminal-native coding agents.
 
 Built with:
-- Rust (portability, single-binary distribution)
+- Rust
 - ratatui (TUI)
-- crossterm (terminal handling)
+- crossterm (terminal)
 - tokio (async runtime)
-- serde (serialization)
-- clap (CLI parsing)
+- clap (CLI)
 
 ---
 

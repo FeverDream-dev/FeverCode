@@ -1,6 +1,6 @@
 use crate::role::{RoleRegistry, SpecialistRole};
 use fever_core::{Agent, AgentContext, AgentResponse, Message, Result, ToolCall, ToolResult};
-use fever_providers::{ChatRequest, ChatResponse, ModelInfo, ProviderClient};
+use fever_providers::{ChatRequest, ChatResponse, ProviderClient};
 use std::sync::Arc;
 
 pub struct AgentConfig {
@@ -26,6 +26,7 @@ pub struct FeverAgent {
     roles: RoleRegistry,
     config: AgentConfig,
     current_role: String,
+    tools: Option<Arc<fever_core::ToolRegistry>>,
 }
 
 impl FeverAgent {
@@ -35,11 +36,17 @@ impl FeverAgent {
             roles: RoleRegistry::new(),
             config,
             current_role: "default".to_string(),
+            tools: None,
         }
     }
 
     pub fn with_roles(mut self, roles: RoleRegistry) -> Self {
         self.roles = roles;
+        self
+    }
+
+    pub fn with_tools(mut self, tools: Arc<fever_core::ToolRegistry>) -> Self {
+        self.tools = Some(tools);
         self
     }
 
@@ -143,17 +150,28 @@ impl Agent for FeverAgent {
         })
     }
 
-    async fn call_tools(&self, calls: &[ToolCall], _context: &fever_core::ExecutionContext) -> Result<Vec<ToolResult>> {
-        Ok(calls
-            .iter()
-            .map(|call| ToolResult {
-                call_id: call.id.clone(),
-                result: fever_core::ToolResultData::Error {
-                    message: "Tool execution not implemented in agent".to_string(),
-                },
-                duration_ms: 0,
-            })
-            .collect())
+    async fn call_tools(&self, calls: &[ToolCall], context: &fever_core::ExecutionContext) -> Result<Vec<ToolResult>> {
+        let tools = match &self.tools {
+            Some(t) => t,
+            None => return Ok(Vec::new()),
+        };
+
+        let mut results: Vec<ToolResult> = Vec::new();
+
+        for call in calls {
+            match tools.execute_call(call, context).await {
+                Ok(result) => results.push(result),
+                Err(e) => results.push(ToolResult {
+                    call_id: call.id.clone(),
+                    result: fever_core::ToolResultData::Error {
+                        message: e.to_string(),
+                    },
+                    duration_ms: 0,
+                }),
+            }
+        }
+
+        Ok(results)
     }
 
     fn name(&self) -> &str {

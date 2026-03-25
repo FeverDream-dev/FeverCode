@@ -101,6 +101,19 @@ impl FeverTui {
             KeyCode::Char('5') => self.ui.set_focus(crate::ui::Focus::Browser),
             KeyCode::Down => self.ui.scroll_down(),
             KeyCode::Up => self.ui.scroll_up(),
+            KeyCode::Enter => {
+                let input = self.ui.chat.get_input_buffer();
+                if !input.is_empty() {
+                    self.ui.chat.add_message("user".to_string(), input.to_string());
+                    self.ui.chat.clear_input_buffer();
+                }
+            }
+            KeyCode::Backspace => {
+                self.ui.chat.backspace();
+            }
+            KeyCode::Char(c) => {
+                self.ui.chat.type_char(c);
+            }
             _ => {}
         }
     }
