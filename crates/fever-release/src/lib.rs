@@ -40,12 +40,19 @@ fever config
 This release includes:
 
 - Core orchestration engine with task execution
-- Provider abstraction supporting 30+ LLM providers
+- Provider abstraction with OpenAI, Anthropic, Gemini, and Ollama adapters
+- OpenRouter integration for 348+ models
 - No-paid-API search tool (DuckDuckGo)
 - Chrome MCP integration framework
-- Internal specialist role system (50+ roles)
+- 10 specialist roles for different coding tasks
 - Full-featured TUI with chat, plans, tasks, logs, and browser panel
-- Modular crate architecture
+- Modular crate architecture (10 crates)
+- Iterative agent loop (plan, execute, verify, iterate)
+- Requirements interrogator with confidence scoring
+- Prompt improver for structured engineering briefs
+- Operational verifier (build, test, lint, format, custom checks)
+- Fighting mode with solution arbitration and rule-based scoring
+- Security-first permission guard system
 
 ## Known Limitations
 
