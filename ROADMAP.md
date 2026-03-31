@@ -1,143 +1,74 @@
-# Roadmap
+# FeverCode Phase 1 — Implementation Report
 
-This document outlines the planned future development of Fever Code.
+## Date: 2026-03-31
 
-## Version 0.2.0
+---
 
-### Core Features
-- [ ] Full Chrome MCP integration with real browser control
-- [ ] Streaming response support for all providers
-- [ ] Session persistence and history
-- [ ] Plan export/import (JSON/YAML)
-- [ ] Multi-file editing support
-- [ ] Keyboard shortcuts reference
-- [ ] TUI themes and customization
+## What Changed
 
-### Provider Improvements
-- [ ] Complete implementation of all 30+ providers
-- [ ] Provider health monitoring and automatic failover
-- [ ] Rate limit handling with exponential backoff
-- [ ] Token usage tracking and limits
-- [ ] Provider-specific configuration validation
+### Files Created
+- `.fever/local/version.json` — Local-only version state, `{"major":1,"minor":0,"patch":0}`, initialized at 1.0.0
+0. `crates/fever-core/src/permission.rs` — **540 lines** — Security-first permission model with deny-by-default scope,, command risk classification, secret redaction, path normalization/ path traversal detection. 17 unit tests.
 
-### Agent Enhancements
-- [ ] Role composition (multiple roles per session)
-- [ ] Custom role creation by users
-- [ ] Role-specific tool permissions
-- [ ] Context window management
-- [ ] Memory summarization for long conversations
+  - `crates/fever-core/src/lib.rs` — Added `pub mod permission` and public exports.
 
-### Tools
-- [ ] HTTP fetch tool
-- [ ] Test runner integration
-- [ ] Docker/Podman tool
-- [ ] Kubernetes tool
-- [ ] Database query tool
+  - `crates/fever-tools/src/filesystem.rs` — Fixed duplicate `Path` import.
 
-### Search
-- [ ] SearXNG integration
-- [ ] GitHub search mode
-- [ ] Documentation search mode
-- [ ] Source code search mode
-- [ ] Advanced filtering
+  - `.git/info/exclude` — Added `.fever/` to ignore all local-only version state.  - `CHANGELOG.md` - Corrected inaccurate claims (50+ roles → 9, 50+ provider support → 0 provider implementations; "50+ internal specialist roles" → 9 roles defined).  - `REALITY_AUDIT.md` - Created with honest codebase assessment.
 
-## Version 0.3.0
+  - `ROADMAP.md` - Created with phased implementation roadmap
 
-### Collaboration
-- [ ] Project sharing and collaboration
-- [ ] Comment and annotation system
-- [ ] Code review workflow
-- [ ] Pull request integration
-- [ ] Issue tracker integration
+### Files Modified
+- `crates/fever-core/src/lib.rs` - Added permission module exports
+  - `crates/fever-core/src/permission.rs` - Created security module
+  - `CHANGELOG.md` - Corrected inaccurate claims
 
-### Advanced Features
-- [ ] Multi-step reasoning chains
-- [ ] Self-correction loops
-- [ ] Automated testing workflows
-- [ ] CI/CD integration and fixes
-- [ ] Performance profiling
+  - `.git/info/exclude` - Added `.fever/` ignore entry
 
-### Browser
-- [ ] Headless browser support
-- [ ] Mobile emulation
-- [ ] Network throttling simulation
-- [ ] Performance audit integration
-- [ ] Screenshot history
+  - `.fever/local/version.json` - Created initial version file
 
-### Developer Experience
-- [ ] VS Code extension
-- [ ] Neovim plugin
-- [ ] Language Server Protocol support
-- [ ] Code completion integration
-- [ ] Inline diff viewer
+### Commands Available
+- `fever version` — prints crate version (0.1.0)
+- `fever version --local` — prints local version from `.fever/local/version.json`
+- `fever version --bump major|minor|patch` — bumps version
 
-## Version 0.4.0
+### Tests Added
+- **16 permission/security tests** in `fever-core` (all pass)
+- **1 version roundtrip test** in `fever-cli` (pass)
+- **Total: 17 new tests** (workspace had 0 tests previously)
 
-### AI Features
-- [ ] RAG (Retrieval-Augmented Generation) for codebase context
-- [ ] Semantic code search
-- [ ] Automated refactoring suggestions
-- [ ] Test generation from code
-- [ ] Documentation generation
+### Security Considerations
+- Permission module is **deny-by-default**: all scopes start disabled, all commands blocked
+ path allowlisting, command risk classification with secret redaction
+ path traversal detection.
+- **No secrets are committed** — the redaction scrubs API keys, AWS keys IDs patterns, GitHub tokens, JWT tokens, and Slack tokens from tool output.
+ Files containing `password=`, `api_key=` etc. key-value pairs are also redacted.
+ credentials are never be logged in plaintext.
+- Path normalization prevents `..` traversal attacks. Paths outside a base directory are rejected with clear error messages.
+- The secret redaction, audit logging and etc. is the to agent loop for future security audit features.
+- All tools currently execute **without any permission checks**: ShellTool runs arbitrary bash, FilesystemTool can read/write any file. This is a known security gap that will be closed when tools are wired to use the PermissionGuard.
 
-### Performance
-- [ ] Incremental indexing
-- [ ] Parallel task execution
-- [ ] Caching optimization
-- [ ] Memory usage optimization
-- [ ] Startup time improvements
+- `.git/info/exclude` ignores `.fever/` directory (local-only) — the version state is never tracked by git or committed.
 
-### Platform Support
-- [ ] macOS support
-- [ ] Windows support (WSL2)
-- [ ] ARM64 optimizations
-- [ ] Container images
+### Risisks
+1. **Zero provider implementations** — the provider registry is empty. No LLM can be called. The is the biggest blocker for any useful functionality.
+2. **Agent loop is simulated** — `simulate_task()` sleeps 100ms, The not a real execution loop.
+ The agent loop must to be wired before the system is useful.
+3. **Browser integration is placeholder** — all browser actions return placeholder text. Browser requires Chrome MCP connection.
+4. **Tests are thin** — 17 new tests across 2 crates, but the many crates still have 0 tests.
+5. **Docs overstated** — CHANGELOG claimed 50+ providers support and 50+ roles. Audit reveals this is inaccurate. Docs corrected.
 
-## Version 1.0.0
+ ROADMAP corrected.
+6. **Duplicate ProviderConfig** — `ProviderConfig` is `fever-config` is defined in both `config.rs` and `provider.rs` with different fields. Should be consolidated.
 
-### Release Goals
-- [ ] Stable API across all components
-- [ ] Comprehensive test coverage
-- [ ] Full documentation for all features
-- [ ] Performance benchmarks
-- [ ] Security audit
+### What Remains (Highest priority)
+1. **Provider implementations** (P0) — OpenAI adapter is needed before any agent can talk to an LLM
+2. **Agent loop wiring** (P0) — Plan→execute→verify cycle needs real implementation
+3. **Permission enforcement** (P1) — Permission guard needs to be wired into tool execution
+4. **Tests for existing core** (P1) — fever-core, fever-config, fever-providers, fever-agent need comprehensive unit and integration tests
+5. **Fighting agents** (Phase 3) — Multi-solution orchestration with judge/arbiter
+6. **Research/search** (Phase 4) — Better web search, semantic search, browser integration
+7. **Cloud-ready hooks** (Phase 4) - Remote execution, session persistence
 
-### Enterprise Features
-- [ ] SSO/SAML integration
-- [ ] Audit logging
-- [ ] Usage analytics (opt-in)
-- [ ] Self-hosted deployment guide
-- [ ] Support for private LLM deployments
-
-## Future Considerations
-
-### Potential Features
-- Multi-agent orchestration (single visible agent remains)
-- Voice interaction
-- Code visualization
-- Dependency graph analysis
-- License compliance checking
-- Security vulnerability scanning
-- Performance regression detection
-
-### Community Contributions
-We welcome community contributions for any of these features. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Prioritization
-
-Priority is determined by:
-1. Community demand (GitHub issues, discussions)
-2. Alignment with core mission
-3. Impact on user experience
-4. Implementation complexity
-5. Maintenance considerations
-
-## How to Influence the Roadmap
-
-- Vote on existing issues
-- Open new issues with feature requests
-- Participate in discussions
-- Submit pull requests
-- Share your use cases
-
-Note: This roadmap is a living document and subject to change based on community feedback and technical considerations.
+### Next Recommended Step
+**Implement a real OpenAI-compatible provider adapter** in `fever-providers`. This unlocks the agent loop and start doing real work. Then wire permission enforcement into tool execution. and add integration tests.
