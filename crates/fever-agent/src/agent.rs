@@ -2,6 +2,7 @@ use crate::role::{RoleRegistry, SpecialistRole};
 use fever_core::{Agent, AgentContext, AgentResponse, Message, Result, ToolCall, ToolResult};
 use fever_providers::{ChatRequest, ChatResponse, ProviderClient};
 use std::sync::Arc;
+use crate::{LoopDriver, LoopConfig};
 
 pub struct AgentConfig {
     pub default_model: String,
@@ -48,6 +49,18 @@ impl FeverAgent {
     pub fn with_tools(mut self, tools: Arc<fever_core::ToolRegistry>) -> Self {
         self.tools = Some(tools);
         self
+    }
+
+    // Iterative loop entry point: run the loop using the LoopDriver to orchestrate
+    pub async fn run_loop(&self, messages: &[fever_core::Message], context: &fever_core::AgentContext) -> fever_core::Result<crate::LoopResult> {
+        // Ensure tools exist
+        if self.tools.is_none() {
+            return Err(fever_core::Error::Agent("No tools registered".to_string()).into());
+        }
+
+        // Construct a LoopDriver borrowed from self
+        let mut driver = LoopDriver::new(self, LoopConfig::default());
+        driver.run(messages, context).await
     }
 
     pub fn set_role(&mut self, role_id: &str) -> Result<()> {
