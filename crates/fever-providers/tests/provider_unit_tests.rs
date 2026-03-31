@@ -2,13 +2,13 @@
 //! These tests do NOT require API keys or network access.
 
 use async_trait::async_trait;
-use fever_providers::{
-    ChatMessage, ChatRequest, ChatResponse, ModelCapability, ModelInfo,
-    ProviderAdapter, ProviderCapabilities, ProviderClient, ProviderError,
-};
 use fever_providers::models::{ChatChoice, Usage};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use fever_providers::{
+    ChatMessage, ChatRequest, ChatResponse, ModelCapability, ModelInfo, ProviderAdapter,
+    ProviderCapabilities, ProviderClient, ProviderError,
+};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 // =============================================================================
 // Mock Provider for Testing

@@ -1,5 +1,8 @@
 use fever_agent::{LoopConfig, LoopDriver, LoopEvent};
-use fever_core::{Agent, AgentContext, AgentResponse, ExecutionContext, Message, ToolCall, ToolResult, ToolResultData};
+use fever_core::{
+    Agent, AgentContext, AgentResponse, ExecutionContext, Message, ToolCall, ToolResult,
+    ToolResultData,
+};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Configurable mock agent that returns pre-configured responses in sequence
@@ -239,7 +242,10 @@ async fn test_loop_events_tool_executed() {
         .collect();
 
     assert_eq!(tool_events.len(), 1);
-    if let LoopEvent::ToolExecuted { tool_name, success, .. } = &tool_events[0] {
+    if let LoopEvent::ToolExecuted {
+        tool_name, success, ..
+    } = &tool_events[0]
+    {
         assert_eq!(tool_name, "bash");
         assert!(success);
     }

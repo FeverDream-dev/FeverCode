@@ -1,9 +1,9 @@
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
-    Frame,
 };
 
 #[derive(Clone)]
@@ -93,11 +93,7 @@ impl ChatPane {
     }
 
     pub fn render(&mut self, f: &mut Frame, area: Rect, focused: bool) {
-        let title = if focused {
-            "Messages ●"
-        } else {
-            "Messages"
-        };
+        let title = if focused { "Messages ●" } else { "Messages" };
 
         let block = Block::default()
             .borders(Borders::ALL)
@@ -125,7 +121,7 @@ impl ChatPane {
                 format!("[{}] ", msg.role),
                 Style::default().fg(role_color).add_modifier(Modifier::BOLD),
             )));
-            
+
             for line in msg.content.lines() {
                 lines.push(Line::from(line.to_string()));
             }
@@ -147,8 +143,8 @@ impl ChatPane {
         let input_inner = input_block.inner(input_area);
         f.render_widget(input_block, input_area);
 
-        let input_text = Paragraph::new(self.input_buffer.as_str())
-            .style(Style::default().fg(Color::White));
+        let input_text =
+            Paragraph::new(self.input_buffer.as_str()).style(Style::default().fg(Color::White));
         f.render_widget(input_text, input_inner);
 
         let messages_area = Rect {
@@ -399,11 +395,7 @@ impl ToolLogPane {
     }
 
     pub fn log(&mut self, tool_name: String, args: String) {
-        self.logs.push((
-            tool_name,
-            args,
-            chrono::Utc::now(),
-        ));
+        self.logs.push((tool_name, args, chrono::Utc::now()));
     }
 
     pub fn scroll_down(&mut self) {
@@ -419,11 +411,7 @@ impl ToolLogPane {
     }
 
     pub fn render(&mut self, f: &mut Frame, area: Rect, focused: bool) {
-        let title = if focused {
-            "Tool Log ●"
-        } else {
-            "Tool Log"
-        };
+        let title = if focused { "Tool Log ●" } else { "Tool Log" };
 
         let block = Block::default()
             .borders(Borders::ALL)
@@ -495,11 +483,7 @@ impl BrowserPane {
     }
 
     pub fn render(&mut self, f: &mut Frame, area: Rect, focused: bool) {
-        let title = if focused {
-            "Browser ●"
-        } else {
-            "Browser"
-        };
+        let title = if focused { "Browser ●" } else { "Browser" };
 
         let block = Block::default()
             .borders(Borders::ALL)

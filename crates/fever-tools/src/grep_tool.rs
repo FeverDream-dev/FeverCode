@@ -1,8 +1,8 @@
-use fever_core::{ExecutionContext, Tool, ToolSchema, Error, Result};
 use async_trait::async_trait;
-use serde_json::Value;
-use regex::Regex;
+use fever_core::{Error, ExecutionContext, Result, Tool, ToolSchema};
 use ignore::WalkBuilder;
+use regex::Regex;
+use serde_json::Value;
 use wildmatch::WildMatch;
 
 pub struct GrepTool {
@@ -33,14 +33,15 @@ impl Tool for GrepTool {
     }
 
     async fn execute(&self, args: Value, _context: &ExecutionContext) -> Result<Value> {
-        let pattern = args.get("pattern")
+        let pattern = args
+            .get("pattern")
             .and_then(|v| v.as_str())
             .ok_or_else(|| Error::InvalidRequest("pattern required".to_string()))?;
 
-        let file_pattern = args.get("file_pattern")
-            .and_then(|v| v.as_str());
+        let file_pattern = args.get("file_pattern").and_then(|v| v.as_str());
 
-        let max_results = args.get("max_results")
+        let max_results = args
+            .get("max_results")
             .and_then(|v| v.as_u64())
             .unwrap_or(100);
 
@@ -86,18 +87,14 @@ impl GrepTool {
         file_pattern: Option<&str>,
         max_results: u64,
     ) -> Result<Vec<GrepMatch>> {
-        let regex = Regex::new(pattern)
-            .map_err(|e| Error::Parse(e.to_string()))?;
+        let regex = Regex::new(pattern).map_err(|e| Error::Parse(e.to_string()))?;
 
-        let walker = WalkBuilder::new(&self.root_dir)
-            .hidden(false)
-            .build();
+        let walker = WalkBuilder::new(&self.root_dir).hidden(false).build();
 
         let mut matches = Vec::new();
 
         for entry in walker {
-            let entry = entry
-                .map_err(|e| Error::Parse(e.to_string()))?;
+            let entry = entry.map_err(|e| Error::Parse(e.to_string()))?;
 
             let path = entry.path();
 
@@ -106,16 +103,15 @@ impl GrepTool {
             }
 
             if let Some(fp) = file_pattern {
-                let file_name = path.file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("");
+                let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
                 if !WildMatch::new(fp).matches(file_name) {
                     continue;
                 }
             }
 
-            let content = tokio::fs::read_to_string(path).await
+            let content = tokio::fs::read_to_string(path)
+                .await
                 .map_err(|e| Error::Io(e))?;
 
             for (line_num, line) in content.lines().enumerate() {

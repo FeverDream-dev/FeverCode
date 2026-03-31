@@ -1,7 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct VersionState {
@@ -19,7 +19,11 @@ pub enum BumpKind {
 
 impl VersionState {
     pub fn new(major: u32, minor: u32, patch: u32) -> Self {
-        VersionState { major, minor, patch }
+        VersionState {
+            major,
+            minor,
+            patch,
+        }
     }
     pub fn to_string(&self) -> String {
         format!("{}.{}.{}", self.major, self.minor, self.patch)
@@ -32,7 +36,9 @@ pub struct VersionStore {
 
 impl VersionStore {
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
-        VersionStore { path: path.as_ref().to_path_buf() }
+        VersionStore {
+            path: path.as_ref().to_path_buf(),
+        }
     }
     fn ensure_dir(&self) -> std::io::Result<()> {
         if let Some(parent) = self.path.parent() {

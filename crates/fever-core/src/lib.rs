@@ -24,9 +24,9 @@ pub use event::{Event, EventBus};
 pub use execution::{ExecutionContext, ExecutionEngine, ExecutionEvent};
 pub use memory::{MemoryStore, StoredMessage};
 pub use permission::{
-    classify_command_risk, redact_secrets, normalize_and_validate_path,
-    CommandRisk, PermissionGuard, PermissionScope, PermissionVerdict,
+    CommandRisk, PermissionGuard, PermissionScope, PermissionVerdict, classify_command_risk,
+    normalize_and_validate_path, redact_secrets,
 };
-pub use retry::{retry_with_policy, BackoffType, RetryPolicy};
+pub use retry::{BackoffType, RetryPolicy, retry_with_policy};
 pub use task::{Plan, Task, Todo};
-pub use tool::{generate_call_id, Tool, ToolRegistry, ToolSchema};
+pub use tool::{Tool, ToolRegistry, ToolSchema, generate_call_id};

@@ -1,5 +1,5 @@
-use fever_core::{ExecutionContext, Tool, ToolSchema, Error, Result};
 use async_trait::async_trait;
+use fever_core::{Error, ExecutionContext, Result, Tool, ToolSchema};
 use serde_json::Value;
 
 pub struct GitTool {
@@ -30,9 +30,7 @@ impl Tool for GitTool {
     }
 
     async fn execute(&self, args: Value, _context: &ExecutionContext) -> Result<Value> {
-        let action = args.get("action")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("");
 
         let result = match action {
             "status" => self.status(args).await?,
@@ -92,9 +90,7 @@ impl GitTool {
     }
 
     async fn log(&self, args: Value) -> Result<Value> {
-        let git_ref = args.get("ref")
-            .and_then(|v| v.as_str())
-            .unwrap_or("HEAD");
+        let git_ref = args.get("ref").and_then(|v| v.as_str()).unwrap_or("HEAD");
 
         let output = tokio::process::Command::new("git")
             .args(["log", "--oneline", "-20", git_ref])
@@ -113,8 +109,7 @@ impl GitTool {
     }
 
     async fn diff(&self, args: Value) -> Result<Value> {
-        let git_ref = args.get("ref")
-            .and_then(|v| v.as_str());
+        let git_ref = args.get("ref").and_then(|v| v.as_str());
 
         let mut cmd = tokio::process::Command::new("git");
         cmd.arg("diff");
@@ -125,8 +120,7 @@ impl GitTool {
 
         cmd.current_dir(&self.repo_path);
 
-        let output = cmd.output().await
-            .map_err(|e| Error::Io(e))?;
+        let output = cmd.output().await.map_err(|e| Error::Io(e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
 
@@ -137,7 +131,8 @@ impl GitTool {
     }
 
     async fn commit(&self, args: Value) -> Result<Value> {
-        let message = args.get("message")
+        let message = args
+            .get("message")
             .and_then(|v| v.as_str())
             .ok_or_else(|| Error::InvalidRequest("commit message required".to_string()))?;
 

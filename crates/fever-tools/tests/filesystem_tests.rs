@@ -46,7 +46,10 @@ async fn test_filesystem_read_existing_file() {
 
     let tool = FilesystemTool::new();
     let result = tool
-        .execute(json!({"action": "read", "path": file_path.to_str().unwrap()}), &make_ctx())
+        .execute(
+            json!({"action": "read", "path": file_path.to_str().unwrap()}),
+            &make_ctx(),
+        )
         .await
         .unwrap();
 
@@ -59,7 +62,10 @@ async fn test_filesystem_read_existing_file() {
 async fn test_filesystem_read_nonexistent_file() {
     let tool = FilesystemTool::new();
     let result = tool
-        .execute(json!({"action": "read", "path": "/tmp/fever_nonexistent_file_99999.txt"}), &make_ctx())
+        .execute(
+            json!({"action": "read", "path": "/tmp/fever_nonexistent_file_99999.txt"}),
+            &make_ctx(),
+        )
         .await;
 
     assert!(result.is_err());
@@ -75,7 +81,10 @@ async fn test_filesystem_write_and_read() {
 
     // Write
     let write_result = tool
-        .execute(json!({"action": "write", "path": file_path.to_str().unwrap(), "content": content}), &make_ctx())
+        .execute(
+            json!({"action": "write", "path": file_path.to_str().unwrap(), "content": content}),
+            &make_ctx(),
+        )
         .await
         .unwrap();
     assert_eq!(write_result["success"], true);
@@ -83,7 +92,10 @@ async fn test_filesystem_write_and_read() {
 
     // Read back
     let read_result = tool
-        .execute(json!({"action": "read", "path": file_path.to_str().unwrap()}), &make_ctx())
+        .execute(
+            json!({"action": "read", "path": file_path.to_str().unwrap()}),
+            &make_ctx(),
+        )
         .await
         .unwrap();
     assert_eq!(read_result["content"], content);
@@ -95,7 +107,10 @@ async fn test_filesystem_write_and_read() {
 async fn test_filesystem_write_missing_path() {
     let tool = FilesystemTool::new();
     let result = tool
-        .execute(json!({"action": "write", "content": "some content"}), &make_ctx())
+        .execute(
+            json!({"action": "write", "content": "some content"}),
+            &make_ctx(),
+        )
         .await;
 
     assert!(result.is_err());
@@ -108,7 +123,10 @@ async fn test_filesystem_write_missing_content() {
 
     let tool = FilesystemTool::new();
     let result = tool
-        .execute(json!({"action": "write", "path": file_path.to_str().unwrap()}), &make_ctx())
+        .execute(
+            json!({"action": "write", "path": file_path.to_str().unwrap()}),
+            &make_ctx(),
+        )
         .await;
 
     assert!(result.is_err());
@@ -127,12 +145,25 @@ async fn test_filesystem_list_directory() {
 
     let tool = FilesystemTool::new();
     let result = tool
-        .execute(json!({"action": "list", "path": dir.to_str().unwrap()}), &make_ctx())
+        .execute(
+            json!({"action": "list", "path": dir.to_str().unwrap()}),
+            &make_ctx(),
+        )
         .await
         .unwrap();
 
-    let files: Vec<&str> = result["files"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
-    let dirs: Vec<&str> = result["directories"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+    let files: Vec<&str> = result["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    let dirs: Vec<&str> = result["directories"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
 
     assert_eq!(files.len(), 2);
     assert!(files.contains(&"file1.txt"));
@@ -148,7 +179,10 @@ async fn test_filesystem_list_directory() {
 async fn test_filesystem_list_nonexistent_directory() {
     let tool = FilesystemTool::new();
     let result = tool
-        .execute(json!({"action": "list", "path": "/tmp/fever_nonexistent_dir_99999"}), &make_ctx())
+        .execute(
+            json!({"action": "list", "path": "/tmp/fever_nonexistent_dir_99999"}),
+            &make_ctx(),
+        )
         .await;
 
     assert!(result.is_err());
@@ -162,7 +196,10 @@ async fn test_filesystem_exists_true() {
 
     let tool = FilesystemTool::new();
     let result = tool
-        .execute(json!({"action": "exists", "path": file_path.to_str().unwrap()}), &make_ctx())
+        .execute(
+            json!({"action": "exists", "path": file_path.to_str().unwrap()}),
+            &make_ctx(),
+        )
         .await
         .unwrap();
 
@@ -174,7 +211,10 @@ async fn test_filesystem_exists_true() {
 async fn test_filesystem_exists_false() {
     let tool = FilesystemTool::new();
     let result = tool
-        .execute(json!({"action": "exists", "path": "/tmp/fever_nonexistent_99999.txt"}), &make_ctx())
+        .execute(
+            json!({"action": "exists", "path": "/tmp/fever_nonexistent_99999.txt"}),
+            &make_ctx(),
+        )
         .await
         .unwrap();
 
@@ -192,7 +232,10 @@ async fn test_filesystem_delete_file() {
 
     // Delete
     let result = tool
-        .execute(json!({"action": "delete", "path": file_path.to_str().unwrap()}), &make_ctx())
+        .execute(
+            json!({"action": "delete", "path": file_path.to_str().unwrap()}),
+            &make_ctx(),
+        )
         .await
         .unwrap();
     assert_eq!(result["success"], true);
@@ -206,7 +249,10 @@ async fn test_filesystem_delete_file() {
 async fn test_filesystem_delete_nonexistent() {
     let tool = FilesystemTool::new();
     let result = tool
-        .execute(json!({"action": "delete", "path": "/tmp/fever_nonexistent_99999.txt"}), &make_ctx())
+        .execute(
+            json!({"action": "delete", "path": "/tmp/fever_nonexistent_99999.txt"}),
+            &make_ctx(),
+        )
         .await;
 
     assert!(result.is_err());
@@ -216,7 +262,10 @@ async fn test_filesystem_delete_nonexistent() {
 async fn test_filesystem_unknown_action() {
     let tool = FilesystemTool::new();
     let result = tool
-        .execute(json!({"action": "explode", "path": "/tmp/test"}), &make_ctx())
+        .execute(
+            json!({"action": "explode", "path": "/tmp/test"}),
+            &make_ctx(),
+        )
         .await;
 
     assert!(result.is_err());

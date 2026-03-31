@@ -1,5 +1,5 @@
-use fever_core::{ExecutionContext, Tool, ToolSchema, Error, Result};
 use async_trait::async_trait;
+use fever_core::{Error, ExecutionContext, Result, Tool, ToolSchema};
 use serde_json::Value;
 
 pub struct ShellTool {
@@ -30,7 +30,8 @@ impl Tool for ShellTool {
     }
 
     async fn execute(&self, args: Value, _context: &ExecutionContext) -> Result<Value> {
-        let command = args.get("command")
+        let command = args
+            .get("command")
             .and_then(|v| v.as_str())
             .ok_or_else(|| Error::InvalidRequest("command required".to_string()))?;
 

@@ -60,9 +60,9 @@ impl MemoryStore {
     }
 
     pub fn get(&self, session_id: &str, key: &str) -> Result<Option<Value>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT value FROM context WHERE session_id = ?1 AND key = ?2"
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT value FROM context WHERE session_id = ?1 AND key = ?2")?;
 
         let mut rows = stmt.query(params![session_id, key])?;
 
@@ -76,9 +76,9 @@ impl MemoryStore {
     }
 
     pub fn list_session_keys(&self, session_id: &str) -> Result<Vec<String>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT key FROM context WHERE session_id = ?1 ORDER BY timestamp DESC"
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT key FROM context WHERE session_id = ?1 ORDER BY timestamp DESC")?;
 
         let mut keys = Vec::new();
         let mut rows = stmt.query(params![session_id])?;
@@ -101,7 +101,11 @@ impl MemoryStore {
         Ok(())
     }
 
-    pub fn get_messages(&self, session_id: &str, limit: Option<usize>) -> Result<Vec<StoredMessage>> {
+    pub fn get_messages(
+        &self,
+        session_id: &str,
+        limit: Option<usize>,
+    ) -> Result<Vec<StoredMessage>> {
         let query = if let Some(limit) = limit {
             format!(
                 "SELECT role, content, timestamp FROM messages WHERE session_id = ?1 ORDER BY timestamp DESC LIMIT {}",

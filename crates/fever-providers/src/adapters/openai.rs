@@ -1,14 +1,14 @@
 use crate::adapter::{ProviderAdapter, ProviderCapabilities};
 use crate::error::{ProviderError, ProviderResult};
 use crate::models::{
-    ChatRequest, ChatResponse, ChatChoice, ChatMessage, ModelCapability, ModelInfo,
-    StreamChunk, Usage,
+    ChatChoice, ChatMessage, ChatRequest, ChatResponse, ModelCapability, ModelInfo, StreamChunk,
+    Usage,
 };
 use async_trait::async_trait;
 use futures::Stream;
 use reqwest::Client;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -228,17 +228,23 @@ impl OpenAiAdapter {
             return Err(ProviderError::Auth("Invalid API key".to_string()));
         }
         if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-            return Err(ProviderError::RateLimit { provider: self.provider_name.clone() });
+            return Err(ProviderError::RateLimit {
+                provider: self.provider_name.clone(),
+            });
         }
         if !status.is_success() {
             let body = resp.text().await.unwrap_or_default();
-            return Err(ProviderError::Api { code: status.as_u16().to_string(), message: body });
+            return Err(ProviderError::Api {
+                code: status.as_u16().to_string(),
+                message: body,
+            });
         }
 
-        let data: Value = resp.json().await.map_err(|e| ProviderError::Parse(e.to_string()))?;
-        let items = data
-            .get("data")
-            .and_then(|d| d.as_array());
+        let data: Value = resp
+            .json()
+            .await
+            .map_err(|e| ProviderError::Parse(e.to_string()))?;
+        let items = data.get("data").and_then(|d| d.as_array());
 
         let mut models: Vec<ModelInfo> = Vec::new();
         if let Some(items) = items {
@@ -280,16 +286,19 @@ impl OpenAiAdapter {
             body["max_tokens"] = json!(max);
         }
         if let Some(tools) = &request.tools {
-            let tools_json: Vec<Value> = tools.iter().map(|t| {
-                json!({
-                    "type": "function",
-                    "function": {
-                        "name": t.name,
-                        "description": t.description,
-                        "parameters": t.parameters,
-                    }
+            let tools_json: Vec<Value> = tools
+                .iter()
+                .map(|t| {
+                    json!({
+                        "type": "function",
+                        "function": {
+                            "name": t.name,
+                            "description": t.description,
+                            "parameters": t.parameters,
+                        }
+                    })
                 })
-            }).collect();
+                .collect();
             body["tools"] = json!(tools_json);
         }
         body
@@ -337,39 +346,52 @@ impl ProviderAdapter for OpenAiAdapter {
             return Err(ProviderError::Auth("Invalid API key".to_string()));
         }
         if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-            return Err(ProviderError::RateLimit { provider: self.provider_name.clone() });
+            return Err(ProviderError::RateLimit {
+                provider: self.provider_name.clone(),
+            });
         }
         if !status.is_success() {
             let text = resp.text().await.unwrap_or_default();
-            return Err(ProviderError::Api { code: status.as_u16().to_string(), message: text });
+            return Err(ProviderError::Api {
+                code: status.as_u16().to_string(),
+                message: text,
+            });
         }
 
-        let parsed: OpenAiResponse = resp.json().await
+        let parsed: OpenAiResponse = resp
+            .json()
+            .await
             .map_err(|e| ProviderError::Parse(e.to_string()))?;
 
         let id = parsed.id.unwrap_or_else(|| "chatcmpl-default".to_string());
 
-        let choices: Vec<ChatChoice> = parsed.choices.into_iter().map(|c| {
-            let tool_calls = c.message.tool_calls.map(|tc| {
-                tc.into_iter().map(|t| crate::models::ToolCall {
-                    id: t.id,
-                    name: t.function.name,
-                    arguments: serde_json::from_str(&t.function.arguments)
-                        .unwrap_or(serde_json::Value::Null),
-                }).collect()
-            });
+        let choices: Vec<ChatChoice> = parsed
+            .choices
+            .into_iter()
+            .map(|c| {
+                let tool_calls = c.message.tool_calls.map(|tc| {
+                    tc.into_iter()
+                        .map(|t| crate::models::ToolCall {
+                            id: t.id,
+                            name: t.function.name,
+                            arguments: serde_json::from_str(&t.function.arguments)
+                                .unwrap_or(serde_json::Value::Null),
+                        })
+                        .collect()
+                });
 
-            ChatChoice {
-                index: c.index.unwrap_or(0),
-                message: ChatMessage {
-                    role: c.message.role.unwrap_or_else(|| "assistant".to_string()),
-                    content: c.message.content.unwrap_or_default(),
-                    tool_calls,
-                    tool_call_id: None,
-                },
-                finish_reason: c.finish_reason.unwrap_or_else(|| "stop".to_string()),
-            }
-        }).collect();
+                ChatChoice {
+                    index: c.index.unwrap_or(0),
+                    message: ChatMessage {
+                        role: c.message.role.unwrap_or_else(|| "assistant".to_string()),
+                        content: c.message.content.unwrap_or_default(),
+                        tool_calls,
+                        tool_call_id: None,
+                    },
+                    finish_reason: c.finish_reason.unwrap_or_else(|| "stop".to_string()),
+                }
+            })
+            .collect();
 
         let usage = parsed.usage.map(|u| Usage {
             prompt_tokens: u.prompt_tokens.unwrap_or(0),
@@ -377,18 +399,16 @@ impl ProviderAdapter for OpenAiAdapter {
             total_tokens: u.total_tokens.unwrap_or(0),
         });
 
-        Ok(ChatResponse {
-            id,
-            choices,
-            usage,
-        })
+        Ok(ChatResponse { id, choices, usage })
     }
 
     async fn chat_stream(
         &self,
         _request: &ChatRequest,
     ) -> ProviderResult<Box<dyn Stream<Item = ProviderResult<StreamChunk>> + Send + Unpin>> {
-        Err(ProviderError::InvalidRequest("Streaming not yet implemented".to_string()))
+        Err(ProviderError::InvalidRequest(
+            "Streaming not yet implemented".to_string(),
+        ))
     }
 
     fn list_models(&self) -> Vec<String> {
@@ -397,7 +417,11 @@ impl ProviderAdapter for OpenAiAdapter {
                 return models.iter().map(|m| m.id.clone()).collect();
             }
         }
-        vec![format!("{}/{}", self.provider_name, self.config.default_model.as_deref().unwrap_or("default"))]
+        vec![format!(
+            "{}/{}",
+            self.provider_name,
+            self.config.default_model.as_deref().unwrap_or("default")
+        )]
     }
 
     fn get_model_info(&self, model_id: &str) -> Option<ModelInfo> {

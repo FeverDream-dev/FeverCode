@@ -65,9 +65,7 @@ impl RetryPolicy {
             BackoffType::Exponential => {
                 self.initial_delay.as_millis() as f64 * self.multiplier.powi(attempt as i32 - 1)
             }
-            BackoffType::Linear => {
-                self.initial_delay.as_millis() as f64 * (attempt as f64)
-            }
+            BackoffType::Linear => self.initial_delay.as_millis() as f64 * (attempt as f64),
             BackoffType::Fixed => self.initial_delay.as_millis() as f64,
         };
 
@@ -76,10 +74,7 @@ impl RetryPolicy {
     }
 }
 
-pub async fn retry_with_policy<F, Fut, T, E>(
-    policy: &RetryPolicy,
-    operation: F,
-) -> Result<T>
+pub async fn retry_with_policy<F, Fut, T, E>(policy: &RetryPolicy, operation: F) -> Result<T>
 where
     F: Fn() -> Fut,
     Fut: std::future::Future<Output = std::result::Result<T, E>>,
@@ -91,7 +86,10 @@ where
         match operation().await {
             Ok(result) => return Ok(result),
             Err(e) => {
-                last_error = Some(Error::Internal(format!("Attempt {} failed: {}", attempt, e)));
+                last_error = Some(Error::Internal(format!(
+                    "Attempt {} failed: {}",
+                    attempt, e
+                )));
 
                 if attempt < policy.max_attempts {
                     let delay = policy.compute_delay(attempt);

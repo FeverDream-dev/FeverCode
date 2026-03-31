@@ -86,7 +86,9 @@ impl Plan {
             .tasks
             .iter_mut()
             .find(|t| t.id == task_id)
-            .ok_or_else(|| crate::error::Error::TaskExecution(format!("Task {} not found", task_id)))?;
+            .ok_or_else(|| {
+                crate::error::Error::TaskExecution(format!("Task {} not found", task_id))
+            })?;
 
         task.status = status.clone();
 

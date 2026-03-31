@@ -1,16 +1,16 @@
-use clap::{Parser, Subcommand, Args};
+use clap::{Args, Parser, Subcommand};
 mod local_version;
 use fever_config::ConfigManager;
 use fever_providers::ProviderClient;
-use std::sync::Arc;
-use std::path::PathBuf;
 use std::env;
+use std::path::PathBuf;
+use std::sync::Arc;
 
-use fever_providers::adapters::openai::OpenAiAdapter;
 use fever_providers::adapters::anthropic::AnthropicAdapter;
 use fever_providers::adapters::gemini::GeminiAdapter;
 use fever_providers::adapters::ollama::OllamaAdapter;
-use fever_providers::models::{ChatRequest, ChatMessage};
+use fever_providers::adapters::openai::OpenAiAdapter;
+use fever_providers::models::{ChatMessage, ChatRequest};
 
 #[derive(Parser)]
 #[clap(name = "fever", about = " Fever CLI ")]
@@ -55,7 +55,6 @@ struct ChatArgs {
 async fn build_provider_client(fetch_models: bool) -> ProviderClient {
     let mut client = ProviderClient::new();
 
-    
     if let Ok(key) = env::var("OPENAI_API_KEY") {
         let adapter = OpenAiAdapter::openai(key);
         if fetch_models {
@@ -63,7 +62,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
     }
-    
+
     if let Ok(key) = env::var("OPENROUTER_API_KEY") {
         let adapter = OpenAiAdapter::openrouter(key);
         if fetch_models {
@@ -71,17 +70,17 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
     }
-    
+
     if let Ok(key) = env::var("ANTHROPIC_API_KEY") {
         let adapter = AnthropicAdapter::claude(key.as_str());
         client.register(Arc::new(adapter), client.list_providers().is_empty());
     }
-    
+
     if let Ok(key) = env::var("GEMINI_API_KEY") {
         let adapter = GeminiAdapter::gemini(key);
         client.register(Arc::new(adapter), client.list_providers().is_empty());
     }
-    
+
     if let Ok(key) = env::var("GROQ_API_KEY") {
         let adapter = OpenAiAdapter::groq(key);
         if fetch_models {
@@ -89,7 +88,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
     }
-    
+
     if let Ok(key) = env::var("TOGETHER_API_KEY") {
         let adapter = OpenAiAdapter::together(key);
         if fetch_models {
@@ -97,7 +96,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
     }
-    
+
     if let Ok(key) = env::var("DEEPSEEK_API_KEY") {
         let adapter = OpenAiAdapter::deepseek(key);
         if fetch_models {
@@ -105,7 +104,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
     }
-    
+
     if let Ok(key) = env::var("MISTRAL_API_KEY") {
         let adapter = OpenAiAdapter::mistral(key);
         if fetch_models {
@@ -113,7 +112,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
     }
-    
+
     if let Ok(key) = env::var("FIREWORKS_API_KEY") {
         let adapter = OpenAiAdapter::fireworks(key);
         if fetch_models {
@@ -121,7 +120,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
     }
-    
+
     if let Ok(key) = env::var("PERPLEXITY_API_KEY") {
         let adapter = OpenAiAdapter::perplexity(key);
         if fetch_models {
@@ -129,7 +128,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
     }
-    
+
     if let Ok(key) = env::var("MINIMAX_API_KEY") {
         let adapter = OpenAiAdapter::minimax(key);
         if fetch_models {
@@ -137,7 +136,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
     }
-    
+
     if let Ok(url) = env::var("OLLAMA_BASE_URL") {
         if url.trim().is_empty() {
             let adapter = OllamaAdapter::local();
@@ -150,7 +149,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
         let adapter = OllamaAdapter::local();
         client.register(Arc::new(adapter), client.list_providers().is_empty());
     }
-    
+
     if let Ok(key) = env::var("FEVER_ZAI_KEY") {
         let adapter = OpenAiAdapter::openrouter(key);
         if fetch_models {
@@ -209,7 +208,10 @@ async fn run_chat(args: ChatArgs) {
                 println!("{}", choice.message.content);
             }
             if let Some(usage) = r.usage {
-                println!("\nUsage: prompt_tokens={} completion_tokens={} total_tokens={}", usage.prompt_tokens, usage.completion_tokens, usage.total_tokens);
+                println!(
+                    "\nUsage: prompt_tokens={} completion_tokens={} total_tokens={}",
+                    usage.prompt_tokens, usage.completion_tokens, usage.total_tokens
+                );
             }
         }
         Err(e) => {
@@ -225,7 +227,10 @@ async fn run_tui() {
 
 fn handle_version_command(args: VersionArgs) {
     let home = env::var("HOME").unwrap_or(".".to_string());
-    let store_path = PathBuf::from(home).join(".config").join("fevercode").join("version.json");
+    let store_path = PathBuf::from(home)
+        .join(".config")
+        .join("fevercode")
+        .join("version.json");
     let store = local_version::VersionStore::new(store_path);
     if let Some(b) = args.bump {
         if let Some(kind) = local_version::parse_bump(&b) {
@@ -242,7 +247,9 @@ fn handle_version_command(args: VersionArgs) {
 }
 
 fn list_roles() {
-    println!("Available roles: coder, researcher, planner, architect, debugger, tester, reviewer, refactorer, shell_operator");
+    println!(
+        "Available roles: coder, researcher, planner, architect, debugger, tester, reviewer, refactorer, shell_operator"
+    );
 }
 
 async fn show_config() {
@@ -255,8 +262,7 @@ async fn show_config() {
 async fn main() {
     let cli = Cli::parse();
     match cli.command {
-        Command::Code(_) => {
-        }
+        Command::Code(_) => {}
         Command::Version(v) => {
             handle_version_command(v);
         }

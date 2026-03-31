@@ -49,8 +49,12 @@ pub struct OperationalVerifier {
 }
 
 impl OperationalVerifier {
-    pub fn new() -> Self { Self { default_timeout_seconds: 120 } }
-    
+    pub fn new() -> Self {
+        Self {
+            default_timeout_seconds: 120,
+        }
+    }
+
     /// Run all requested verification checks
     pub async fn verify(&self, request: VerificationRequest) -> VerificationResult {
         let per_check_timeout = if request.timeout_seconds == 0 {
@@ -77,7 +81,12 @@ impl OperationalVerifier {
     }
 
     /// Run a single check
-    async fn run_check(&self, check: &VerificationCheck, directory: &PathBuf, timeout_secs: u64) -> CheckResult {
+    async fn run_check(
+        &self,
+        check: &VerificationCheck,
+        directory: &PathBuf,
+        timeout_secs: u64,
+    ) -> CheckResult {
         let start = Instant::now();
         // Prepare command based on check type
         let mut cmd = match check {
@@ -124,30 +133,49 @@ impl OperationalVerifier {
                         let mut combined = String::new();
                         combined.push_str(&stdout);
                         if !stderr.is_empty() {
-                            if !combined.is_empty() { combined.push('\n'); }
+                            if !combined.is_empty() {
+                                combined.push('\n');
+                            }
                             combined.push_str(&stderr);
                         }
                         let status = output.status;
                         let mut passed = status.success();
                         if !passed {
                             let code = status.code();
-                            if code == Some(127) || combined.contains("not installed") || combined.contains("command not found") {
+                            if code == Some(127)
+                                || combined.contains("not installed")
+                                || combined.contains("command not found")
+                            {
                                 passed = true;
                             }
                         }
-                        CheckResult { check: check.clone(), passed, output: combined, duration: start.elapsed() }
+                        CheckResult {
+                            check: check.clone(),
+                            passed,
+                            output: combined,
+                            duration: start.elapsed(),
+                        }
                     }
-                    Ok(Err(e)) => {
-                        CheckResult { check: check.clone(), passed: false, output: format!("Failed to wait for process: {}", e), duration: start.elapsed() }
-                    }
-                    Err(_) => {
-                        CheckResult { check: check.clone(), passed: false, output: format!("Timed out after {}s", timeout_secs), duration: start.elapsed() }
-                    }
+                    Ok(Err(e)) => CheckResult {
+                        check: check.clone(),
+                        passed: false,
+                        output: format!("Failed to wait for process: {}", e),
+                        duration: start.elapsed(),
+                    },
+                    Err(_) => CheckResult {
+                        check: check.clone(),
+                        passed: false,
+                        output: format!("Timed out after {}s", timeout_secs),
+                        duration: start.elapsed(),
+                    },
                 }
             }
-            Err(e) => {
-                CheckResult { check: check.clone(), passed: false, output: format!("Failed to spawn process: {}", e), duration: start.elapsed() }
-            }
+            Err(e) => CheckResult {
+                check: check.clone(),
+                passed: false,
+                output: format!("Failed to spawn process: {}", e),
+                duration: start.elapsed(),
+            },
         }
     }
 
@@ -166,16 +194,40 @@ impl OperationalVerifier {
             let line;
             if let VerificationCheck::Test = r.check {
                 if let Some((passed, failed)) = OperationalVerifier::parse_test_counts(&r.output) {
-                    line = format!("{} {}: {} ({} passed, {} failed) ({:.2}s)", status, label, if failed == 0 { "passed" } else { "FAILED" }, passed, failed, r.duration.as_secs_f64());
+                    line = format!(
+                        "{} {}: {} ({} passed, {} failed) ({:.2}s)",
+                        status,
+                        label,
+                        if failed == 0 { "passed" } else { "FAILED" },
+                        passed,
+                        failed,
+                        r.duration.as_secs_f64()
+                    );
                 } else {
-                    line = format!("{} {}: {} ({:.2}s)", status, label, if r.passed { "passed" } else { "FAILED" }, r.duration.as_secs_f64());
+                    line = format!(
+                        "{} {}: {} ({:.2}s)",
+                        status,
+                        label,
+                        if r.passed { "passed" } else { "FAILED" },
+                        r.duration.as_secs_f64()
+                    );
                 }
             } else {
-                line = format!("{} {}: {} ({:.2}s)", status, label, if r.passed { "passed" } else { "FAILED" }, r.duration.as_secs_f64());
+                line = format!(
+                    "{} {}: {} ({:.2}s)",
+                    status,
+                    label,
+                    if r.passed { "passed" } else { "FAILED" },
+                    r.duration.as_secs_f64()
+                );
             }
             lines.push(line);
         }
-        let overall = if results.iter().all(|r| r.passed) { "PASSED" } else { "FAILED" };
+        let overall = if results.iter().all(|r| r.passed) {
+            "PASSED"
+        } else {
+            "FAILED"
+        };
         let mut summary = String::new();
         for l in lines {
             summary.push_str(&l);
@@ -240,7 +292,10 @@ mod tests {
         let verifier = OperationalVerifier::new();
         let req = VerificationRequest {
             working_directory: PathBuf::from(env!("CARGO_MANIFEST_DIR")),
-            checks: vec![VerificationCheck::Custom { name: "echo".to_string(), command: "echo hello".to_string() }],
+            checks: vec![VerificationCheck::Custom {
+                name: "echo".to_string(),
+                command: "echo hello".to_string(),
+            }],
             timeout_seconds: 10,
         };
         let res = verifier.verify(req).await;
@@ -253,7 +308,10 @@ mod tests {
         let verifier = OperationalVerifier::new();
         let req = VerificationRequest {
             working_directory: PathBuf::from(env!("CARGO_MANIFEST_DIR")),
-            checks: vec![VerificationCheck::Custom { name: "sleep".to_string(), command: "bash -lc 'sleep 2'".to_string() }],
+            checks: vec![VerificationCheck::Custom {
+                name: "sleep".to_string(),
+                command: "bash -lc 'sleep 2'".to_string(),
+            }],
             timeout_seconds: 1,
         };
         let res = verifier.verify(req).await;
@@ -282,7 +340,13 @@ mod tests {
         let verifier = OperationalVerifier::new();
         let req = VerificationRequest {
             working_directory: PathBuf::from(env!("CARGO_MANIFEST_DIR")),
-            checks: vec![VerificationCheck::Build, VerificationCheck::Custom { name: "echo".to_string(), command: "echo ok".to_string() }],
+            checks: vec![
+                VerificationCheck::Build,
+                VerificationCheck::Custom {
+                    name: "echo".to_string(),
+                    command: "echo ok".to_string(),
+                },
+            ],
             timeout_seconds: 60,
         };
         let res = verifier.verify(req).await;

@@ -3,7 +3,7 @@ use fever_core::{AgentResponse, Message};
 // Configuration for the iterative loop driver
 #[derive(Clone, Debug)]
 pub struct LoopConfig {
-    pub max_iterations: usize, // maximum number of iterations
+    pub max_iterations: usize,          // maximum number of iterations
     pub max_tokens_budget: Option<u64>, // optional token budget (not enforced yet)
 }
 
@@ -18,20 +18,43 @@ impl LoopConfig {
 
 impl Default for LoopConfig {
     fn default() -> Self {
-        Self { max_iterations: 20, max_tokens_budget: None }
+        Self {
+            max_iterations: 20,
+            max_tokens_budget: None,
+        }
     }
 }
 
 // Loop events for observability
 #[derive(Clone, Debug)]
 pub enum LoopEvent {
-    IterationStarted { iteration: usize },
-    LlmResponseReceived { content: String, tool_call_count: usize },
-    ToolExecuted { tool_name: String, call_id: String, duration_ms: u64, success: bool },
-    ToolResultsAppended { count: usize },
-    LoopCompleted { iterations: usize, total_tool_calls: usize },
-    LoopFailed { iteration: usize, error: String },
-    MaxIterationsReached { iterations: usize },
+    IterationStarted {
+        iteration: usize,
+    },
+    LlmResponseReceived {
+        content: String,
+        tool_call_count: usize,
+    },
+    ToolExecuted {
+        tool_name: String,
+        call_id: String,
+        duration_ms: u64,
+        success: bool,
+    },
+    ToolResultsAppended {
+        count: usize,
+    },
+    LoopCompleted {
+        iterations: usize,
+        total_tool_calls: usize,
+    },
+    LoopFailed {
+        iteration: usize,
+        error: String,
+    },
+    MaxIterationsReached {
+        iterations: usize,
+    },
 }
 
 // Final result of running the loop
@@ -55,7 +78,11 @@ impl<'a> LoopDriver<'a> {
         Self { agent, config }
     }
 
-    pub async fn run(&'a mut self, initial_messages: &[fever_core::Message], context: &fever_core::AgentContext) -> fever_core::Result<LoopResult> {
+    pub async fn run(
+        &'a mut self,
+        initial_messages: &[fever_core::Message],
+        context: &fever_core::AgentContext,
+    ) -> fever_core::Result<LoopResult> {
         // Local type alias to keep patch self-contained in tests
         type Msg = fever_core::Message;
         // History of messages used for context during the loop
@@ -68,7 +95,9 @@ impl<'a> LoopDriver<'a> {
 
         for idx in 0..self.config.max_iterations {
             iterations = idx + 1;
-            events.push(LoopEvent::IterationStarted { iteration: iterations });
+            events.push(LoopEvent::IterationStarted {
+                iteration: iterations,
+            });
 
             // 2. Call LLM with history
             let response = self.agent.chat(&history, context).await?;
@@ -82,7 +111,10 @@ impl<'a> LoopDriver<'a> {
             // 3. Termination condition
             if response.tool_calls.is_empty() || response.finish_reason.as_deref() == Some("stop") {
                 // Append assistant content to history before finishing
-                history.push(Msg { role: "assistant".to_string(), content: response.content.clone() });
+                history.push(Msg {
+                    role: "assistant".to_string(),
+                    content: response.content.clone(),
+                });
                 // Build final result
                 let final_response = AgentResponse {
                     content: response.content,
@@ -100,9 +132,18 @@ impl<'a> LoopDriver<'a> {
             }
 
             // 4. There are tool_calls to execute
-            history.push(Msg { role: "assistant".to_string(), content: response.content.clone() });
-            let execution_context = fever_core::ExecutionContext::new("loop_plan".to_string(), format!("iteration-{}", iterations));
-            let tool_results = self.agent.call_tools(&response.tool_calls, &execution_context).await?;
+            history.push(Msg {
+                role: "assistant".to_string(),
+                content: response.content.clone(),
+            });
+            let execution_context = fever_core::ExecutionContext::new(
+                "loop_plan".to_string(),
+                format!("iteration-{}", iterations),
+            );
+            let tool_results = self
+                .agent
+                .call_tools(&response.tool_calls, &execution_context)
+                .await?;
 
             // Emit ToolExecuted events
             for (call, res) in response.tool_calls.iter().zip(tool_results.iter()) {
@@ -118,9 +159,14 @@ impl<'a> LoopDriver<'a> {
             // 5. Append tool results as messages to history
             for res in tool_results.iter() {
                 let json = serde_json::to_string(res).unwrap_or_else(|_| "{}".to_string());
-                history.push(Msg { role: "tool".to_string(), content: json });
+                history.push(Msg {
+                    role: "tool".to_string(),
+                    content: json,
+                });
             }
-            events.push(LoopEvent::ToolResultsAppended { count: tool_results.len() });
+            events.push(LoopEvent::ToolResultsAppended {
+                count: tool_results.len(),
+            });
             // Continue to next iteration
         }
 

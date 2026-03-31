@@ -1,8 +1,8 @@
 use crate::role::{RoleRegistry, SpecialistRole};
+use crate::{LoopConfig, LoopDriver};
 use fever_core::{Agent, AgentContext, AgentResponse, Message, Result, ToolCall, ToolResult};
 use fever_providers::{ChatRequest, ChatResponse, ProviderClient};
 use std::sync::Arc;
-use crate::{LoopDriver, LoopConfig};
 
 pub struct AgentConfig {
     pub default_model: String,
@@ -52,7 +52,11 @@ impl FeverAgent {
     }
 
     // Iterative loop entry point: run the loop using the LoopDriver to orchestrate
-    pub async fn run_loop(&self, messages: &[fever_core::Message], context: &fever_core::AgentContext) -> fever_core::Result<crate::LoopResult> {
+    pub async fn run_loop(
+        &self,
+        messages: &[fever_core::Message],
+        context: &fever_core::AgentContext,
+    ) -> fever_core::Result<crate::LoopResult> {
         // Ensure tools exist
         if self.tools.is_none() {
             return Err(fever_core::Error::Agent("No tools registered".to_string()).into());
@@ -72,7 +76,9 @@ impl FeverAgent {
     }
 
     pub fn get_current_role(&self) -> &SpecialistRole {
-        self.roles.get(&self.current_role).unwrap_or(self.roles.get("default").unwrap())
+        self.roles
+            .get(&self.current_role)
+            .unwrap_or(self.roles.get("default").unwrap())
     }
 
     pub fn list_roles(&self) -> Vec<String> {
@@ -92,11 +98,7 @@ impl FeverAgent {
         prompt
     }
 
-    async fn prepare_request(
-        &self,
-        messages: &[Message],
-        context: &AgentContext,
-    ) -> ChatRequest {
+    async fn prepare_request(&self, messages: &[Message], context: &AgentContext) -> ChatRequest {
         let role = self.get_current_role();
         let system_content = self.build_system_prompt(&context.metadata.to_string());
 
@@ -163,7 +165,11 @@ impl Agent for FeverAgent {
         })
     }
 
-    async fn call_tools(&self, calls: &[ToolCall], context: &fever_core::ExecutionContext) -> Result<Vec<ToolResult>> {
+    async fn call_tools(
+        &self,
+        calls: &[ToolCall],
+        context: &fever_core::ExecutionContext,
+    ) -> Result<Vec<ToolResult>> {
         let tools = match &self.tools {
             Some(t) => t,
             None => return Ok(Vec::new()),

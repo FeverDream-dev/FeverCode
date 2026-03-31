@@ -74,7 +74,17 @@ mod tests {
         let ctx = make_context();
         let out = improver.improve(req, &ctx);
         // scope should include src/main.rs and possibly module paths
-        assert!(out.sections.scope.iter().any(|s| s.ends_with("src/main.rs")) || out.sections.scope.iter().any(|s| s.contains("module::parse")));
+        assert!(
+            out.sections
+                .scope
+                .iter()
+                .any(|s| s.ends_with("src/main.rs"))
+                || out
+                    .sections
+                    .scope
+                    .iter()
+                    .any(|s| s.contains("module::parse"))
+        );
     }
 
     #[test]
@@ -135,7 +145,10 @@ pub struct PromptImproverConfig {
 
 impl Default for PromptImproverConfig {
     fn default() -> Self {
-        Self { max_length: 4000, include_empty_context: false }
+        Self {
+            max_length: 4000,
+            include_empty_context: false,
+        }
     }
 }
 
@@ -145,8 +158,10 @@ pub struct PromptImprover {
 }
 
 impl PromptImprover {
-    pub fn new(config: PromptImproverConfig) -> Self { Self { config } }
-    
+    pub fn new(config: PromptImproverConfig) -> Self {
+        Self { config }
+    }
+
     /// Improve a user request into a structured engineering brief
     pub fn improve(&self, request: &str, context: &RequestContext) -> ImprovedPrompt {
         let orig = request.trim().to_string();
@@ -260,13 +275,32 @@ impl PromptImprover {
     // Helpers
     fn looks_structured(s: &str) -> bool {
         let t = s.to_lowercase();
-        t.contains("## objective") || t.contains("## scope") || t.contains("## constraints") || t.contains("## context")
+        t.contains("## objective")
+            || t.contains("## scope")
+            || t.contains("## constraints")
+            || t.contains("## context")
             || t.contains("1.")
     }
 
     fn extract_objective(request: &str) -> String {
         let lower = request.trim();
-        let verbs = ["fix", "add", "implement", "remove", "update", "create", "enhance", "refactor", "build", "develop", "improve", "setup", "write", "modify", "convert"];
+        let verbs = [
+            "fix",
+            "add",
+            "implement",
+            "remove",
+            "update",
+            "create",
+            "enhance",
+            "refactor",
+            "build",
+            "develop",
+            "improve",
+            "setup",
+            "write",
+            "modify",
+            "convert",
+        ];
         for v in &verbs {
             if let Some(rest) = lower.strip_prefix(&(format!("{} ", v))) {
                 return rest.trim().to_string();
@@ -286,7 +320,15 @@ impl PromptImprover {
         // heuristic: look for path-like tokens and module paths
         for token in request.split_whitespace() {
             let t = token.trim_matches(|c: char| c == ',' || c == ';' || c == '.' || c == ':');
-            if t.contains('/') || t.starts_with("./") || t.starts_with("../") || t.ends_with(".rs") || t.ends_with(".ts") || t.ends_with(".py") || t.ends_with(".json") || t.ends_with(".toml") {
+            if t.contains('/')
+                || t.starts_with("./")
+                || t.starts_with("../")
+                || t.ends_with(".rs")
+                || t.ends_with(".ts")
+                || t.ends_with(".py")
+                || t.ends_with(".json")
+                || t.ends_with(".toml")
+            {
                 found.push(t.to_string());
             }
             if t.contains("::") {
@@ -315,9 +357,19 @@ impl PromptImprover {
         // split on sentence boundaries
         for line in request.split('.').chain(request.split('\n')) {
             let s = line.trim();
-            if s.is_empty() { continue; }
+            if s.is_empty() {
+                continue;
+            }
             let lower = s.to_lowercase();
-            if lower.contains("must ") || lower.contains(" should ") || lower.contains(" must be ") || lower.contains(" should be ") || lower.contains(" don't ") || lower.contains(" never ") || lower.contains(" without ") || lower.contains(" only ") {
+            if lower.contains("must ")
+                || lower.contains(" should ")
+                || lower.contains(" must be ")
+                || lower.contains(" should be ")
+                || lower.contains(" don't ")
+                || lower.contains(" never ")
+                || lower.contains(" without ")
+                || lower.contains(" only ")
+            {
                 out.push(s.trim().to_string());
             }
         }

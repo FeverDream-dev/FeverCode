@@ -4,4 +4,4 @@ pub mod widgets;
 
 pub use app::{FeverTui, TuiConfig};
 pub use ui::FeverUI;
-pub use widgets::{ChatPane, PlanPane, TaskPane, ToolLogPane, BrowserPane};
+pub use widgets::{BrowserPane, ChatPane, PlanPane, TaskPane, ToolLogPane};

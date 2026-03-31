@@ -1,6 +1,6 @@
 use crate::client::PageSnapshot;
-use fever_core::{ExecutionContext, Tool, ToolSchema, Result};
 use async_trait::async_trait;
+use fever_core::{ExecutionContext, Result, Tool, ToolSchema};
 use serde_json::Value;
 
 pub struct BrowserTool {
@@ -36,7 +36,8 @@ impl Tool for BrowserTool {
             }));
         }
 
-        let action = args.get("action")
+        let action = args
+            .get("action")
             .and_then(|v| v.as_str())
             .unwrap_or("snapshot");
 
@@ -46,10 +47,12 @@ impl Tool for BrowserTool {
             "click" => self.click(args).await?,
             "screenshot" => self.screenshot(args).await?,
             "evaluate" => self.evaluate(args).await?,
-            _ => return Ok(serde_json::json!({
-                "error": format!("Unknown action: {}", action),
-                "success": false
-            })),
+            _ => {
+                return Ok(serde_json::json!({
+                    "error": format!("Unknown action: {}", action),
+                    "success": false
+                }));
+            }
         };
 
         Ok(serde_json::json!({
@@ -104,9 +107,7 @@ impl BrowserTool {
     }
 
     async fn navigate(&self, args: Value) -> Result<Value> {
-        let url = args.get("url")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let url = args.get("url").and_then(|v| v.as_str()).unwrap_or("");
 
         Ok(serde_json::json!({
             "message": format!("Navigate to {} (placeholder - requires Chrome MCP)", url)
@@ -114,9 +115,7 @@ impl BrowserTool {
     }
 
     async fn click(&self, args: Value) -> Result<Value> {
-        let uid = args.get("uid")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let uid = args.get("uid").and_then(|v| v.as_str()).unwrap_or("");
 
         Ok(serde_json::json!({
             "message": format!("Click element {} (placeholder - requires Chrome MCP)", uid)
@@ -130,9 +129,7 @@ impl BrowserTool {
     }
 
     async fn evaluate(&self, args: Value) -> Result<Value> {
-        let script = args.get("script")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let script = args.get("script").and_then(|v| v.as_str()).unwrap_or("");
 
         Ok(serde_json::json!({
             "message": format!("Evaluate script (placeholder - requires Chrome MCP): {}", script)

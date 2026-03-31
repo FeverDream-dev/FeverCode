@@ -2,7 +2,7 @@ use crate::ui::FeverUI;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use fever_core::{Plan, TaskStatus, Todo};
 use std::io;
@@ -68,10 +68,7 @@ impl FeverTui {
         loop {
             terminal.draw(|f| self.ui.render(f))?;
 
-            let timeout = self
-                .config
-                .tick_rate
-                .saturating_sub(last_tick.elapsed());
+            let timeout = self.config.tick_rate.saturating_sub(last_tick.elapsed());
 
             if crossterm::event::poll(timeout)? {
                 if let Event::Key(key) = event::read()? {
@@ -103,7 +100,9 @@ impl FeverTui {
             KeyCode::Enter => {
                 let input = self.ui.chat.get_input_buffer();
                 if !input.is_empty() {
-                    self.ui.chat.add_message("user".to_string(), input.to_string());
+                    self.ui
+                        .chat
+                        .add_message("user".to_string(), input.to_string());
                     self.ui.chat.clear_input_buffer();
                 }
             }
@@ -117,8 +116,7 @@ impl FeverTui {
         }
     }
 
-    fn on_tick(&mut self) {
-    }
+    fn on_tick(&mut self) {}
 
     pub fn add_message(&mut self, role: String, content: String) {
         self.ui.chat.add_message(role, content);

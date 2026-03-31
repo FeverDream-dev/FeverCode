@@ -8,7 +8,11 @@ use serde_json::Value;
 pub trait Agent: Send + Sync {
     async fn chat(&self, messages: &[Message], context: &AgentContext) -> Result<AgentResponse>;
 
-    async fn call_tools(&self, calls: &[ToolCall], context: &ExecutionContext) -> Result<Vec<ToolResult>>;
+    async fn call_tools(
+        &self,
+        calls: &[ToolCall],
+        context: &ExecutionContext,
+    ) -> Result<Vec<ToolResult>>;
 
     fn name(&self) -> &str;
 }

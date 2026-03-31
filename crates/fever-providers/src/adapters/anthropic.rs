@@ -1,6 +1,9 @@
 use crate::adapter::{ProviderAdapter, ProviderCapabilities};
 use crate::error::{ProviderError, ProviderResult};
-use crate::models::{ChatRequest, ChatResponse, ChatChoice, ChatMessage, ModelCapability, ModelInfo, StreamChunk, Usage};
+use crate::models::{
+    ChatChoice, ChatMessage, ChatRequest, ChatResponse, ModelCapability, ModelInfo, StreamChunk,
+    Usage,
+};
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -115,7 +118,12 @@ impl ProviderAdapter for AnthropicAdapter {
             supports_images: false,
             supports_function_calling: true,
             max_context_length: None,
-            supported_capabilities: vec![ModelCapability::Chat, ModelCapability::Tools, ModelCapability::Streaming, ModelCapability::FunctionCalling],
+            supported_capabilities: vec![
+                ModelCapability::Chat,
+                ModelCapability::Tools,
+                ModelCapability::Streaming,
+                ModelCapability::FunctionCalling,
+            ],
         }
     }
 
@@ -138,9 +146,7 @@ impl ProviderAdapter for AnthropicAdapter {
             }
         }
 
-        let max_tokens = request
-            .max_tokens
-            .unwrap_or(4096);
+        let max_tokens = request.max_tokens.unwrap_or(4096);
         let temperature = request.temperature.unwrap_or(0.7);
 
         let body = AnthropicRequestBody {
@@ -187,13 +193,17 @@ impl ProviderAdapter for AnthropicAdapter {
         let text = resp.text().await.unwrap_or_default();
         if !status.is_success() {
             if status.as_u16() == 401 {
-                return Err(ProviderError::Auth("Unauthorized: invalid API key".to_string()));
+                return Err(ProviderError::Auth(
+                    "Unauthorized: invalid API key".to_string(),
+                ));
             } else if status.as_u16() == 429 {
                 return Err(ProviderError::RateLimit {
                     provider: self.name().to_string(),
                 });
             } else if status.as_u16() == 400 {
-                return Err(ProviderError::InvalidRequest("Bad request to Anthropic API".to_string()));
+                return Err(ProviderError::InvalidRequest(
+                    "Bad request to Anthropic API".to_string(),
+                ));
             } else {
                 return Err(ProviderError::Api {
                     code: status.as_u16().to_string(),
@@ -202,8 +212,9 @@ impl ProviderAdapter for AnthropicAdapter {
             }
         }
 
-        let anthro: AnthropicResponse = serde_json::from_str(&text)
-            .map_err(|e| ProviderError::Parse(format!("Failed to parse Anthropic response: {}", e)))?;
+        let anthro: AnthropicResponse = serde_json::from_str(&text).map_err(|e| {
+            ProviderError::Parse(format!("Failed to parse Anthropic response: {}", e))
+        })?;
 
         // Map response to Fever's ChatResponse
         let mut content_text = String::new();
@@ -241,9 +252,12 @@ impl ProviderAdapter for AnthropicAdapter {
     async fn chat_stream(
         &self,
         _request: &ChatRequest,
-    ) -> ProviderResult<Box<dyn futures::Stream<Item = ProviderResult<StreamChunk>> + Send + Unpin>> {
+    ) -> ProviderResult<Box<dyn futures::Stream<Item = ProviderResult<StreamChunk>> + Send + Unpin>>
+    {
         // Streaming not implemented yet
-        Err(ProviderError::InvalidRequest("Streaming not yet implemented".to_string()))
+        Err(ProviderError::InvalidRequest(
+            "Streaming not yet implemented".to_string(),
+        ))
     }
 
     fn list_models(&self) -> Vec<String> {
@@ -262,7 +276,12 @@ impl ProviderAdapter for AnthropicAdapter {
                 id: model_id.to_string(),
                 name: model_id.to_string(),
                 provider: self.name().to_string(),
-                capabilities: vec![ModelCapability::Chat, ModelCapability::Tools, ModelCapability::Streaming, ModelCapability::FunctionCalling],
+                capabilities: vec![
+                    ModelCapability::Chat,
+                    ModelCapability::Tools,
+                    ModelCapability::Streaming,
+                    ModelCapability::FunctionCalling,
+                ],
                 context_length: None,
                 max_output_tokens: None,
             })

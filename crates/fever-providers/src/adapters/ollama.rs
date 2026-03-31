@@ -1,6 +1,9 @@
 use crate::adapter::{ProviderAdapter, ProviderCapabilities};
 use crate::error::{ProviderError, ProviderResult};
-use crate::models::{ChatChoice, ChatMessage, ChatRequest, ChatResponse, ModelCapability, ModelInfo, StreamChunk, Usage};
+use crate::models::{
+    ChatChoice, ChatMessage, ChatRequest, ChatResponse, ModelCapability, ModelInfo, StreamChunk,
+    Usage,
+};
 use async_trait::async_trait;
 use futures::Stream;
 use reqwest::Client;
@@ -60,7 +63,12 @@ impl OllamaAdapter {
             base_url,
             default_model: Some("llama3.2".to_string()),
         };
-        Self::new(name, config, Client::new(), Arc::new(RwLock::new(Vec::new())))
+        Self::new(
+            name,
+            config,
+            Client::new(),
+            Arc::new(RwLock::new(Vec::new())),
+        )
     }
 
     fn new(
@@ -83,18 +91,13 @@ impl OllamaAdapter {
         let url = format!("{}/api/tags", self.config.base_url.trim_end_matches('/'));
         debug!("Fetching Ollama models from: {}", url);
 
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| {
-                if e.is_connect() {
-                    ProviderError::Unavailable(format!("Failed to connect to Ollama: {}", e))
-                } else {
-                    ProviderError::RequestFailed(format!("Request to Ollama failed: {}", e))
-                }
-            })?;
+        let response = self.client.get(&url).send().await.map_err(|e| {
+            if e.is_connect() {
+                ProviderError::Unavailable(format!("Failed to connect to Ollama: {}", e))
+            } else {
+                ProviderError::RequestFailed(format!("Request to Ollama failed: {}", e))
+            }
+        })?;
 
         if !response.status().is_success() {
             return Err(ProviderError::Http(format!(
@@ -173,7 +176,8 @@ impl ProviderAdapter for OllamaAdapter {
                 });
                 // Include tool_calls if present
                 if let Some(ref tool_calls) = m.tool_calls {
-                    msg["tool_calls"] = serde_json::to_value(tool_calls).unwrap_or(serde_json::json!(null));
+                    msg["tool_calls"] =
+                        serde_json::to_value(tool_calls).unwrap_or(serde_json::json!(null));
                 }
                 msg
             })
@@ -230,7 +234,10 @@ impl ProviderAdapter for OllamaAdapter {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_else(|_| "unknown error".to_string());
+            let body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "unknown error".to_string());
             return Err(ProviderError::Http(format!(
                 "Ollama returned status {}: {}",
                 status, body
@@ -339,7 +346,9 @@ impl ProviderAdapter for OllamaAdapter {
 
     async fn validate_config(&self) -> ProviderResult<()> {
         if self.config.base_url.trim().is_empty() {
-            return Err(ProviderError::Config("base_url cannot be empty".to_string()));
+            return Err(ProviderError::Config(
+                "base_url cannot be empty".to_string(),
+            ));
         }
         Ok(())
     }

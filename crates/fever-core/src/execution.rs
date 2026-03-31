@@ -1,10 +1,10 @@
+use crate::Plan;
 use crate::error::Result;
 use crate::tool::ToolRegistry;
-use crate::Plan;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{RwLock, mpsc};
 
 pub struct ExecutionContext {
     pub plan_id: String,
@@ -124,8 +124,18 @@ async fn simulate_task(_task: &crate::Task, _context: &ExecutionContext) -> Resu
 
 #[derive(Debug, Clone)]
 pub enum ExecutionEvent {
-    TaskStarted { task_id: String, title: String },
-    TaskCompleted { task_id: String, title: String },
-    TaskFailed { task_id: String, title: String, error: String },
+    TaskStarted {
+        task_id: String,
+        title: String,
+    },
+    TaskCompleted {
+        task_id: String,
+        title: String,
+    },
+    TaskFailed {
+        task_id: String,
+        title: String,
+        error: String,
+    },
     PlanCompleted,
 }

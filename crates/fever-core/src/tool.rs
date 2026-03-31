@@ -55,9 +55,9 @@ impl ToolRegistry {
     ) -> Result<ToolResult> {
         let start = std::time::Instant::now();
 
-        let tool = self
-            .get(&call.name)
-            .ok_or_else(|| crate::error::Error::ToolExecution(format!("Tool '{}' not found", call.name)))?;
+        let tool = self.get(&call.name).ok_or_else(|| {
+            crate::error::Error::ToolExecution(format!("Tool '{}' not found", call.name))
+        })?;
 
         let result = tool.execute(call.arguments.clone(), context).await;
 
@@ -67,7 +67,9 @@ impl ToolRegistry {
             call_id: call.id.clone(),
             result: match result {
                 Ok(output) => ToolResultData::Success { output },
-                Err(e) => ToolResultData::Error { message: e.to_string() },
+                Err(e) => ToolResultData::Error {
+                    message: e.to_string(),
+                },
             },
             duration_ms: duration,
         })
@@ -95,10 +97,7 @@ impl ToolRegistry {
     }
 
     pub fn schemas(&self) -> Vec<ToolSchema> {
-        self.tools
-            .values()
-            .map(|t| t.schema())
-            .collect()
+        self.tools.values().map(|t| t.schema()).collect()
     }
 }
 
@@ -109,5 +108,8 @@ impl Default for ToolRegistry {
 }
 
 pub fn generate_call_id() -> String {
-    format!("call_{}", Uuid::new_v4().to_string().split('-').next().unwrap())
+    format!(
+        "call_{}",
+        Uuid::new_v4().to_string().split('-').next().unwrap()
+    )
 }

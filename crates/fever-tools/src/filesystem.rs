@@ -1,5 +1,5 @@
-use fever_core::{ExecutionContext, Tool, ToolSchema, Error, Result};
 use async_trait::async_trait;
+use fever_core::{Error, ExecutionContext, Result, Tool, ToolSchema};
 use serde_json::Value;
 
 use std::path::Path;
@@ -23,9 +23,7 @@ impl Tool for FilesystemTool {
     }
 
     async fn execute(&self, args: Value, _context: &ExecutionContext) -> Result<Value> {
-        let action = args.get("action")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("");
 
         let result = match action {
             "read" => self.read(args).await?,
@@ -67,11 +65,13 @@ impl Tool for FilesystemTool {
 
 impl FilesystemTool {
     async fn read(&self, args: Value) -> Result<Value> {
-        let path = args.get("path")
+        let path = args
+            .get("path")
             .and_then(|v| v.as_str())
             .ok_or_else(|| Error::InvalidRequest("path required".to_string()))?;
 
-        let content = tokio::fs::read_to_string(path).await
+        let content = tokio::fs::read_to_string(path)
+            .await
             .map_err(|e| Error::Io(e))?;
 
         Ok(serde_json::json!({
@@ -81,15 +81,18 @@ impl FilesystemTool {
     }
 
     async fn write(&self, args: Value) -> Result<Value> {
-        let path = args.get("path")
+        let path = args
+            .get("path")
             .and_then(|v| v.as_str())
             .ok_or_else(|| Error::InvalidRequest("path required".to_string()))?;
 
-        let content = args.get("content")
+        let content = args
+            .get("content")
             .and_then(|v| v.as_str())
             .ok_or_else(|| Error::InvalidRequest("content required".to_string()))?;
 
-        tokio::fs::write(path, content).await
+        tokio::fs::write(path, content)
+            .await
             .map_err(|e| Error::Io(e))?;
 
         Ok(serde_json::json!({
@@ -100,20 +103,15 @@ impl FilesystemTool {
     }
 
     async fn list(&self, args: Value) -> Result<Value> {
-        let path = args.get("path")
-            .and_then(|v| v.as_str())
-            .unwrap_or(".");
+        let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
 
-        let mut entries = tokio::fs::read_dir(path).await
-            .map_err(|e| Error::Io(e))?;
+        let mut entries = tokio::fs::read_dir(path).await.map_err(|e| Error::Io(e))?;
 
         let mut files = Vec::new();
         let mut dirs = Vec::new();
 
-        while let Some(entry) = entries.next_entry().await
-            .map_err(|e| Error::Io(e))? {
-            let file_type = entry.file_type().await
-                .map_err(|e| Error::Io(e))?;
+        while let Some(entry) = entries.next_entry().await.map_err(|e| Error::Io(e))? {
+            let file_type = entry.file_type().await.map_err(|e| Error::Io(e))?;
 
             let name = entry.file_name().to_string_lossy().to_string();
 
@@ -132,7 +130,8 @@ impl FilesystemTool {
     }
 
     async fn exists(&self, args: Value) -> Result<Value> {
-        let path = args.get("path")
+        let path = args
+            .get("path")
             .and_then(|v| v.as_str())
             .ok_or_else(|| Error::InvalidRequest("path required".to_string()))?;
 
@@ -145,11 +144,13 @@ impl FilesystemTool {
     }
 
     async fn delete(&self, args: Value) -> Result<Value> {
-        let path = args.get("path")
+        let path = args
+            .get("path")
             .and_then(|v| v.as_str())
             .ok_or_else(|| Error::InvalidRequest("path required".to_string()))?;
 
-        tokio::fs::remove_file(path).await
+        tokio::fs::remove_file(path)
+            .await
             .map_err(|e| Error::Io(e))?;
 
         Ok(serde_json::json!({

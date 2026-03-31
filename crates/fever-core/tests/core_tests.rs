@@ -1,5 +1,5 @@
 use fever_core::*;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashSet;
 
 struct MockTool {
@@ -55,8 +55,12 @@ fn test_tool_registry_register_and_get() {
 #[test]
 fn test_tool_registry_list() {
     let mut registry = ToolRegistry::new();
-    registry.register(Box::new(MockTool::new("alpha", "first"))).unwrap();
-    registry.register(Box::new(MockTool::new("beta", "second"))).unwrap();
+    registry
+        .register(Box::new(MockTool::new("alpha", "first")))
+        .unwrap();
+    registry
+        .register(Box::new(MockTool::new("beta", "second")))
+        .unwrap();
 
     let names = registry.list();
     assert_eq!(names.len(), 2);
@@ -73,7 +77,9 @@ fn test_tool_registry_get_missing_returns_none() {
 #[tokio::test]
 async fn test_tool_registry_execute_call_success() {
     let mut registry = ToolRegistry::new();
-    registry.register(Box::new(MockTool::new("echo", "echoes args"))).unwrap();
+    registry
+        .register(Box::new(MockTool::new("echo", "echoes args")))
+        .unwrap();
 
     let call = ToolCall {
         id: "call_1".to_string(),
@@ -107,7 +113,9 @@ async fn test_tool_registry_execute_call_missing_tool() {
 #[test]
 fn test_tool_registry_schemas() {
     let mut registry = ToolRegistry::new();
-    registry.register(Box::new(MockTool::new("test_tool", "a test tool"))).unwrap();
+    registry
+        .register(Box::new(MockTool::new("test_tool", "a test tool")))
+        .unwrap();
 
     let schemas = registry.schemas();
     assert_eq!(schemas.len(), 1);
@@ -157,16 +165,16 @@ fn test_task_can_start_no_deps() {
 
 #[test]
 fn test_task_can_start_with_unmet_deps() {
-    let task = Task::new("T".to_string(), "D".to_string())
-        .with_dependencies(vec!["missing".to_string()]);
+    let task =
+        Task::new("T".to_string(), "D".to_string()).with_dependencies(vec!["missing".to_string()]);
     let completed = HashSet::new();
     assert!(!task.can_start(&completed));
 }
 
 #[test]
 fn test_task_can_start_with_met_deps() {
-    let task = Task::new("T".to_string(), "D".to_string())
-        .with_dependencies(vec!["dep1".to_string()]);
+    let task =
+        Task::new("T".to_string(), "D".to_string()).with_dependencies(vec!["dep1".to_string()]);
     let mut completed = HashSet::new();
     completed.insert("dep1".to_string());
     assert!(task.can_start(&completed));
@@ -178,7 +186,8 @@ fn test_task_can_start_not_queued() {
     let task_id = task.id.clone();
     let mut plan = Plan::new("P".to_string());
     plan.add_task(task);
-    plan.update_task_status(&task_id, TaskStatus::Running).unwrap();
+    plan.update_task_status(&task_id, TaskStatus::Running)
+        .unwrap();
     assert!(!plan.tasks[0].can_start(&HashSet::new()));
 }
 
@@ -219,7 +228,8 @@ fn test_plan_update_task_status_running() {
     let task_id = task.id.clone();
     plan.add_task(task);
 
-    plan.update_task_status(&task_id, TaskStatus::Running).unwrap();
+    plan.update_task_status(&task_id, TaskStatus::Running)
+        .unwrap();
     assert_eq!(plan.tasks[0].status, TaskStatus::Running);
     assert!(plan.tasks[0].started_at.is_some());
 }
@@ -231,7 +241,8 @@ fn test_plan_update_task_status_completed() {
     let task_id = task.id.clone();
     plan.add_task(task);
 
-    plan.update_task_status(&task_id, TaskStatus::Completed).unwrap();
+    plan.update_task_status(&task_id, TaskStatus::Completed)
+        .unwrap();
     assert_eq!(plan.tasks[0].status, TaskStatus::Completed);
     assert!(plan.tasks[0].completed_at.is_some());
 }
@@ -261,7 +272,8 @@ async fn test_event_bus_subscribe_and_publish() {
     bus.publish(Event::Message {
         content: "hello".to_string(),
         role: "user".to_string(),
-    }).await;
+    })
+    .await;
 
     let received = rx.recv().await.unwrap();
     assert!(matches!(received, Event::Message { content, .. } if content == "hello"));
@@ -276,7 +288,8 @@ async fn test_event_bus_multiple_subscribers() {
     bus.publish(Event::PlanCreated {
         plan_id: "p1".to_string(),
         title: "Plan".to_string(),
-    }).await;
+    })
+    .await;
 
     let e1 = rx1.recv().await.unwrap();
     let e2 = rx2.recv().await.unwrap();
@@ -291,7 +304,10 @@ async fn test_event_bus_dead_subscriber_cleanup() {
         let _rx = bus.subscribe();
     }
 
-    bus.publish(Event::StatusChanged { status: "ok".to_string() }).await;
+    bus.publish(Event::StatusChanged {
+        status: "ok".to_string(),
+    })
+    .await;
 
     assert_eq!(bus.subscribe().len(), 0);
 }
@@ -390,11 +406,15 @@ fn test_tool_call_serialization_roundtrip() {
 
 #[test]
 fn test_tool_result_data_serialization() {
-    let success = ToolResultData::Success { output: json!({"files": ["a.rs"]}) };
+    let success = ToolResultData::Success {
+        output: json!({"files": ["a.rs"]}),
+    };
     let serialized = serde_json::to_string(&success).unwrap();
     assert!(serialized.contains("Success"));
 
-    let error = ToolResultData::Error { message: "file not found".to_string() };
+    let error = ToolResultData::Error {
+        message: "file not found".to_string(),
+    };
     let serialized = serde_json::to_string(&error).unwrap();
     assert!(serialized.contains("Error"));
 }

@@ -131,9 +131,7 @@ impl PermissionGuard {
         let resolved = if path.is_absolute() {
             path.to_path_buf()
         } else {
-            std::env::current_dir()
-                .unwrap_or_default()
-                .join(path)
+            std::env::current_dir().unwrap_or_default().join(path)
         };
 
         for allowed_dir in &self.path_allowlist {
@@ -267,18 +265,18 @@ pub fn classify_command_risk(command: &str) -> CommandRisk {
 /// Patterns for detecting secrets in strings.
 const SECRET_PATTERNS: &[&str] = &[
     // API key patterns
-    "sk-",           // OpenAI
-    "sk_live_",      // Stripe
-    "sk_test_",      // Stripe test
-    "ghp_",          // GitHub PAT
-    "gho_",          // GitHub OAuth
-    "ghs_",          // GitHub App
-    "ghu_",          // GitHub user-to-server
-    "xoxb-",         // Slack bot token
-    "xoxp-",         // Slack user token
-    "AKIA",          // AWS access key ID
-    "AIza",          // Google API key
-    "eyJ",           // JWT token prefix (base64)
+    "sk-",      // OpenAI
+    "sk_live_", // Stripe
+    "sk_test_", // Stripe test
+    "ghp_",     // GitHub PAT
+    "gho_",     // GitHub OAuth
+    "ghs_",     // GitHub App
+    "ghu_",     // GitHub user-to-server
+    "xoxb-",    // Slack bot token
+    "xoxp-",    // Slack user token
+    "AKIA",     // AWS access key ID
+    "AIza",     // Google API key
+    "eyJ",      // JWT token prefix (base64)
     // Key names
     "api_key",
     "api_key=",
@@ -306,7 +304,9 @@ pub fn redact_secrets(input: &str) -> String {
                 let end_of_key = pos + pattern.len();
                 // Redact from after the = to end of token
                 let value_start = end_of_key;
-                if let Some(value_end) = result[value_start..].find(|c: char| c.is_whitespace() || c == '"' || c == '\'' || c == ',' || c == '}' || c == ']') {
+                if let Some(value_end) = result[value_start..].find(|c: char| {
+                    c.is_whitespace() || c == '"' || c == '\'' || c == ',' || c == '}' || c == ']'
+                }) {
                     result.replace_range(value_start..value_start + value_end, "[REDACTED]");
                 } else if value_start < result.len() {
                     let remaining = result.len() - value_start;
@@ -317,7 +317,15 @@ pub fn redact_secrets(input: &str) -> String {
             }
         } else if let Some(pos) = result.find(*pattern) {
             let prefix_end = pos + pattern.len();
-            if let Some(token_end) = result[prefix_end..].find(|c: char| c.is_whitespace() || c == '"' || c == '\'' || c == ',' || c == '}' || c == ']' || c == ')') {
+            if let Some(token_end) = result[prefix_end..].find(|c: char| {
+                c.is_whitespace()
+                    || c == '"'
+                    || c == '\''
+                    || c == ','
+                    || c == '}'
+                    || c == ']'
+                    || c == ')'
+            }) {
                 result.replace_range(prefix_end..prefix_end + token_end, "[REDACTED]");
             } else if prefix_end < result.len() {
                 let remaining = result.len() - prefix_end;
@@ -333,7 +341,10 @@ pub fn redact_secrets(input: &str) -> String {
 
 /// Normalize a path and check if it stays within a base directory.
 /// Returns the canonical path if safe, or an error message if not.
-pub fn normalize_and_validate_path(path: &Path, base: &Path) -> std::result::Result<PathBuf, String> {
+pub fn normalize_and_validate_path(
+    path: &Path,
+    base: &Path,
+) -> std::result::Result<PathBuf, String> {
     // Resolve relative paths
     let resolved = if path.is_absolute() {
         path.to_path_buf()
@@ -364,7 +375,9 @@ pub fn normalize_and_validate_path(path: &Path, base: &Path) -> std::result::Res
         let mut b = PathBuf::new();
         for component in base.components() {
             match component {
-                std::path::Component::ParentDir => { b.pop(); }
+                std::path::Component::ParentDir => {
+                    b.pop();
+                }
                 std::path::Component::CurDir => {}
                 _ => b.push(component),
             }
@@ -450,10 +463,22 @@ mod tests {
     fn test_command_risk_classification() {
         assert_eq!(classify_command_risk("ls -la"), CommandRisk::Low);
         assert_eq!(classify_command_risk("cargo test"), CommandRisk::Low);
-        assert_eq!(classify_command_risk("git push origin main"), CommandRisk::Medium);
-        assert_eq!(classify_command_risk("sudo apt-get install foo"), CommandRisk::High);
-        assert_eq!(classify_command_risk("rm -rf / --no-preserve-root"), CommandRisk::Critical);
-        assert_eq!(classify_command_risk("curl http://example.com"), CommandRisk::High);
+        assert_eq!(
+            classify_command_risk("git push origin main"),
+            CommandRisk::Medium
+        );
+        assert_eq!(
+            classify_command_risk("sudo apt-get install foo"),
+            CommandRisk::High
+        );
+        assert_eq!(
+            classify_command_risk("rm -rf / --no-preserve-root"),
+            CommandRisk::Critical
+        );
+        assert_eq!(
+            classify_command_risk("curl http://example.com"),
+            CommandRisk::High
+        );
     }
 
     #[test]
@@ -500,7 +525,10 @@ mod tests {
         let base = PathBuf::from("/home/user/project");
         let result = normalize_and_validate_path(Path::new("src/main.rs"), &base);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), PathBuf::from("/home/user/project/src/main.rs"));
+        assert_eq!(
+            result.unwrap(),
+            PathBuf::from("/home/user/project/src/main.rs")
+        );
     }
 
     #[test]
@@ -517,7 +545,10 @@ mod tests {
         let base = PathBuf::from("/home/user/project");
         let result = normalize_and_validate_path(Path::new("src/../tests/test.rs"), &base);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), PathBuf::from("/home/user/project/tests/test.rs"));
+        assert_eq!(
+            result.unwrap(),
+            PathBuf::from("/home/user/project/tests/test.rs")
+        );
     }
 
     #[test]

@@ -1,6 +1,6 @@
+use rusqlite;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use rusqlite;
 
 pub type Result<T> = std::result::Result<T, Error>;
 

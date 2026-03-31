@@ -1,7 +1,8 @@
 use crate::adapter::{ProviderAdapter, ProviderCapabilities};
 use crate::error::{ProviderError, ProviderResult};
 use crate::models::{
-    ChatMessage, ChatRequest, ChatResponse, ChatChoice, ModelCapability, ModelInfo, StreamChunk, ToolCall, Usage,
+    ChatChoice, ChatMessage, ChatRequest, ChatResponse, ModelCapability, ModelInfo, StreamChunk,
+    ToolCall, Usage,
 };
 use async_trait::async_trait;
 use futures::Stream;
@@ -79,11 +80,15 @@ pub struct GeminiAdapter {
 
 impl GeminiAdapter {
     pub fn gemini(api_key: String) -> Self {
-        Self::custom("gemini", api_key.clone(), GeminiConfig {
-            api_key,
-            base_url: "https://generativelanguage.googleapis.com/v1beta/openai".to_string(),
-            ..Default::default()
-        })
+        Self::custom(
+            "gemini",
+            api_key.clone(),
+            GeminiConfig {
+                api_key,
+                base_url: "https://generativelanguage.googleapis.com/v1beta/openai".to_string(),
+                ..Default::default()
+            },
+        )
     }
 
     pub fn custom(name: &str, api_key: String, base_config: GeminiConfig) -> Self {
@@ -109,19 +114,23 @@ impl GeminiAdapter {
 
     fn build_request_body(&self, request: &ChatRequest) -> serde_json::Value {
         // Convert internal ChatRequest into the OpenAI-compatible body Gemini expects
-        let messages: Vec<serde_json::Value> = request.messages.iter().map(|m| {
-            let mut msg = serde_json::json!({
-                "role": m.role,
-                "content": m.content,
-            });
-            if let Some(tc) = &m.tool_calls {
-                msg["tool_calls"] = serde_json::to_value(tc).unwrap();
-            }
-            if let Some(id) = &m.tool_call_id {
-                msg["tool_call_id"] = serde_json::json!(id.as_str());
-            }
-            msg
-        }).collect();
+        let messages: Vec<serde_json::Value> = request
+            .messages
+            .iter()
+            .map(|m| {
+                let mut msg = serde_json::json!({
+                    "role": m.role,
+                    "content": m.content,
+                });
+                if let Some(tc) = &m.tool_calls {
+                    msg["tool_calls"] = serde_json::to_value(tc).unwrap();
+                }
+                if let Some(id) = &m.tool_call_id {
+                    msg["tool_call_id"] = serde_json::json!(id.as_str());
+                }
+                msg
+            })
+            .collect();
 
         let mut body = serde_json::json!({
             "model": request.model,
@@ -136,17 +145,21 @@ impl GeminiAdapter {
         }
         if let Some(tools) = &request.tools {
             body["tools"] = serde_json::to_value(
-                tools.iter().map(|t| {
-                    serde_json::json!({
-                        "type": "function",
-                        "function": {
-                            "name": t.name,
-                            "description": t.description,
-                            "parameters": t.parameters,
-                        }
+                tools
+                    .iter()
+                    .map(|t| {
+                        serde_json::json!({
+                            "type": "function",
+                            "function": {
+                                "name": t.name,
+                                "description": t.description,
+                                "parameters": t.parameters,
+                            }
+                        })
                     })
-                }).collect::<Vec<_>>()
-            ).unwrap();
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap();
         }
 
         body
@@ -156,7 +169,8 @@ impl GeminiAdapter {
         let url = format!("{}/models", self.config.base_url.trim_end_matches('/'));
         debug!("Fetching models from {}", url);
 
-        let resp = self.client
+        let resp = self
+            .client
             .get(&url)
             .header("Authorization", &self.auth_header())
             .send()
@@ -188,14 +202,19 @@ impl GeminiAdapter {
             .map_err(|e| ProviderError::Parse(e.to_string()))?;
 
         let provider_name = self.provider_name.clone();
-        let models: Vec<ModelInfo> = body.data.unwrap_or_default().into_iter().map(|m| ModelInfo {
-            id: format!("{}/{}", provider_name, m.id),
-            name: m.id,
-            provider: provider_name.clone(),
-            capabilities: vec![ModelCapability::Chat, ModelCapability::Streaming],
-            context_length: m.context_length,
-            max_output_tokens: None,
-        }).collect();
+        let models: Vec<ModelInfo> = body
+            .data
+            .unwrap_or_default()
+            .into_iter()
+            .map(|m| ModelInfo {
+                id: format!("{}/{}", provider_name, m.id),
+                name: m.id,
+                provider: provider_name.clone(),
+                capabilities: vec![ModelCapability::Chat, ModelCapability::Streaming],
+                context_length: m.context_length,
+                max_output_tokens: None,
+            })
+            .collect();
 
         *self.cached_models.write().await = models.clone();
         Ok(models)
@@ -234,7 +253,8 @@ impl ProviderAdapter for GeminiAdapter {
         );
         let body = self.build_request_body(request);
 
-        let resp = self.client
+        let resp = self
+            .client
             .post(&url)
             .header("Authorization", &self.auth_header())
             .header("Content-Type", "application/json")
@@ -248,7 +268,9 @@ impl ProviderAdapter for GeminiAdapter {
             return Err(ProviderError::Auth("Invalid API key".to_string()));
         }
         if status.as_u16() == 429 {
-            return Err(ProviderError::RateLimit { provider: self.provider_name.clone() });
+            return Err(ProviderError::RateLimit {
+                provider: self.provider_name.clone(),
+            });
         }
         if !status.is_success() {
             let body = resp.text().await.unwrap_or_default();
@@ -263,27 +285,34 @@ impl ProviderAdapter for GeminiAdapter {
             .await
             .map_err(|e| ProviderError::Parse(e.to_string()))?;
 
-        let choices = raw.choices.into_iter().map(|c| {
-            let tool_calls = c.message.tool_calls.map(|tc| {
-                tc.into_iter().map(|t| ToolCall {
-                    id: t.id,
-                    name: t.function.name,
-                    arguments: serde_json::from_str(&t.function.arguments).unwrap_or(serde_json::Value::Null),
-                }).collect()
-            });
+        let choices = raw
+            .choices
+            .into_iter()
+            .map(|c| {
+                let tool_calls = c.message.tool_calls.map(|tc| {
+                    tc.into_iter()
+                        .map(|t| ToolCall {
+                            id: t.id,
+                            name: t.function.name,
+                            arguments: serde_json::from_str(&t.function.arguments)
+                                .unwrap_or(serde_json::Value::Null),
+                        })
+                        .collect()
+                });
 
-            ChatChoice {
-                index: c.index.unwrap_or(0),
-                message: ChatMessage {
-                    role: c.message.role.unwrap_or_else(|| "assistant".to_string()),
-                    content: c.message.content.unwrap_or_default(),
-                    tool_calls,
-                    // no dedicated tool_call_id in Gemini-compatible responses currently
-                    tool_call_id: None,
-                },
-                finish_reason: c.finish_reason.unwrap_or_else(|| "stop".to_string()),
-            }
-        }).collect();
+                ChatChoice {
+                    index: c.index.unwrap_or(0),
+                    message: ChatMessage {
+                        role: c.message.role.unwrap_or_else(|| "assistant".to_string()),
+                        content: c.message.content.unwrap_or_default(),
+                        tool_calls,
+                        // no dedicated tool_call_id in Gemini-compatible responses currently
+                        tool_call_id: None,
+                    },
+                    finish_reason: c.finish_reason.unwrap_or_else(|| "stop".to_string()),
+                }
+            })
+            .collect();
 
         Ok(ChatResponse {
             id: raw.id.unwrap_or_default(),
@@ -296,8 +325,13 @@ impl ProviderAdapter for GeminiAdapter {
         })
     }
 
-    async fn chat_stream(&self, _request: &ChatRequest) -> ProviderResult<Box<dyn Stream<Item = ProviderResult<StreamChunk>> + Send + Unpin>> {
-        Err(ProviderError::RequestFailed("Streaming not yet implemented".to_string()))
+    async fn chat_stream(
+        &self,
+        _request: &ChatRequest,
+    ) -> ProviderResult<Box<dyn Stream<Item = ProviderResult<StreamChunk>> + Send + Unpin>> {
+        Err(ProviderError::RequestFailed(
+            "Streaming not yet implemented".to_string(),
+        ))
     }
 
     fn list_models(&self) -> Vec<String> {

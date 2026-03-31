@@ -45,10 +45,7 @@ pub struct SolutionProposal {
 
 impl SolutionProposal {
     pub fn total_weighted_score(&self, weights: &CriterionWeights) -> f32 {
-        self.scores
-            .iter()
-            .map(|(c, s)| weights.get(c) * s)
-            .sum()
+        self.scores.iter().map(|(c, s)| weights.get(c) * s).sum()
     }
 }
 
@@ -93,16 +90,17 @@ impl SolutionArbiter {
             .map(|p| p.total_weighted_score(&self.weights))
             .collect();
 
-        let max_score = scores
-            .iter()
-            .cloned()
-            .fold(f32::NEG_INFINITY, f32::max);
+        let max_score = scores.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
 
         let winner_indices: Vec<usize> = scores
             .iter()
             .enumerate()
             .filter_map(|(i, &s)| {
-                if (s - max_score).abs() < f32::EPSILON { Some(i) } else { None }
+                if (s - max_score).abs() < f32::EPSILON {
+                    Some(i)
+                } else {
+                    None
+                }
             })
             .collect();
 
@@ -121,11 +119,31 @@ impl SolutionArbiter {
                 idx + 1,
                 proposal.id,
                 score,
-                proposal.scores.get(&EvaluationCriterion::Correctness).copied().unwrap_or(0.0),
-                proposal.scores.get(&EvaluationCriterion::Security).copied().unwrap_or(0.0),
-                proposal.scores.get(&EvaluationCriterion::Speed).copied().unwrap_or(0.0),
-                proposal.scores.get(&EvaluationCriterion::Maintainability).copied().unwrap_or(0.0),
-                proposal.scores.get(&EvaluationCriterion::TestEvidence).copied().unwrap_or(0.0),
+                proposal
+                    .scores
+                    .get(&EvaluationCriterion::Correctness)
+                    .copied()
+                    .unwrap_or(0.0),
+                proposal
+                    .scores
+                    .get(&EvaluationCriterion::Security)
+                    .copied()
+                    .unwrap_or(0.0),
+                proposal
+                    .scores
+                    .get(&EvaluationCriterion::Speed)
+                    .copied()
+                    .unwrap_or(0.0),
+                proposal
+                    .scores
+                    .get(&EvaluationCriterion::Maintainability)
+                    .copied()
+                    .unwrap_or(0.0),
+                proposal
+                    .scores
+                    .get(&EvaluationCriterion::TestEvidence)
+                    .copied()
+                    .unwrap_or(0.0),
             )
         } else {
             "Tie: multiple proposals have the same score. No clear winner.".to_string()
@@ -170,45 +188,89 @@ impl RuleBasedScorer {
 
     fn score_correctness(code: &str) -> f32 {
         let mut score: f32 = 50.0;
-        if code.contains("fn ") { score += 15.0; }
-        if code.contains("pub fn ") { score += 10.0; }
-        if code.contains("-> Result<") { score += 15.0; }
-        if code.contains("-> Option<") { score += 10.0; }
-        if code.contains("unwrap()") { score -= 20.0; }
-        if code.contains("panic!(") { score -= 30.0; }
-        if code.contains("todo!") { score -= 10.0; }
-        if code.contains("unimplemented!") { score -= 30.0; }
+        if code.contains("fn ") {
+            score += 15.0;
+        }
+        if code.contains("pub fn ") {
+            score += 10.0;
+        }
+        if code.contains("-> Result<") {
+            score += 15.0;
+        }
+        if code.contains("-> Option<") {
+            score += 10.0;
+        }
+        if code.contains("unwrap()") {
+            score -= 20.0;
+        }
+        if code.contains("panic!(") {
+            score -= 30.0;
+        }
+        if code.contains("todo!") {
+            score -= 10.0;
+        }
+        if code.contains("unimplemented!") {
+            score -= 30.0;
+        }
         score.clamp(0.0, 100.0)
     }
 
     fn score_security(code: &str) -> f32 {
         let mut score: f32 = 70.0;
-        if code.contains("unsafe") { score -= 40.0; }
-        if code.contains("unwrap()") { score -= 15.0; }
-        if code.contains("expect(") { score += 5.0; }
-        if code.contains("validate") || code.contains("sanitize") { score += 15.0; }
-        if code.contains("allowlist") || code.contains("denylist") { score += 10.0; }
+        if code.contains("unsafe") {
+            score -= 40.0;
+        }
+        if code.contains("unwrap()") {
+            score -= 15.0;
+        }
+        if code.contains("expect(") {
+            score += 5.0;
+        }
+        if code.contains("validate") || code.contains("sanitize") {
+            score += 15.0;
+        }
+        if code.contains("allowlist") || code.contains("denylist") {
+            score += 10.0;
+        }
         score.clamp(0.0, 100.0)
     }
 
     fn score_speed(code: &str) -> f32 {
         let mut score: f32 = 70.0;
-        if code.contains(".clone()") { score -= 5.0; }
-        if code.contains("O(n^2)") || code.contains("O(n²)") { score -= 15.0; }
-        if code.contains("O(n log n)") { score += 10.0; }
-        if code.contains("HashMap") || code.contains("HashSet") { score += 5.0; }
-        if code.contains("Vec::new()") && code.contains("for") { score -= 3.0; }
+        if code.contains(".clone()") {
+            score -= 5.0;
+        }
+        if code.contains("O(n^2)") || code.contains("O(n²)") {
+            score -= 15.0;
+        }
+        if code.contains("O(n log n)") {
+            score += 10.0;
+        }
+        if code.contains("HashMap") || code.contains("HashSet") {
+            score += 5.0;
+        }
+        if code.contains("Vec::new()") && code.contains("for") {
+            score -= 3.0;
+        }
         score.clamp(0.0, 100.0)
     }
 
     fn score_maintainability(code: &str) -> f32 {
         let mut score: f32 = 60.0;
         let lines: Vec<&str> = code.lines().collect();
-        if lines.len() > 200 { score -= 15.0; }
-        if code.contains("/// ") || code.contains("//! ") { score += 15.0; }
-        if code.contains("#[derive(") { score += 5.0; }
+        if lines.len() > 200 {
+            score -= 15.0;
+        }
+        if code.contains("/// ") || code.contains("//! ") {
+            score += 15.0;
+        }
+        if code.contains("#[derive(") {
+            score += 5.0;
+        }
         let has_mod = lines.iter().any(|l| l.trim_start().starts_with("pub mod "));
-        if has_mod { score += 5.0; }
+        if has_mod {
+            score += 5.0;
+        }
         let long_fns: Vec<_> = lines
             .iter()
             .filter(|l| l.contains("fn ") && !l.contains("//") && !l.contains("#["))
@@ -218,16 +280,26 @@ impl RuleBasedScorer {
         } else {
             long_fns.iter().map(|f| f.len()).sum::<usize>() / long_fns.len()
         };
-        if avg_len > 100 { score -= 10.0; }
+        if avg_len > 100 {
+            score -= 10.0;
+        }
         score.clamp(0.0, 100.0)
     }
 
     fn score_test_evidence(code: &str) -> f32 {
         let mut score: f32 = 20.0;
-        if code.contains("#[test]") { score += 40.0; }
-        if code.contains("#[tokio::test]") { score += 40.0; }
-        if code.contains("assert!") || code.contains("assert_eq!") { score += 10.0; }
-        if code.contains("mock") || code.contains("Mock") { score += 10.0; }
+        if code.contains("#[test]") {
+            score += 40.0;
+        }
+        if code.contains("#[tokio::test]") {
+            score += 40.0;
+        }
+        if code.contains("assert!") || code.contains("assert_eq!") {
+            score += 10.0;
+        }
+        if code.contains("mock") || code.contains("Mock") {
+            score += 10.0;
+        }
         score.clamp(0.0, 100.0)
     }
 }
@@ -260,7 +332,10 @@ mod tests {
     #[test]
     fn test_better_code_wins() {
         let arbiter = SolutionArbiter::new(CriterionWeights::default());
-        let good = make_proposal("s1", "pub fn add(a: i32, b: i32) -> Result<i32, String> {\n    if a < 0 || b < 0 {\n        return Err(\"negative\".to_string());\n    }\n    Ok(a + b)\n}");
+        let good = make_proposal(
+            "s1",
+            "pub fn add(a: i32, b: i32) -> Result<i32, String> {\n    if a < 0 || b < 0 {\n        return Err(\"negative\".to_string());\n    }\n    Ok(a + b)\n}",
+        );
         let bad = make_proposal("s2", "fn add(a: i32, b: i32) -> i32 { a + b }");
         let result = arbiter.evaluate(vec![good, bad]);
         assert_eq!(result.winner_index, Some(0));
@@ -288,28 +363,32 @@ mod tests {
     #[test]
     fn test_rule_based_correctness_scoring() {
         let good = RuleBasedScorer::score_solution(
-            "pub fn validated_add(a: i32, b: i32) -> Result<i32, String> { Ok(a + b) }"
+            "pub fn validated_add(a: i32, b: i32) -> Result<i32, String> { Ok(a + b) }",
         );
-        let bad = RuleBasedScorer::score_solution(
-            "fn add(a: i32, b: i32) -> i32 { unimplemented!() }"
-        );
+        let bad =
+            RuleBasedScorer::score_solution("fn add(a: i32, b: i32) -> i32 { unimplemented!() }");
         assert!(good[&EvaluationCriterion::Correctness] > bad[&EvaluationCriterion::Correctness]);
     }
 
     #[test]
     fn test_rule_based_security_scoring() {
         let safe = RuleBasedScorer::score_solution(
-            "pub fn validate(input: &str) -> Result<bool, String> {\n    if input.is_empty() { return Err(\"empty\".to_string()); }\n    Ok(true)\n}"
+            "pub fn validate(input: &str) -> Result<bool, String> {\n    if input.is_empty() { return Err(\"empty\".to_string()); }\n    Ok(true)\n}",
         );
-        let unsafe_code = RuleBasedScorer::score_solution("unsafe fn raw_ptr() -> *const u8 { 0 as *const _ }");
+        let unsafe_code =
+            RuleBasedScorer::score_solution("unsafe fn raw_ptr() -> *const u8 { 0 as *const _ }");
         assert!(safe[&EvaluationCriterion::Security] > unsafe_code[&EvaluationCriterion::Security]);
     }
 
     #[test]
     fn test_custom_weights() {
         let mut weights = CriterionWeights::default();
-        weights.weights.insert(EvaluationCriterion::TestEvidence, 2.0);
-        weights.weights.insert(EvaluationCriterion::Correctness, 0.1);
+        weights
+            .weights
+            .insert(EvaluationCriterion::TestEvidence, 2.0);
+        weights
+            .weights
+            .insert(EvaluationCriterion::Correctness, 0.1);
         let arbiter = SolutionArbiter::new(weights);
         let tested = make_proposal("s1", "#[test]\nfn test_add() { assert_eq!(1 + 1, 2); }");
         let untested = make_proposal("s2", "pub fn add(a: i32, b: i32) -> i32 { a + b }");

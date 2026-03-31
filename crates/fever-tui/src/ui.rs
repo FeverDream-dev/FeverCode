@@ -1,9 +1,9 @@
-use crate::widgets::{ChatPane, PlanPane, TaskPane, ToolLogPane, BrowserPane};
+use crate::widgets::{BrowserPane, ChatPane, PlanPane, TaskPane, ToolLogPane};
 use ratatui::{
+    Frame,
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Style},
     widgets::{Paragraph, Wrap},
-    Frame,
 };
 
 #[derive(PartialEq)]
@@ -71,40 +71,32 @@ impl FeverUI {
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Min(0),
-                Constraint::Length(3),
-            ])
+            .constraints([Constraint::Min(0), Constraint::Length(3)])
             .split(size);
 
         let main_chunks = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Percentage(60),
-                Constraint::Percentage(40),
-            ])
+            .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
             .split(chunks[0]);
 
         let left_chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Percentage(50),
-                Constraint::Percentage(50),
-            ])
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
             .split(main_chunks[0]);
 
         let right_chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Percentage(50),
-                Constraint::Percentage(50),
-            ])
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
             .split(main_chunks[1]);
 
-        self.chat.render(f, left_chunks[0], self.focus == Focus::Chat);
-        self.plan.render(f, left_chunks[1], self.focus == Focus::Plan);
-        self.tasks.render(f, right_chunks[0], self.focus == Focus::Tasks);
-        self.tool_log.render(f, right_chunks[1], self.focus == Focus::ToolLog);
+        self.chat
+            .render(f, left_chunks[0], self.focus == Focus::Chat);
+        self.plan
+            .render(f, left_chunks[1], self.focus == Focus::Plan);
+        self.tasks
+            .render(f, right_chunks[0], self.focus == Focus::Tasks);
+        self.tool_log
+            .render(f, right_chunks[1], self.focus == Focus::ToolLog);
 
         let status_bar = Paragraph::new(self.status.as_str())
             .style(Style::default().bg(Color::DarkGray).fg(Color::White))

@@ -183,9 +183,26 @@ impl RequirementsInterrogator {
 
         // === 5. Context signals ===
         let tech_keywords = [
-            "rust", "python", "javascript", "typescript", "go", "java", "c++",
-            "api", "rest", "graphql", "sql", "database", "async", "thread",
-            "struct", "class", "function", "module", "crate", "package",
+            "rust",
+            "python",
+            "javascript",
+            "typescript",
+            "go",
+            "java",
+            "c++",
+            "api",
+            "rest",
+            "graphql",
+            "sql",
+            "database",
+            "async",
+            "thread",
+            "struct",
+            "class",
+            "function",
+            "module",
+            "crate",
+            "package",
         ];
 
         let mut tech_found = Vec::new();
@@ -255,8 +272,8 @@ impl RequirementsInterrogator {
 
         // === 9. Expected outcome detection ===
         let outcome_indicators = [
-            "should", "will", "expect", "result", "output", "return",
-            "produce", "generate", "display", "show", "print", "so that",
+            "should", "will", "expect", "result", "output", "return", "produce", "generate",
+            "display", "show", "print", "so that",
         ];
 
         let has_outcome = outcome_indicators
@@ -310,7 +327,8 @@ impl RequirementsInterrogator {
                 );
             }
             if detected_actions.is_empty() {
-                assumptions.push("Assuming this is a modification task based on context".to_string());
+                assumptions
+                    .push("Assuming this is a modification task based on context".to_string());
             }
         }
 
@@ -378,21 +396,21 @@ fn extract_file_paths(text: &str) -> Vec<String> {
 
     // Common file extension patterns
     let extensions = [
-        ".rs", ".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".java", ".cpp", ".c",
-        ".h", ".hpp", ".rb", ".php", ".cs", ".swift", ".kt", ".scala",
-        ".json", ".yaml", ".yml", ".toml", ".xml", ".ini", ".cfg", ".conf",
-        ".md", ".txt", ".sh", ".bash", ".zsh",
-        ".html", ".css", ".scss", ".sass", ".less",
-        ".sql", ".graphql", ".proto",
+        ".rs", ".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".java", ".cpp", ".c", ".h", ".hpp",
+        ".rb", ".php", ".cs", ".swift", ".kt", ".scala", ".json", ".yaml", ".yml", ".toml", ".xml",
+        ".ini", ".cfg", ".conf", ".md", ".txt", ".sh", ".bash", ".zsh", ".html", ".css", ".scss",
+        ".sass", ".less", ".sql", ".graphql", ".proto",
     ];
 
     // Split by whitespace and common delimiters
     for word in text.split_whitespace() {
-        let word = word
-            .trim_matches(|c| c == '"' || c == '\'' || c == '`' || c == ',' || c == '.' || c == ':' || c == ';');
+        let word = word.trim_matches(|c| {
+            c == '"' || c == '\'' || c == '`' || c == ',' || c == '.' || c == ':' || c == ';'
+        });
 
         // Skip URLs
-        if word.starts_with("http://") || word.starts_with("https://") || word.starts_with("ftp://") {
+        if word.starts_with("http://") || word.starts_with("https://") || word.starts_with("ftp://")
+        {
             continue;
         }
 
@@ -630,10 +648,7 @@ mod tests {
 
         // Test Insufficient (< 70)
         let insufficient = interrogator.interrogate("fix");
-        assert_eq!(
-            insufficient.confidence_level,
-            ConfidenceLevel::Insufficient
-        );
+        assert_eq!(insufficient.confidence_level, ConfidenceLevel::Insufficient);
         assert!(insufficient.improved_request.is_none());
 
         // Test Sufficient (>= 90)
@@ -662,9 +677,7 @@ mod tests {
 
         // If it's Adequate level, it should have assumptions or questions
         if result.confidence_level == ConfidenceLevel::Adequate {
-            assert!(
-                !result.assumptions.is_empty() || !result.clarification_questions.is_empty()
-            );
+            assert!(!result.assumptions.is_empty() || !result.clarification_questions.is_empty());
         }
     }
 
@@ -692,9 +705,8 @@ mod tests {
 
         let no_action = interrogator.interrogate("The code in main.rs related to the thing");
 
-        let with_action = interrogator.interrogate(
-            "Implement a new feature in main.rs that handles user input",
-        );
+        let with_action =
+            interrogator.interrogate("Implement a new feature in main.rs that handles user input");
 
         assert!(
             with_action.confidence_score > no_action.confidence_score,
@@ -708,9 +720,8 @@ mod tests {
     fn test_constraint_detection() {
         let interrogator = RequirementsInterrogator::with_defaults();
 
-        let no_constraint = interrogator.interrogate(
-            "Add a function to utils.rs that processes data",
-        );
+        let no_constraint =
+            interrogator.interrogate("Add a function to utils.rs that processes data");
 
         let with_constraint = interrogator.interrogate(
             "Add a function to utils.rs that processes data. It must never panic and should handle all errors gracefully.",
@@ -760,9 +771,8 @@ mod tests {
 
         let with_ambiguous_pronoun = interrogator.interrogate("Fix it in the code");
 
-        let without_ambiguous = interrogator.interrogate(
-            "Fix the parse_config() function in src/config.rs",
-        );
+        let without_ambiguous =
+            interrogator.interrogate("Fix the parse_config() function in src/config.rs");
 
         assert!(
             with_ambiguous_pronoun.confidence_score < without_ambiguous.confidence_score,
