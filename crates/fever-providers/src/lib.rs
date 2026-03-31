@@ -2,6 +2,7 @@ pub mod adapter;
 pub mod client;
 pub mod error;
 pub mod models;
+pub mod adapters;
 
 pub use adapter::{ProviderAdapter, ProviderCapabilities};
 pub use client::ProviderClient;
