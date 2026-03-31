@@ -1,4 +1,4 @@
-use crate::error::{Result, Error};
+use crate::error::Result;
 use rusqlite::{Connection, params};
 use serde_json::Value;
 use std::path::Path;

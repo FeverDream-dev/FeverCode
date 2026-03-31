@@ -1,10 +1,8 @@
 use crate::widgets::{ChatPane, PlanPane, TaskPane, ToolLogPane, BrowserPane};
-use fever_core::Plan;
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::{Line, Span, Text},
-    widgets::{Block, Borders, Paragraph, Wrap},
+    layout::{Alignment, Constraint, Direction, Layout},
+    style::{Color, Style},
+    widgets::{Paragraph, Wrap},
     Frame,
 };
 
@@ -69,7 +67,7 @@ impl FeverUI {
     }
 
     pub fn render(&mut self, f: &mut Frame) {
-        let size = f.size();
+        let size = f.area();
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)

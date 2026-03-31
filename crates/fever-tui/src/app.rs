@@ -1,4 +1,3 @@
-use crate::widgets::{ChatPane, PlanPane, TaskPane, ToolLogPane, BrowserPane};
 use crate::ui::FeverUI;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent},

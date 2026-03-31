@@ -57,7 +57,7 @@ impl ExecutionEngine {
 
     pub fn run(&self) -> mpsc::Receiver<ExecutionEvent> {
         let (tx, rx) = mpsc::channel(100);
-        let tools = Arc::clone(&self.tools);
+        let _tools = Arc::clone(&self.tools);
         let plan = Arc::clone(&self.active_plan);
 
         tokio::spawn(async move {

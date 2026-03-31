@@ -2,7 +2,7 @@ use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
+    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     Frame,
 };
 
@@ -198,6 +198,7 @@ impl Default for ChatPane {
     }
 }
 
+#[allow(dead_code)]
 pub struct PlanPane {
     plan: Option<fever_core::Plan>,
     expanded_tasks: std::collections::HashSet<String>,
