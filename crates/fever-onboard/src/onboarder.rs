@@ -5,7 +5,7 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 use crate::profile::ProjectProfile;
-use crate::questions::{all_questions, Validation};
+use crate::questions::{Validation, all_questions};
 use crate::scaffold::{GeneratedFile, ScaffoldGenerator};
 use tracing::{info, warn};
 
