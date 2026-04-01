@@ -1,7 +1,12 @@
+pub mod animation;
 pub mod app;
-pub mod ui;
-pub mod widgets;
+pub mod components;
+pub mod event;
+pub mod render;
+pub mod screens;
+pub mod slash;
+pub mod theme;
+pub mod util;
 
-pub use app::{FeverTui, TuiConfig};
-pub use ui::FeverUI;
-pub use widgets::{BrowserPane, ChatPane, PlanPane, TaskPane, ToolLogPane};
+pub use app::AppState;
+pub use event::{Command, Message, Screen};

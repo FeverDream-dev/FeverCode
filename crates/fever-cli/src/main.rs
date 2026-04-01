@@ -1,32 +1,41 @@
-use clap::{Args, Parser, Subcommand};
 mod local_version;
+
+use clap::{Parser, Subcommand, Args, ArgAction};
 use fever_config::ConfigManager;
 use fever_providers::ProviderClient;
-use std::env;
-use std::path::PathBuf;
-use std::sync::Arc;
-
 use fever_providers::adapters::anthropic::AnthropicAdapter;
 use fever_providers::adapters::gemini::GeminiAdapter;
 use fever_providers::adapters::ollama::OllamaAdapter;
 use fever_providers::adapters::openai::OpenAiAdapter;
 use fever_providers::models::{ChatMessage, ChatRequest};
+use std::env;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 #[derive(Parser)]
-#[clap(name = "fever", about = " Fever CLI ")]
+#[clap(name = "fever", about = "Fever Code — Terminal AI Coding Agent")]
 struct Cli {
     #[clap(subcommand)]
-    command: Command,
+    command: Option<Command>,
 }
 
 #[derive(Subcommand)]
 enum Command {
-    Code(CodeArgs),
-    Version(VersionArgs),
-    Roles,
-    Config,
-    Providers(ProvidersArgs),
-    Chat(ChatArgs),
+    /// Send a one-shot message (no TUI)
+    Chat {
+        message: Vec<String>,
+        #[arg(short, long)]
+        model: Option<String>,
+    },
+    /// List configured providers
+    Providers,
+    /// Show version
+    Version {
+        #[arg(long)]
+        local: bool,
+        #[arg(long)]
+        bump: Option<String>,
+    },
 }
 
 #[derive(Args)]
@@ -42,7 +51,7 @@ struct VersionArgs {
 
 #[derive(Args)]
 struct ProvidersArgs {
-    #[arg(long)]
+    #[arg(long, action = ArgAction::SetTrue)]
     fetch: bool,
 }
 
@@ -173,8 +182,6 @@ async fn list_providers(args: ProvidersArgs) {
             println!("Provider: {}", name);
             let caps = adapter.capabilities();
             println!("  supports_chat: {}", caps.supports_chat);
-            println!("  supports_tools: {}", caps.supports_tools);
-            println!("  supports_streaming: {}", caps.supports_streaming);
             let models = adapter.list_models();
             for (i, m) in models.iter().take(5).enumerate() {
                 println!("  model {}: {}", i + 1, m);
@@ -209,7 +216,7 @@ async fn run_chat(args: ChatArgs) {
             }
             if let Some(usage) = r.usage {
                 println!(
-                    "\nUsage: prompt_tokens={} completion_tokens={} total_tokens={}",
+                    "\nUsage: prompt_tokens={} completion_tokens={} total_tokens= {}",
                     usage.prompt_tokens, usage.completion_tokens, usage.total_tokens
                 );
             }
@@ -239,10 +246,13 @@ fn handle_version_command(args: VersionArgs) {
         if let Ok(v) = store.load() {
             println!("{}", v);
         }
-        return;
-    }
-    if let Ok(v) = store.load() {
-        println!("{}", v);
+    } else {
+        println!("fever {}", env!("CARGO_PKG_VERSION"));
+        if args.local {
+            if let Ok(v) = store.load() {
+                println!("local: {}", v);
+            }
+        }
     }
 }
 
@@ -259,24 +269,84 @@ async fn show_config() {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::Code(_) => {}
-        Command::Version(v) => {
-            handle_version_command(v);
+        Some(Command::Chat { message, model }) => {
+            let client = build_provider_client(false).await;
+            let content = message.join(" ");
+            let model = model.unwrap_or_else(|| "gpt-4o".to_string());
+            // Simple chat request
+            let req = fever_providers::models::ChatRequest {
+                model,
+                messages: vec![fever_providers::models::ChatMessage {
+                    role: "user".to_string(),
+                    content,
+                    tool_calls: None,
+                    tool_call_id: None,
+                }],
+                tools: None,
+                temperature: None,
+                max_tokens: None,
+                stream: false,
+            };
+            match client.chat(&req).await {
+                Ok(resp) => {
+                    if let Some(choice) = resp.choices.first() {
+                        println!("{}", choice.message.content);
+                    }
+                }
+                Err(e) => eprintln!("Error: {:?}", e),
+            }
         }
-        Command::Roles => {
-            list_roles();
+        Some(Command::Providers) => {
+            let client = build_provider_client(true).await;
+            let providers = client.list_providers();
+            if providers.is_empty() {
+                println!("No providers configured");
+            }
+            for name in providers {
+                if let Some(adapter) = client.get_provider(&name) {
+                    println!("Provider: {}", name);
+                    let caps = adapter.capabilities();
+                    println!("  supports_chat: {}", caps.supports_chat);
+                    let models = adapter.list_models();
+                    for (i, m) in models.iter().take(5).enumerate() {
+                        println!("  model {}: {}", i + 1, m);
+                    }
+                    println!();
+                }
+            }
         }
-        Command::Config => {
-            show_config().await;
+        Some(Command::Version { local, bump }) => {
+            let home = env::var("HOME").unwrap_or(".".to_string());
+            let store_path = PathBuf::from(home)
+                .join(".config")
+                .join("fevercode")
+                .join("version.json");
+            let store = local_version::VersionStore::new(store_path);
+            if let Some(b) = bump {
+                if let Some(kind) = local_version::parse_bump(&b) {
+                    let _ = store.bump(&kind);
+                }
+                if let Ok(v) = store.load() {
+                    println!("{}", v);
+                }
+            } else {
+                println!("fever {}", env!("CARGO_PKG_VERSION"));
+                if local {
+                    if let Ok(v) = store.load() {
+                        println!("local: {}", v);
+                    }
+                }
+            }
         }
-        Command::Providers(p) => {
-            list_providers(p).await;
-        }
-        Command::Chat(c) => {
-            run_chat(c).await;
+        None => {
+            // DEFAULT: Launch TUI
+            let mut app = fever_tui::AppState::new();
+            app.run()?;
         }
     }
+
+    Ok(())
 }

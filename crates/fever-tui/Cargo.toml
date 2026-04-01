@@ -11,6 +11,8 @@ categories.workspace = true
 [dependencies]
 fever-core = { path = "../fever-core" }
 fever-agent = { path = "../fever-agent" }
+fever-config = { path = "../fever-config" }
+fever-providers = { path = "../fever-providers" }
 
 tokio = { workspace = true }
 serde = { workspace = true }
@@ -21,4 +23,12 @@ ratatui = { workspace = true }
 crossterm = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }
+toml = { workspace = true }
+uuid = { workspace = true }
+
+tui-textarea = { workspace = true }
+fuzzy-matcher = { workspace = true }
+pulldown-cmark = { workspace = true }
+unicode-segmentation = { workspace = true }
+dirs = { workspace = true }
 unicode-width = "0.2"
