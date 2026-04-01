@@ -11,6 +11,7 @@ use crossterm::{
 };
 use ratatui::Frame;
 use ratatui::backend::CrosstermBackend;
+use tokio::sync::mpsc;
 
 use crate::animation::AnimationState;
 use crate::components::message::{MessageBubble, MessageRole};
@@ -20,7 +21,10 @@ use crate::render::render_frame;
 use crate::slash::SlashCommand;
 use crate::theme::Theme;
 
-/// Central application state — single source of truth for the entire TUI.
+// ─────────────────────────────────────────────────────────────────────
+// AppState — single source of truth for the entire TUI
+// ─────────────────────────────────────────────────────────────────────
+
 pub struct AppState {
     // Navigation
     pub screen: Screen,
@@ -43,6 +47,16 @@ pub struct AppState {
     pub input_buffer: String,
     pub messages: Vec<MessageBubble>,
     pub tool_calls: Vec<ToolCard>,
+    pub scroll_offset: u16,
+
+    // Command palette (Ctrl+K)
+    pub show_command_palette: bool,
+    pub palette_query: String,
+    pub palette_selection: usize,
+
+    // Sidebar (Ctrl+B)
+    pub show_sidebar: bool,
+    pub sidebar_selection: usize,
 
     // Settings screen
     pub settings_tab: usize,
@@ -66,7 +80,7 @@ impl AppState {
             theme: Theme::detect(),
             animations: AnimationState::new(),
             last_tick: Instant::now(),
-            tick_rate: Duration::from_millis(250),
+            tick_rate: Duration::from_millis(100),
             provider_name: "none".to_string(),
             model_name: "none".to_string(),
             workspace,
@@ -75,6 +89,12 @@ impl AppState {
             input_buffer: String::new(),
             messages: Vec::new(),
             tool_calls: Vec::new(),
+            scroll_offset: 0,
+            show_command_palette: false,
+            palette_query: String::new(),
+            palette_selection: 0,
+            show_sidebar: false,
+            sidebar_selection: 0,
             settings_tab: 0,
             onboarding_step: 0,
             onboarding_selection: 0,
@@ -108,7 +128,7 @@ impl AppState {
         }
     }
 
-    // ── Elm update ──────────────────────────────────────────────────────
+    // ── Elm update ──────────────────────────────────────────────────
 
     /// Process a message and return side-effect commands.
     pub fn update(&mut self, msg: Message) -> Vec<Command> {
@@ -144,6 +164,7 @@ impl AppState {
                 self.messages
                     .push(MessageBubble::new(MessageRole::User, content));
                 self.input_buffer.clear();
+                self.scroll_offset = 0;
 
                 vec![Command::SendMessage {
                     content: self.messages.last().unwrap().content.clone(),
@@ -200,14 +221,38 @@ impl AppState {
         }
     }
 
-    // ── Key dispatch ────────────────────────────────────────────────────
+    // ── Key dispatch ────────────────────────────────────────────────
 
     fn handle_key(&mut self, key: KeyEvent) -> Vec<Command> {
-        if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
-            self.should_quit = true;
-            return vec![];
+        // Global shortcuts — always active regardless of screen
+        if key.modifiers.contains(KeyModifiers::CONTROL) {
+            match key.code {
+                KeyCode::Char('c') => {
+                    self.should_quit = true;
+                    return vec![];
+                }
+                KeyCode::Char('k') => {
+                    self.show_command_palette = !self.show_command_palette;
+                    if self.show_command_palette {
+                        self.palette_query.clear();
+                        self.palette_selection = 0;
+                    }
+                    return vec![];
+                }
+                KeyCode::Char('b') => {
+                    self.show_sidebar = !self.show_sidebar;
+                    return vec![];
+                }
+                _ => {}
+            }
         }
 
+        // Command palette intercepts all input when open
+        if self.show_command_palette {
+            return self.handle_palette_key(key);
+        }
+
+        // Screen-specific dispatch
         match &self.screen {
             Screen::Home => self.handle_home_key(key),
             Screen::Chat => self.handle_chat_key(key),
@@ -215,6 +260,69 @@ impl AppState {
             Screen::Onboarding { .. } => self.handle_onboarding_key(key),
         }
     }
+
+    // ── Command palette handler ─────────────────────────────────────
+
+    fn handle_palette_key(&mut self, key: KeyEvent) -> Vec<Command> {
+        match key.code {
+            KeyCode::Esc => {
+                self.show_command_palette = false;
+            }
+            KeyCode::Enter => {
+                let commands = self.palette_commands();
+                if let Some(cmd) = commands.get(self.palette_selection).cloned() {
+                    self.show_command_palette = false;
+                    return self.handle_slash_command(cmd);
+                }
+                self.show_command_palette = false;
+            }
+            KeyCode::Up => {
+                if self.palette_selection > 0 {
+                    self.palette_selection -= 1;
+                }
+            }
+            KeyCode::Down => {
+                let max = self.palette_commands().len().saturating_sub(1);
+                if self.palette_selection < max {
+                    self.palette_selection += 1;
+                }
+            }
+            KeyCode::Backspace => {
+                self.palette_query.pop();
+                self.palette_selection = 0;
+            }
+            KeyCode::Char(c) => {
+                self.palette_query.push(c);
+                self.palette_selection = 0;
+            }
+            _ => {}
+        }
+        vec![]
+    }
+
+    /// Returns all slash commands matching the palette query.
+    pub fn palette_commands(&self) -> Vec<SlashCommand> {
+        let all = vec![
+            SlashCommand::Help,
+            SlashCommand::Clear,
+            SlashCommand::Settings,
+            SlashCommand::Status,
+            SlashCommand::Version,
+            SlashCommand::Model(String::new()),
+            SlashCommand::Role(String::new()),
+            SlashCommand::Provider(String::new()),
+            SlashCommand::Quit,
+        ];
+        if self.palette_query.is_empty() {
+            return all;
+        }
+        let q = self.palette_query.to_lowercase();
+        all.into_iter()
+            .filter(|cmd| cmd.name().contains(&q))
+            .collect()
+    }
+
+    // ── Screen key handlers ─────────────────────────────────────────
 
     fn handle_home_key(&mut self, key: KeyEvent) -> Vec<Command> {
         match key.code {
@@ -249,6 +357,14 @@ impl AppState {
             }
             KeyCode::Esc => {
                 self.screen = Screen::Home;
+                vec![]
+            }
+            KeyCode::PageUp => {
+                self.scroll_offset = self.scroll_offset.saturating_add(5);
+                vec![]
+            }
+            KeyCode::PageDown => {
+                self.scroll_offset = self.scroll_offset.saturating_sub(5);
                 vec![]
             }
             _ => vec![],
@@ -294,7 +410,7 @@ impl AppState {
         vec![]
     }
 
-    // ── Slash commands ─────────────────────────────────────────────────
+    // ── Slash commands ──────────────────────────────────────────────
 
     fn handle_slash_command(&mut self, cmd: SlashCommand) -> Vec<Command> {
         match cmd {
@@ -375,7 +491,7 @@ impl AppState {
         vec![]
     }
 
-    // ── Rendering ──────────────────────────────────────────────────────
+    // ── Rendering ──────────────────────────────────────────────────
 
     /// Dispatch to the current screen's render function.
     pub fn render_screen(&mut self, f: &mut Frame, area: ratatui::layout::Rect) {
@@ -387,9 +503,9 @@ impl AppState {
         }
     }
 
-    // ── Main event loop ────────────────────────────────────────────────
+    // ── Main event loop (async) ─────────────────────────────────────
 
-    /// Run the TUI application. Sets up terminal, runs event loop, restores terminal.
+    /// Run the TUI application. Sets up terminal, runs async event loop, restores terminal.
     pub fn run(&mut self) -> anyhow::Result<()> {
         enable_raw_mode()?;
         let mut stdout = io::stdout();
@@ -398,8 +514,11 @@ impl AppState {
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = ratatui::Terminal::new(backend)?;
 
-        let result = self.run_loop(&mut terminal);
+        // Create a tokio runtime for async operations (provider streaming, etc.)
+        let rt = tokio::runtime::Runtime::new()?;
+        let result = rt.block_on(self.run_loop_async(&mut terminal));
 
+        // Restore terminal
         disable_raw_mode()?;
         execute!(
             terminal.backend_mut(),
@@ -411,29 +530,105 @@ impl AppState {
         result.map_err(Into::into)
     }
 
-    fn run_loop<B: ratatui::backend::Backend>(
+    /// Async event loop using tokio::select! for concurrent event handling.
+    async fn run_loop_async<B: ratatui::backend::Backend>(
         &mut self,
         terminal: &mut ratatui::Terminal<B>,
     ) -> io::Result<()> {
+        let (ui_tx, mut ui_rx) = mpsc::channel::<Message>(256);
+
+        // Bridge blocking crossterm events into the async channel
+        let event_tx = ui_tx.clone();
+        tokio::task::spawn_blocking(move || {
+            loop {
+                if event::poll(Duration::from_millis(50)).ok() != Some(true) {
+                    continue;
+                }
+                if let Ok(Event::Key(key)) = event::read() {
+                    if event_tx.blocking_send(Message::Key(key)).is_err() {
+                        break;
+                    }
+                }
+            }
+        });
+
+        // Tick timer for animations
+        let tick_tx = ui_tx.clone();
+        let tick_rate = self.tick_rate;
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(tick_rate);
+            loop {
+                interval.tick().await;
+                if tick_tx.send(Message::Tick).await.is_err() {
+                    break;
+                }
+            }
+        });
+
         self.last_tick = Instant::now();
 
         loop {
+            // Render current state
             terminal.draw(|f| render_frame(f, self))?;
 
-            let timeout = self.tick_rate.saturating_sub(self.last_tick.elapsed());
+            // Wait for next message
+            if let Some(msg) = ui_rx.recv().await {
+                let cmds = self.update(msg);
+                self.execute_commands(cmds, &ui_tx);
 
-            if event::poll(timeout)? {
-                if let Event::Key(key) = event::read()? {
-                    self.update(Message::Key(key));
+                // Drain any buffered messages before next render
+                while let Ok(msg) = ui_rx.try_recv() {
+                    let cmds = self.update(msg);
+                    self.execute_commands(cmds, &ui_tx);
                 }
-            }
-
-            if self.last_tick.elapsed() >= self.tick_rate {
-                self.update(Message::Tick);
             }
 
             if self.should_quit {
                 return Ok(());
+            }
+        }
+    }
+
+    /// Handle side-effect commands (spawn streaming tasks, etc.)
+    fn execute_commands(&mut self, cmds: Vec<Command>, tx: &mpsc::Sender<Message>) {
+        for cmd in cmds {
+            match cmd {
+                Command::SendMessage { content } => {
+                    self.streaming = true;
+                    let tx = tx.clone();
+                    tokio::spawn(async move {
+                        // Simulated AI response — will be replaced with real provider streaming
+                        let first_line = content.lines().next().unwrap_or(&content);
+                        let response = format!(
+                            "◈ Received: \"{}\"\n\n\
+                             I am Fever, your cold sacred coding assistant.\n\
+                             Provider streaming will be wired next.\n\
+                             This is a simulated response to demonstrate the async TUI.",
+                            if first_line.len() > 60 {
+                                format!("{}...", &first_line[..60])
+                            } else {
+                                first_line.to_string()
+                            }
+                        );
+                        for ch in response.chars() {
+                            if tx
+                                .send(Message::StreamChunk {
+                                    content: ch.to_string(),
+                                })
+                                .await
+                                .is_err()
+                            {
+                                break;
+                            }
+                            tokio::time::sleep(Duration::from_millis(12)).await;
+                        }
+                        tx.send(Message::StreamEnd).await.ok();
+                    });
+                }
+                Command::DetectProviders => {
+                    // TODO: Probe for configured providers
+                }
+                Command::Noop => {}
             }
         }
     }

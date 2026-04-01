@@ -1,6 +1,7 @@
 pub mod input_bar;
 pub mod logo;
 pub mod message;
+pub mod progress;
 pub mod status_bar;
 pub mod tool_card;
 

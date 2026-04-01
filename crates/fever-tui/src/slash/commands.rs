@@ -35,6 +35,34 @@ impl SlashCommand {
             _ => None,
         }
     }
+
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Help => "help",
+            Self::Model(_) => "model",
+            Self::Clear => "clear",
+            Self::Settings => "settings",
+            Self::Quit => "quit",
+            Self::Version => "version",
+            Self::Status => "status",
+            Self::Role(_) => "role",
+            Self::Provider(_) => "provider",
+        }
+    }
+
+    pub fn description(&self) -> &'static str {
+        match self {
+            Self::Help => "Show available commands",
+            Self::Model(_) => "Switch or view current model",
+            Self::Clear => "Clear chat history",
+            Self::Settings => "Open settings screen",
+            Self::Quit => "Quit Fever",
+            Self::Version => "Show version",
+            Self::Status => "Show provider/model status",
+            Self::Role(_) => "Set or view current role",
+            Self::Provider(_) => "Switch or view provider",
+        }
+    }
 }
 
 #[cfg(test)]
@@ -68,5 +96,12 @@ mod tests {
     #[test]
     fn test_parse_no_slash() {
         assert_eq!(SlashCommand::parse("hello"), None);
+    }
+
+    #[test]
+    fn test_name_and_description() {
+        assert_eq!(SlashCommand::Help.name(), "help");
+        assert_eq!(SlashCommand::Model(String::new()).name(), "model");
+        assert_eq!(SlashCommand::Clear.description(), "Clear chat history");
     }
 }
