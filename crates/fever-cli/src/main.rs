@@ -1,7 +1,6 @@
 mod local_version;
 
-use clap::{ArgAction, Args, Parser, Subcommand};
-use fever_config::ConfigManager;
+use clap::{Parser, Subcommand};
 use fever_providers::ProviderClient;
 use fever_providers::adapters::anthropic::AnthropicAdapter;
 use fever_providers::adapters::gemini::GeminiAdapter;
@@ -17,6 +16,14 @@ use std::sync::Arc;
 struct Cli {
     #[clap(subcommand)]
     command: Option<Command>,
+
+    /// Run project onboarding (21-question setup)
+    #[clap(long, visible_alias = "init")]
+    init: bool,
+
+    /// Re-run onboarding with existing profile
+    #[clap(long)]
+    re_onboard: bool,
 }
 
 #[derive(Subcommand)]
@@ -28,7 +35,11 @@ enum Command {
         model: Option<String>,
     },
     /// List configured providers
-    Providers,
+    Providers {
+        /// Fetch available models from each provider
+        #[arg(long)]
+        fetch: bool,
+    },
     /// Show version
     Version {
         #[arg(long)]
@@ -36,29 +47,8 @@ enum Command {
         #[arg(long)]
         bump: Option<String>,
     },
-}
-
-#[derive(Args)]
-struct CodeArgs {}
-
-#[derive(Args)]
-struct VersionArgs {
-    #[arg(long)]
-    local: bool,
-    #[arg(long)]
-    bump: Option<String>,
-}
-
-#[derive(Args)]
-struct ProvidersArgs {
-    #[arg(long, action = ArgAction::SetTrue)]
-    fetch: bool,
-}
-
-#[derive(Args)]
-struct ChatArgs {
-    message: Vec<String>,
-    model: Option<String>,
+    /// Run project onboarding wizard
+    Init,
 }
 
 async fn build_provider_client(fetch_models: bool) -> ProviderClient {
@@ -87,6 +77,9 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
 
     if let Ok(key) = env::var("GEMINI_API_KEY") {
         let adapter = GeminiAdapter::gemini(key);
+        if fetch_models {
+            let _ = adapter.fetch_models().await;
+        }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
     }
 
@@ -170,76 +163,14 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
     client
 }
 
-async fn list_providers(args: ProvidersArgs) {
-    let client = build_provider_client(args.fetch).await;
-    let providers = client.list_providers();
-    if providers.is_empty() {
-        println!("No providers configured");
-        return;
-    }
-    for name in providers {
-        if let Some(adapter) = client.get_provider(&name) {
-            println!("Provider: {}", name);
-            let caps = adapter.capabilities();
-            println!("  supports_chat: {}", caps.supports_chat);
-            let models = adapter.list_models();
-            for (i, m) in models.iter().take(5).enumerate() {
-                println!("  model {}: {}", i + 1, m);
-            }
-            println!();
-        }
-    }
-}
-
-async fn run_chat(args: ChatArgs) {
-    let mut req = ChatRequest {
-        model: args.model.unwrap_or_else(|| "gpt-4o".to_string()),
-        messages: Vec::new(),
-        tools: None,
-        temperature: None,
-        max_tokens: None,
-        stream: false,
-    };
-    let content = args.message.join(" ");
-    req.messages.push(ChatMessage {
-        role: "user".to_string(),
-        content,
-        tool_calls: None,
-        tool_call_id: None,
-    });
-    let client = build_provider_client(false).await;
-    let resp = client.chat(&req).await;
-    match resp {
-        Ok(r) => {
-            if let Some(choice) = r.choices.first() {
-                println!("{}", choice.message.content);
-            }
-            if let Some(usage) = r.usage {
-                println!(
-                    "\nUsage: prompt_tokens={} completion_tokens={} total_tokens= {}",
-                    usage.prompt_tokens, usage.completion_tokens, usage.total_tokens
-                );
-            }
-        }
-        Err(e) => {
-            println!("Chat request failed: {:?}", e);
-        }
-    }
-}
-
-#[allow(dead_code)]
-async fn run_tui() {
-    let _ = build_provider_client(false).await;
-}
-
-fn handle_version_command(args: VersionArgs) {
+fn handle_version(local: bool, bump: Option<String>) {
     let home = env::var("HOME").unwrap_or(".".to_string());
     let store_path = PathBuf::from(home)
         .join(".config")
         .join("fevercode")
         .join("version.json");
     let store = local_version::VersionStore::new(store_path);
-    if let Some(b) = args.bump {
+    if let Some(b) = bump {
         if let Some(kind) = local_version::parse_bump(&b) {
             let _ = store.bump(&kind);
         }
@@ -248,7 +179,7 @@ fn handle_version_command(args: VersionArgs) {
         }
     } else {
         println!("fever {}", env!("CARGO_PKG_VERSION"));
-        if args.local {
+        if local {
             if let Ok(v) = store.load() {
                 println!("local: {}", v);
             }
@@ -256,30 +187,50 @@ fn handle_version_command(args: VersionArgs) {
     }
 }
 
-fn list_roles() {
-    println!(
-        "Available roles: coder, researcher, planner, architect, debugger, tester, reviewer, refactorer, shell_operator"
-    );
+fn run_onboard() -> anyhow::Result<()> {
+    let project_dir = std::env::current_dir()?;
+    let onboarder = fever_onboard::Onboarder::new(&project_dir);
+    let result = onboarder.run().map_err(|e| anyhow::anyhow!("{}", e))?;
+    println!("{}", result.summary_table);
+    for file in &result.generated_files {
+        println!("Generated: {}", file.path);
+    }
+    Ok(())
 }
 
-async fn show_config() {
-    let cm = ConfigManager::new().expect("config dir init");
-    let cfg = cm.load().expect("load config");
-    println!("{:#?}", cfg);
+fn run_re_onboard() -> anyhow::Result<()> {
+    let project_dir = std::env::current_dir()?;
+    let onboarder = fever_onboard::Onboarder::new(&project_dir);
+    let result = onboarder.re_onboard().map_err(|e| anyhow::anyhow!("{}", e))?;
+    println!("{}", result.summary_table);
+    for file in &result.generated_files {
+        println!("Generated: {}", file.path);
+    }
+    Ok(())
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
+
+    // Handle --init flag or Init subcommand
+    if cli.init || matches!(cli.command, Some(Command::Init)) {
+        return run_onboard();
+    }
+
+    // Handle --re-onboard flag
+    if cli.re_onboard {
+        return run_re_onboard();
+    }
+
     match cli.command {
         Some(Command::Chat { message, model }) => {
             let client = build_provider_client(false).await;
             let content = message.join(" ");
             let model = model.unwrap_or_else(|| "gpt-4o".to_string());
-            // Simple chat request
-            let req = fever_providers::models::ChatRequest {
+            let req = ChatRequest {
                 model,
-                messages: vec![fever_providers::models::ChatMessage {
+                messages: vec![ChatMessage {
                     role: "user".to_string(),
                     content,
                     tool_calls: None,
@@ -299,11 +250,12 @@ async fn main() -> anyhow::Result<()> {
                 Err(e) => eprintln!("Error: {:?}", e),
             }
         }
-        Some(Command::Providers) => {
-            let client = build_provider_client(true).await;
+        Some(Command::Providers { fetch }) => {
+            let client = build_provider_client(fetch).await;
             let providers = client.list_providers();
             if providers.is_empty() {
                 println!("No providers configured");
+                return Ok(());
             }
             for name in providers {
                 if let Some(adapter) = client.get_provider(&name) {
@@ -319,30 +271,12 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         Some(Command::Version { local, bump }) => {
-            let home = env::var("HOME").unwrap_or(".".to_string());
-            let store_path = PathBuf::from(home)
-                .join(".config")
-                .join("fevercode")
-                .join("version.json");
-            let store = local_version::VersionStore::new(store_path);
-            if let Some(b) = bump {
-                if let Some(kind) = local_version::parse_bump(&b) {
-                    let _ = store.bump(&kind);
-                }
-                if let Ok(v) = store.load() {
-                    println!("{}", v);
-                }
-            } else {
-                println!("fever {}", env!("CARGO_PKG_VERSION"));
-                if local {
-                    if let Ok(v) = store.load() {
-                        println!("local: {}", v);
-                    }
-                }
-            }
+            handle_version(local, bump);
+        }
+        Some(Command::Init) => {
+            run_onboard()?;
         }
         None => {
-            // DEFAULT: Launch TUI
             let mut app = fever_tui::AppState::new();
             app.run()?;
         }

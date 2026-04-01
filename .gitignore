@@ -29,6 +29,9 @@ data/
 config.toml
 fevercode/
 
+# Project onboarding profile
+.fevercode/
+
 # Build artifacts
 dist/
 release/

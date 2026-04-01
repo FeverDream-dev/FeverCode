@@ -21,6 +21,8 @@ fever-tools = { path = "../fever-tools" }
 fever-search = { path = "../fever-search" }
 fever-browser = { path = "../fever-browser" }
 fever-providers = { path = "../fever-providers" }
+fever-telegram = { path = "../fever-telegram" }
+fever-onboard = { path = "../fever-onboard" }
 
 tokio = { workspace = true }
 serde = { workspace = true }

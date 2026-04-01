@@ -621,8 +621,10 @@ dependencies = [
  "fever-browser",
  "fever-config",
  "fever-core",
+ "fever-onboard",
  "fever-providers",
  "fever-search",
+ "fever-telegram",
  "fever-tools",
  "fever-tui",
  "serde",
@@ -670,6 +672,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fever-onboard"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "fever-core",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "fever-providers"
 version = "0.1.0"
 dependencies = [
@@ -712,6 +726,20 @@ dependencies = [
  "tokio",
  "url",
  "urlencoding",
+]
+
+[[package]]
+name = "fever-telegram"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "fever-core",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
