@@ -4,8 +4,8 @@ pub mod message;
 pub mod status_bar;
 pub mod tool_card;
 
-use ratatui::layout::Rect;
 use ratatui::Frame;
+use ratatui::layout::Rect;
 
 use crate::theme::Theme;
 

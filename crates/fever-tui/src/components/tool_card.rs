@@ -1,8 +1,8 @@
 use crate::theme::Theme;
 use crate::util::glyphs::{ACTIVE, CHECK, CROSS, MARK};
+use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::widgets::Paragraph;
-use ratatui::Frame;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToolStatus {

@@ -1,7 +1,7 @@
 use chrono::{DateTime, Local};
+use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::widgets::Paragraph;
-use ratatui::Frame;
 
 use crate::theme::Theme;
 use crate::util::text::wrap_text;

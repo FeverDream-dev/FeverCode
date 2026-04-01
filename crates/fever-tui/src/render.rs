@@ -1,8 +1,8 @@
 use crate::app::AppState;
 use crate::components::status_bar::StatusBar;
 use ratatui::{
-    layout::{Constraint, Layout},
     Frame,
+    layout::{Constraint, Layout},
 };
 
 pub fn render_frame(f: &mut Frame, state: &mut AppState) {

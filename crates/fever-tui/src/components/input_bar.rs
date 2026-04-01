@@ -1,9 +1,9 @@
 use std::fmt;
 
 use crossterm::event::KeyEvent;
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::widgets::{Block, Borders, Paragraph};
-use ratatui::Frame;
 use tui_textarea::TextArea;
 
 use crate::theme::Theme;

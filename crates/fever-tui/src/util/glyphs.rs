@@ -24,11 +24,7 @@ pub const BORDER_HORIZONTAL: &str = "─";
 pub const BORDER_VERTICAL: &str = "│";
 
 pub fn status_glyph(running: bool) -> &'static str {
-    if running {
-        ACTIVE
-    } else {
-        INACTIVE
-    }
+    if running { ACTIVE } else { INACTIVE }
 }
 
 pub fn task_status_glyph(status: &fever_core::TaskStatus) -> &'static str {

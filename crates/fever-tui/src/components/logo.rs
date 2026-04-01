@@ -1,7 +1,7 @@
+use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::Modifier;
 use ratatui::widgets::Paragraph;
-use ratatui::Frame;
 
 use crate::theme::Theme;
 use crate::util::text::center_text;

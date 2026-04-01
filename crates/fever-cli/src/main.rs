@@ -1,6 +1,6 @@
 mod local_version;
 
-use clap::{Parser, Subcommand, Args, ArgAction};
+use clap::{ArgAction, Args, Parser, Subcommand};
 use fever_config::ConfigManager;
 use fever_providers::ProviderClient;
 use fever_providers::adapters::anthropic::AnthropicAdapter;
