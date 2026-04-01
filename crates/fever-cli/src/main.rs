@@ -204,7 +204,7 @@ async fn run_chat(args: ChatArgs) {
     let resp = client.chat(&req).await;
     match resp {
         Ok(r) => {
-            if let Some(choice) = r.choices.get(0) {
+            if let Some(choice) = r.choices.first() {
                 println!("{}", choice.message.content);
             }
             if let Some(usage) = r.usage {
@@ -237,12 +237,12 @@ fn handle_version_command(args: VersionArgs) {
             let _ = store.bump(&kind);
         }
         if let Ok(v) = store.load() {
-            println!("{}", v.to_string());
+            println!("{}", v);
         }
         return;
     }
     if let Ok(v) = store.load() {
-        println!("{}", v.to_string());
+        println!("{}", v);
     }
 }
 

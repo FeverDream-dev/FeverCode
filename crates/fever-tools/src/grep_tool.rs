@@ -110,9 +110,7 @@ impl GrepTool {
                 }
             }
 
-            let content = tokio::fs::read_to_string(path)
-                .await
-                .map_err(|e| Error::Io(e))?;
+            let content = tokio::fs::read_to_string(path).await.map_err(Error::Io)?;
 
             for (line_num, line) in content.lines().enumerate() {
                 if regex.is_match(line) {

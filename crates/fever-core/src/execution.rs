@@ -81,27 +81,27 @@ impl ExecutionEngine {
                     for task_id in ready_tasks {
                         let task = p.get_task(&task_id).unwrap();
 
-                        let _ = tx.send(ExecutionEvent::TaskStarted {
+                        drop(tx.send(ExecutionEvent::TaskStarted {
                             task_id: task_id.clone(),
                             title: task.title.clone(),
-                        });
+                        }));
 
                         let context = ExecutionContext::new(p.id.clone(), task_id.clone());
 
-                        match self::simulate_task(&task, &context).await {
+                        match self::simulate_task(task, &context).await {
                             Ok(_) => {
                                 completed.insert(task_id.clone());
-                                let _ = tx.send(ExecutionEvent::TaskCompleted {
+                                drop(tx.send(ExecutionEvent::TaskCompleted {
                                     task_id: task_id.clone(),
                                     title: task.title.clone(),
-                                });
+                                }));
                             }
                             Err(e) => {
-                                let _ = tx.send(ExecutionEvent::TaskFailed {
+                                drop(tx.send(ExecutionEvent::TaskFailed {
                                     task_id: task_id.clone(),
                                     title: task.title.clone(),
                                     error: e.to_string(),
-                                });
+                                }));
                             }
                         }
                     }
@@ -110,7 +110,7 @@ impl ExecutionEngine {
                 }
             }
 
-            let _ = tx.send(ExecutionEvent::PlanCompleted);
+            drop(tx.send(ExecutionEvent::PlanCompleted));
         });
 
         rx

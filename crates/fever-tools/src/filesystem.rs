@@ -31,7 +31,11 @@ impl Tool for FilesystemTool {
             "list" => self.list(args).await?,
             "exists" => self.exists(args).await?,
             "delete" => self.delete(args).await?,
-            _ => return Err(Error::InvalidRequest("Unknown filesystem action".to_string()).into()),
+            _ => {
+                return Err(Error::InvalidRequest(
+                    "Unknown filesystem action".to_string(),
+                ));
+            }
         };
 
         Ok(result)
@@ -70,9 +74,7 @@ impl FilesystemTool {
             .and_then(|v| v.as_str())
             .ok_or_else(|| Error::InvalidRequest("path required".to_string()))?;
 
-        let content = tokio::fs::read_to_string(path)
-            .await
-            .map_err(|e| Error::Io(e))?;
+        let content = tokio::fs::read_to_string(path).await.map_err(Error::Io)?;
 
         Ok(serde_json::json!({
             "content": content,
@@ -91,9 +93,7 @@ impl FilesystemTool {
             .and_then(|v| v.as_str())
             .ok_or_else(|| Error::InvalidRequest("content required".to_string()))?;
 
-        tokio::fs::write(path, content)
-            .await
-            .map_err(|e| Error::Io(e))?;
+        tokio::fs::write(path, content).await.map_err(Error::Io)?;
 
         Ok(serde_json::json!({
             "success": true,
@@ -105,13 +105,13 @@ impl FilesystemTool {
     async fn list(&self, args: Value) -> Result<Value> {
         let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
 
-        let mut entries = tokio::fs::read_dir(path).await.map_err(|e| Error::Io(e))?;
+        let mut entries = tokio::fs::read_dir(path).await.map_err(Error::Io)?;
 
         let mut files = Vec::new();
         let mut dirs = Vec::new();
 
-        while let Some(entry) = entries.next_entry().await.map_err(|e| Error::Io(e))? {
-            let file_type = entry.file_type().await.map_err(|e| Error::Io(e))?;
+        while let Some(entry) = entries.next_entry().await.map_err(Error::Io)? {
+            let file_type = entry.file_type().await.map_err(Error::Io)?;
 
             let name = entry.file_name().to_string_lossy().to_string();
 
@@ -149,9 +149,7 @@ impl FilesystemTool {
             .and_then(|v| v.as_str())
             .ok_or_else(|| Error::InvalidRequest("path required".to_string()))?;
 
-        tokio::fs::remove_file(path)
-            .await
-            .map_err(|e| Error::Io(e))?;
+        tokio::fs::remove_file(path).await.map_err(Error::Io)?;
 
         Ok(serde_json::json!({
             "success": true,

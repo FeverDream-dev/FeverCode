@@ -150,7 +150,7 @@ impl ProviderAdapter for AnthropicAdapter {
         let temperature = request.temperature.unwrap_or(0.7);
 
         let body = AnthropicRequestBody {
-            model: model,
+            model,
             max_tokens,
             messages,
             system: system_prompt,
@@ -218,7 +218,7 @@ impl ProviderAdapter for AnthropicAdapter {
 
         // Map response to Fever's ChatResponse
         let mut content_text = String::new();
-        if let Some(first) = anthro.content.get(0) {
+        if let Some(first) = anthro.content.first() {
             if let Some(t) = &first.text {
                 content_text = t.clone();
             }

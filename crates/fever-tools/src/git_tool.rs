@@ -38,7 +38,7 @@ impl Tool for GitTool {
             "diff" => self.diff(args).await?,
             "commit" => self.commit(args).await?,
             "branch" => self.branch(args).await?,
-            _ => return Err(Error::InvalidRequest("Unknown git action".to_string()).into()),
+            _ => return Err(Error::InvalidRequest("Unknown git action".to_string())),
         };
 
         Ok(result)
@@ -77,7 +77,7 @@ impl GitTool {
             .current_dir(&self.repo_path)
             .output()
             .await
-            .map_err(|e| Error::Io(e))?;
+            .map_err(Error::Io)?;
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let lines: Vec<&str> = stdout.lines().collect();
@@ -97,7 +97,7 @@ impl GitTool {
             .current_dir(&self.repo_path)
             .output()
             .await
-            .map_err(|e| Error::Io(e))?;
+            .map_err(Error::Io)?;
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let commits: Vec<&str> = stdout.lines().collect();
@@ -120,7 +120,7 @@ impl GitTool {
 
         cmd.current_dir(&self.repo_path);
 
-        let output = cmd.output().await.map_err(|e| Error::Io(e))?;
+        let output = cmd.output().await.map_err(Error::Io)?;
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
 
@@ -141,7 +141,7 @@ impl GitTool {
             .current_dir(&self.repo_path)
             .output()
             .await
-            .map_err(|e| Error::Io(e))?;
+            .map_err(Error::Io)?;
 
         Ok(serde_json::json!({
             "success": output.status.success(),
@@ -155,7 +155,7 @@ impl GitTool {
             .current_dir(&self.repo_path)
             .output()
             .await
-            .map_err(|e| Error::Io(e))?;
+            .map_err(Error::Io)?;
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let branches: Vec<&str> = stdout.lines().collect();

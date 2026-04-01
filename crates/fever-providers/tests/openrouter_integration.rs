@@ -12,6 +12,7 @@ fn get_key() -> String {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_openrouter_fetch_models() {
     let adapter = OpenAiAdapter::openrouter(get_key());
 
@@ -37,6 +38,7 @@ async fn test_openrouter_fetch_models() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_openrouter_chat() {
     let key = get_key();
     let adapter = OpenAiAdapter::openrouter(&key);
@@ -95,6 +97,7 @@ async fn test_openrouter_chat() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_openrouter_model_info() {
     let adapter = OpenAiAdapter::openrouter(get_key());
 

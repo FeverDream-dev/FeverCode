@@ -59,7 +59,7 @@ impl FeverAgent {
     ) -> fever_core::Result<crate::LoopResult> {
         // Ensure tools exist
         if self.tools.is_none() {
-            return Err(fever_core::Error::Agent("No tools registered".to_string()).into());
+            return Err(fever_core::Error::Agent("No tools registered".to_string()));
         }
 
         // Construct a LoopDriver borrowed from self
@@ -69,7 +69,10 @@ impl FeverAgent {
 
     pub fn set_role(&mut self, role_id: &str) -> Result<()> {
         if self.roles.get(role_id).is_none() {
-            return Err(fever_core::Error::Agent(format!("Role '{}' not found", role_id)).into());
+            return Err(fever_core::Error::Agent(format!(
+                "Role '{}' not found",
+                role_id
+            )));
         }
         self.current_role = role_id.to_string();
         Ok(())

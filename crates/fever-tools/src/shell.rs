@@ -40,7 +40,7 @@ impl Tool for ShellTool {
             .current_dir(&self.working_dir)
             .output()
             .await
-            .map_err(|e| Error::Io(e))?;
+            .map_err(Error::Io)?;
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();

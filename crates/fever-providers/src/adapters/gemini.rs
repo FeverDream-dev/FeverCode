@@ -99,7 +99,7 @@ impl GeminiAdapter {
         Self {
             provider_name: name.to_string(),
             config: GeminiConfig {
-                api_key: api_key,
+                api_key,
                 base_url: base_config.base_url,
                 default_model: base_config.default_model,
             },

@@ -12,10 +12,6 @@ categories.workspace = true
 name = "fever"
 path = "src/main.rs"
 
-[[bin]]
-name = "fever-code"
-path = "src/main.rs"
-
 [dependencies]
 fever-core = { path = "../fever-core" }
 fever-agent = { path = "../fever-agent" }

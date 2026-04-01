@@ -41,7 +41,7 @@ mod tests {
         assert!(out.was_modified);
         assert_eq!(out.original, req);
         assert!(out.improved.starts_with("## Objective"));
-        assert!(!out.sections.scope.is_empty() || true); // at least one field present
+        assert!(!out.sections.scope.is_empty()); // at least one field present
     }
 
     #[test]
@@ -102,8 +102,10 @@ mod tests {
 
     #[test]
     fn test_max_length_truncation() {
-        let mut cfg = PromptImproverConfig::default();
-        cfg.max_length = 50; // very small to force truncation
+        let cfg = PromptImproverConfig {
+            max_length: 50,
+            ..Default::default()
+        };
         let improver = PromptImprover::new(cfg);
         let req = "Add a feature to extremely long description that should be truncated by the max length setting";
         let ctx = make_context();

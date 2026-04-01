@@ -1,4 +1,3 @@
-use rusqlite;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

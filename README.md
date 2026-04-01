@@ -44,6 +44,8 @@ Fever Code is building toward this vision.
 
 ### From Source
 
+Requires **Rust 1.85 or newer** (pinned via `rust-toolchain.toml`).
+
 ```bash
 git clone https://github.com/FeverDream-dev/FeverCode.git
 cd FeverCode

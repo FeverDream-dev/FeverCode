@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -8,6 +9,12 @@ pub struct VersionState {
     pub major: u32,
     pub minor: u32,
     pub patch: u32,
+}
+
+impl fmt::Display for VersionState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -24,9 +31,6 @@ impl VersionState {
             minor,
             patch,
         }
-    }
-    pub fn to_string(&self) -> String {
-        format!("{}.{}.{}", self.major, self.minor, self.patch)
     }
 }
 

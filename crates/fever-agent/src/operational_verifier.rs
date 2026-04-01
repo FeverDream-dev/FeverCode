@@ -48,6 +48,12 @@ pub struct OperationalVerifier {
     pub default_timeout_seconds: u64,
 }
 
+impl Default for OperationalVerifier {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OperationalVerifier {
     pub fn new() -> Self {
         Self {
@@ -246,7 +252,7 @@ impl OperationalVerifier {
                 for part in line.split(';') {
                     if part.contains("passed") {
                         for w in part.split_whitespace() {
-                            if w.chars().all(|c| c.is_digit(10)) {
+                            if w.chars().all(|c| c.is_ascii_digit()) {
                                 passed = w.parse().unwrap_or(0);
                                 break;
                             }
@@ -254,7 +260,7 @@ impl OperationalVerifier {
                     }
                     if part.contains("failed") {
                         for w in part.split_whitespace() {
-                            if w.chars().all(|c| c.is_digit(10)) {
+                            if w.chars().all(|c| c.is_ascii_digit()) {
                                 failed = w.parse().unwrap_or(0);
                                 break;
                             }
