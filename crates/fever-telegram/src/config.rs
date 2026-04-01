@@ -1,20 +1,11 @@
 use std::env;
 
-/// Configuration for the Telegram integration.
-///
-/// This struct holds token, chat identifiers, and behavior controls used by
-/// the Telegram service. It can be constructed from environment variables via
-/// `TelegramConfig::from_env()`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TelegramConfig {
-    /// Bot token used to authenticate with the Telegram Bot API.
     pub bot_token: String,
-    /// Optional chat identifier to send messages to. If None, messages are logged locally.
     pub chat_id: Option<String>,
-    /// Minimum interval (in seconds) between outgoing messages for rate limiting.
-    pub notify_interval_secs: u64, // default 5
-    /// Whether to run in loop mode (not used in tests; kept for compatibility).
-    pub loop_mode: bool, // default true
+    pub notify_interval_secs: u64,
+    pub loop_mode: bool,
 }
 
 impl TelegramConfig {

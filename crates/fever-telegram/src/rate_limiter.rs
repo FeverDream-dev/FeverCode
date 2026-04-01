@@ -4,7 +4,6 @@ use std::time::{Duration, Instant};
 ///
 /// Ensures messages are sent no more frequently than `min_interval` and
 /// queues excess messages for later flushing.
-
 pub struct RateLimiter {
     min_interval: Duration,
     last_sent: Option<Instant>,

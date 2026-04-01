@@ -78,7 +78,7 @@ pub fn all_questions() -> Vec<Question> {
             id: "project_name".to_string(),
             prompt: "What is the project name?".to_string(),
             block: QuestionBlock::Identity,
-            validation: Validation::Custom(|s| validate_not_empty(s)),
+            validation: Validation::Custom(validate_not_empty),
             default: None,
             options: None,
         },
@@ -103,7 +103,7 @@ pub fn all_questions() -> Vec<Question> {
             prompt: "Current state of onboarding (1-4)?".to_string(),
             block: QuestionBlock::Identity,
             validation: Validation::Custom(|s| match s.trim().parse::<i32>() {
-                Ok(n) => n >= 1 && n <= 4,
+                Ok(n) => (1..=4).contains(&n),
                 Err(_) => false,
             }),
             default: Some("1".to_string()),

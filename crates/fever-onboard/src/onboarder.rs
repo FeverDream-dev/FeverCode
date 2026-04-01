@@ -5,7 +5,7 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 use crate::profile::ProjectProfile;
-use crate::questions::{all_questions, Validation};
+use crate::questions::{Validation, all_questions};
 use crate::scaffold::{GeneratedFile, ScaffoldGenerator};
 use tracing::{info, warn};
 
@@ -40,7 +40,9 @@ impl Onboarder {
         let questions = all_questions();
         let mut answers: HashMap<String, String> = HashMap::new();
 
-        println!("Welcome to FeverOnboard. Please answer the following questions to bootstrap your project.");
+        println!(
+            "Welcome to FeverOnboard. Please answer the following questions to bootstrap your project."
+        );
 
         for q in questions.iter() {
             // Show prompt
@@ -110,10 +112,8 @@ impl Onboarder {
 
     pub fn re_onboard(&self) -> Result<OnboardResult, String> {
         // Load existing profile and re-run generation with current values
-        let prof = match crate::profile::ProjectProfile::load_from(&self.profile_path) {
-            Ok(p) => p,
-            Err(_) => crate::profile::ProjectProfile::default(),
-        };
+        let prof =
+            crate::profile::ProjectProfile::load_from(&self.profile_path).unwrap_or_default();
         let scaffold = ScaffoldGenerator::new(prof.clone());
         let generated = scaffold.generate_all().unwrap_or_default();
         Ok(OnboardResult {

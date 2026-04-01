@@ -1,8 +1,6 @@
 use fever_onboard::profile::ProjectProfile;
-use fever_onboard::questions::{
-    all_questions, Question, QuestionBlock, QuestionOption, Validation,
-};
-use fever_onboard::scaffold::{GeneratedFile, ScaffoldGenerator};
+use fever_onboard::questions::{QuestionBlock, all_questions};
+use fever_onboard::scaffold::ScaffoldGenerator;
 use std::collections::HashMap;
 
 #[test]
@@ -69,6 +67,99 @@ fn test_scaffold_generation_contains_expected_files() {
     assert!(paths.contains(&"Dockerfile"));
     assert!(paths.iter().any(|p| p.ends_with("ci.yml")));
     assert!(paths.iter().any(|p| p.ends_with("README.md")));
+}
+
+#[test]
+fn test_deployment_config_aws_generates_aws_tf() {
+    let mut answers = std::collections::HashMap::new();
+    answers.insert("project_name".to_string(), "demo-aws".to_string());
+    answers.insert("description".to_string(), "Demo for AWS".to_string());
+    answers.insert("hosting_platform".to_string(), "AWS".to_string());
+    answers.insert("primary_language".to_string(), "Rust".to_string());
+    let profile = fever_onboard::profile::ProjectProfile::from_answers(answers);
+    let scaffold = ScaffoldGenerator::new(profile);
+    let dep = scaffold.generate_deployment_config().expect("aws file");
+    assert_eq!(dep.path, "aws.tf");
+    assert!(dep.content.contains("aws_instance"));
+    assert!(dep.content.contains("aws_lb"));
+}
+
+#[test]
+fn test_deployment_config_gcp_generates_cloudbuild_yaml() {
+    let mut answers = std::collections::HashMap::new();
+    answers.insert("project_name".to_string(), "demo-gcp".to_string());
+    answers.insert("description".to_string(), "Demo for GCP".to_string());
+    answers.insert("hosting_platform".to_string(), "GCP".to_string());
+    answers.insert("primary_language".to_string(), "Rust".to_string());
+    let profile = fever_onboard::profile::ProjectProfile::from_answers(answers);
+    let scaffold = ScaffoldGenerator::new(profile);
+    let dep = scaffold
+        .generate_deployment_config()
+        .expect("cloudbuild.yaml");
+    assert_eq!(dep.path, "cloudbuild.yaml");
+    assert!(dep.content.contains("steps:"));
+    assert!(dep.content.contains("gcr.io"));
+}
+
+#[test]
+fn test_deployment_config_digitalocean_generates_do_app_yaml() {
+    let mut answers = std::collections::HashMap::new();
+    answers.insert("project_name".to_string(), "demo-do".to_string());
+    answers.insert("description".to_string(), "Demo for DO".to_string());
+    answers.insert("hosting_platform".to_string(), "DigitalOcean".to_string());
+    answers.insert("primary_language".to_string(), "Rust".to_string());
+    let profile = fever_onboard::profile::ProjectProfile::from_answers(answers);
+    let scaffold = ScaffoldGenerator::new(profile);
+    let dep = scaffold.generate_deployment_config().expect("do-app.yaml");
+    assert_eq!(dep.path, "do-app.yaml");
+    assert!(dep.content.contains("name:"));
+}
+
+#[test]
+fn test_deployment_config_vps_generates_deploy_sh() {
+    let mut answers = std::collections::HashMap::new();
+    answers.insert("project_name".to_string(), "demo-vps".to_string());
+    answers.insert("description".to_string(), "Demo for VPS".to_string());
+    answers.insert("hosting_platform".to_string(), "VPS".to_string());
+    answers.insert("primary_language".to_string(), "Rust".to_string());
+    let profile = fever_onboard::profile::ProjectProfile::from_answers(answers);
+    let scaffold = ScaffoldGenerator::new(profile);
+    let dep = scaffold.generate_deployment_config().expect("deploy.sh");
+    assert_eq!(dep.path, "deploy.sh");
+    assert!(dep.content.contains("#!/bin/bash"));
+}
+
+#[test]
+fn test_deployment_config_docker_generates_docker_compose() {
+    let mut answers = std::collections::HashMap::new();
+    answers.insert("project_name".to_string(), "demo-docker".to_string());
+    answers.insert("description".to_string(), "Docker Compose".to_string());
+    answers.insert("hosting_platform".to_string(), "Docker".to_string());
+    answers.insert("primary_language".to_string(), "Rust".to_string());
+    let profile = fever_onboard::profile::ProjectProfile::from_answers(answers);
+    let scaffold = ScaffoldGenerator::new(profile);
+    let dep = scaffold
+        .generate_deployment_config()
+        .expect("docker-compose.yml");
+    assert_eq!(dep.path, "docker-compose.yml");
+    assert!(dep.content.contains("version: \"3.8\""));
+}
+
+#[test]
+fn test_ci_cd_yaml_is_real_yaml() {
+    let mut answers = std::collections::HashMap::new();
+    answers.insert("project_name".to_string(), "demo-ci".to_string());
+    answers.insert("description".to_string(), "CI/CD test".to_string());
+    answers.insert("hosting_platform".to_string(), "Railway".to_string());
+    answers.insert("primary_language".to_string(), "Rust".to_string());
+    answers.insert("cicd_needed".to_string(), "GitHub Actions".to_string());
+    let profile = fever_onboard::profile::ProjectProfile::from_answers(answers);
+    let scaffold = ScaffoldGenerator::new(profile);
+    let ci_parts = scaffold.generate_ci_cd();
+    assert_eq!(ci_parts.len(), 2);
+    let ci_yaml = &ci_parts[0].content;
+    assert!(ci_yaml.contains("runs-on"));
+    assert!(ci_yaml.contains("steps"));
 }
 
 #[test]

@@ -464,10 +464,7 @@ impl ProviderAdapter for OpenAiAdapter {
                             }
 
                             if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
-                                let id = json
-                                    .get("id")
-                                    .and_then(|v| v.as_str())
-                                    .map(String::from);
+                                let id = json.get("id").and_then(|v| v.as_str()).map(String::from);
                                 let content = json
                                     .pointer("/choices/0/delta/content")
                                     .and_then(|v| v.as_str())

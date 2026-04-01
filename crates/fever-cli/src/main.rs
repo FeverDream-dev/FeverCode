@@ -201,7 +201,9 @@ fn run_onboard() -> anyhow::Result<()> {
 fn run_re_onboard() -> anyhow::Result<()> {
     let project_dir = std::env::current_dir()?;
     let onboarder = fever_onboard::Onboarder::new(&project_dir);
-    let result = onboarder.re_onboard().map_err(|e| anyhow::anyhow!("{}", e))?;
+    let result = onboarder
+        .re_onboard()
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
     println!("{}", result.summary_table);
     for file in &result.generated_files {
         println!("Generated: {}", file.path);

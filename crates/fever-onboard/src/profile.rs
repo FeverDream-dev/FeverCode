@@ -90,7 +90,7 @@ impl ProjectProfile {
                         .filter(|t| !t.is_empty())
                         .collect()
                 })
-                .unwrap_or_else(|| vec![]),
+                .unwrap_or_default(),
             hosting_platform: answers.get("hosting_platform").cloned().unwrap_or_default(),
             delivery_method: answers.get("delivery_method").cloned().unwrap_or_default(),
             cicd_needed: answers.get("cicd_needed").cloned().unwrap_or_default(),
@@ -102,14 +102,10 @@ impl ProjectProfile {
                         .filter(|t| !t.is_empty())
                         .collect()
                 })
-                .unwrap_or_else(|| vec![]),
-            custom_domain: answers.get("custom_domain").and_then(|v| {
-                if v.is_empty() {
-                    None
-                } else {
-                    Some(v.clone())
-                }
-            }),
+                .unwrap_or_default(),
+            custom_domain: answers
+                .get("custom_domain")
+                .and_then(|v| if v.is_empty() { None } else { Some(v.clone()) }),
             quality_level: answers.get("quality_level").cloned().unwrap_or_default(),
             existing_tests: matches!(
                 answers.get("existing_tests").map(|s| s.as_str()),
@@ -132,7 +128,7 @@ impl ProjectProfile {
                         .filter(|t| !t.is_empty())
                         .collect()
                 })
-                .unwrap_or_else(|| vec![]),
+                .unwrap_or_default(),
             urgency_level: answers.get("urgency_level").cloned().unwrap_or_default(),
             created_at: now.clone(),
             updated_at: now,
