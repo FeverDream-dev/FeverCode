@@ -42,6 +42,20 @@ Fever Code is building toward this vision.
 
 ## Installation
 
+### Quick Install (Linux & macOS)
+
+Installs Rust if needed, builds from source, places binary in `~/.local/bin/`:
+
+```bash
+curl -sL https://raw.githubusercontent.com/FeverDream-dev/FeverCode/main/install.sh | bash
+```
+
+Uninstall cleanly:
+
+```bash
+curl -sL https://raw.githubusercontent.com/FeverDream-dev/FeverCode/main/uninstall.sh | bash
+```
+
 ### From Source
 
 Requires **Rust 1.85 or newer** (pinned via `rust-toolchain.toml`).
@@ -50,6 +64,7 @@ Requires **Rust 1.85 or newer** (pinned via `rust-toolchain.toml`).
 git clone https://github.com/FeverDream-dev/FeverCode.git
 cd FeverCode
 cargo build --release
+cp target/release/fever ~/.local/bin/
 ```
 
 ### Usage
@@ -58,17 +73,14 @@ cargo build --release
 # Start the TUI
 fever
 
-# or
-fever code
+# Show version
+fever version
 
 # List available roles
 fever roles
 
 # Show configuration
 fever config
-
-# Show version
-fever version
 ```
 
 ## Architecture
