@@ -20,7 +20,7 @@ fn test_from_env_config_present() {
     assert_eq!(cfg.bot_token, "test-token");
     assert_eq!(cfg.chat_id.as_deref(), Some("12345"));
     assert_eq!(cfg.notify_interval_secs, 10);
-    assert_eq!(cfg.loop_mode, false);
+    assert!(!cfg.loop_mode);
     // cleanup
     unsafe {
         env::remove_var("TELEGRAM_BOT_TOKEN");

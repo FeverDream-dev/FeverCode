@@ -5,7 +5,7 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 use crate::profile::ProjectProfile;
-use crate::questions::{Validation, all_questions};
+use crate::questions::{all_questions, Validation};
 use crate::scaffold::{GeneratedFile, ScaffoldGenerator};
 use tracing::{info, warn};
 
@@ -132,7 +132,7 @@ mod tests {
     fn is_onboarded_false_when_no_profile() {
         let tmp = std::env::temp_dir().join("fever_onboard_no_profile");
         let od = Onboarder::new(&tmp);
-        assert_eq!(od.is_onboarded(), false);
+        assert!(!od.is_onboarded());
     }
     #[test]
     fn is_onboarded_true_after_profile_created() {
@@ -146,7 +146,7 @@ mod tests {
         }
         let prof = ProjectProfile::default();
         let _ = prof.save_to(&path);
-        assert_eq!(od.is_onboarded(), true);
+        assert!(od.is_onboarded());
         let _ = std::fs::remove_file(&path);
         // Cleanup
         let _ = std::fs::remove_dir_all(tmp);
