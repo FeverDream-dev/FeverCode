@@ -297,16 +297,17 @@ mod tests {
 
     #[test]
     fn deployment_config_railway_and_fly() {
-        let mut p = ProjectProfile::default();
-        p.project_name = "demo".to_string();
-        p.description = "desc".to_string();
-        p.hosting_platform = "Railway".to_string();
+        let p = ProjectProfile {
+            project_name: "demo".to_string(),
+            description: "desc".to_string(),
+            hosting_platform: "Railway".to_string(),
+            ..Default::default()
+        };
         let deployment = ScaffoldGenerator::new(p).generate_deployment_config();
         assert!(deployment.is_some());
-        let p2 = {
-            let mut p = ProjectProfile::default();
-            p.hosting_platform = "Fly.io".to_string();
-            p
+        let p2 = ProjectProfile {
+            hosting_platform: "Fly.io".to_string(),
+            ..Default::default()
         };
         let deployment2 = ScaffoldGenerator::new(p2).generate_deployment_config();
         assert!(deployment2.is_some());
@@ -314,8 +315,10 @@ mod tests {
 
     #[test]
     fn dockerfile_generation_known_langs() {
-        let mut p = ProjectProfile::default();
-        p.primary_language = "Rust".to_string();
+        let p = ProjectProfile {
+            primary_language: "Rust".to_string(),
+            ..Default::default()
+        };
         let docker = ScaffoldGenerator::new(p).generate_dockerfile().unwrap();
         assert!(docker.path == "Dockerfile");
         assert!(docker.content.contains("FROM rust"));
@@ -323,16 +326,20 @@ mod tests {
 
     #[test]
     fn ci_cd_generation_none_behaviour() {
-        let mut p = ProjectProfile::default();
-        p.cicd_needed = "None".to_string();
+        let p = ProjectProfile {
+            cicd_needed: "None".to_string(),
+            ..Default::default()
+        };
         let di = ScaffoldGenerator::new(p).generate_ci_cd();
         assert!(di.is_empty());
     }
 
     #[test]
     fn env_example_generation() {
-        let mut p = ProjectProfile::default();
-        p.env_vars = vec!["API_KEY".to_string(), "DEBUG".to_string()];
+        let p = ProjectProfile {
+            env_vars: vec!["API_KEY".to_string(), "DEBUG".to_string()],
+            ..Default::default()
+        };
         let env = ScaffoldGenerator::new(p).generate_env_example();
         assert!(env.content.contains("API_KEY=<value>"));
         assert!(env.content.contains("DEBUG=<value>"));
@@ -340,9 +347,11 @@ mod tests {
 
     #[test]
     fn deployment_config_aws() {
-        let mut p = ProjectProfile::default();
-        p.project_name = "myapp".to_string();
-        p.hosting_platform = "AWS".to_string();
+        let p = ProjectProfile {
+            project_name: "myapp".to_string(),
+            hosting_platform: "AWS".to_string(),
+            ..Default::default()
+        };
         let dep = ScaffoldGenerator::new(p)
             .generate_deployment_config()
             .unwrap();
@@ -353,9 +362,11 @@ mod tests {
 
     #[test]
     fn deployment_config_gcp() {
-        let mut p = ProjectProfile::default();
-        p.project_name = "myapp".to_string();
-        p.hosting_platform = "GCP".to_string();
+        let p = ProjectProfile {
+            project_name: "myapp".to_string(),
+            hosting_platform: "GCP".to_string(),
+            ..Default::default()
+        };
         let dep = ScaffoldGenerator::new(p)
             .generate_deployment_config()
             .unwrap();
@@ -366,9 +377,11 @@ mod tests {
 
     #[test]
     fn deployment_config_digitalocean() {
-        let mut p = ProjectProfile::default();
-        p.project_name = "myapp".to_string();
-        p.hosting_platform = "DigitalOcean".to_string();
+        let p = ProjectProfile {
+            project_name: "myapp".to_string(),
+            hosting_platform: "DigitalOcean".to_string(),
+            ..Default::default()
+        };
         let dep = ScaffoldGenerator::new(p)
             .generate_deployment_config()
             .unwrap();
@@ -379,9 +392,11 @@ mod tests {
 
     #[test]
     fn deployment_config_vps() {
-        let mut p = ProjectProfile::default();
-        p.project_name = "myapp".to_string();
-        p.hosting_platform = "VPS".to_string();
+        let p = ProjectProfile {
+            project_name: "myapp".to_string(),
+            hosting_platform: "VPS".to_string(),
+            ..Default::default()
+        };
         let dep = ScaffoldGenerator::new(p)
             .generate_deployment_config()
             .unwrap();
@@ -392,9 +407,11 @@ mod tests {
 
     #[test]
     fn deployment_config_docker() {
-        let mut p = ProjectProfile::default();
-        p.project_name = "myapp".to_string();
-        p.hosting_platform = "Docker".to_string();
+        let p = ProjectProfile {
+            project_name: "myapp".to_string(),
+            hosting_platform: "Docker".to_string(),
+            ..Default::default()
+        };
         let dep = ScaffoldGenerator::new(p)
             .generate_deployment_config()
             .unwrap();
@@ -405,10 +422,12 @@ mod tests {
 
     #[test]
     fn ci_cd_yaml_contains_real_structure() {
-        let mut p = ProjectProfile::default();
-        p.project_name = "test".to_string();
-        p.primary_language = "Rust".to_string();
-        p.cicd_needed = "GitHub Actions".to_string();
+        let p = ProjectProfile {
+            project_name: "test".to_string(),
+            primary_language: "Rust".to_string(),
+            cicd_needed: "GitHub Actions".to_string(),
+            ..Default::default()
+        };
         let files = ScaffoldGenerator::new(p).generate_ci_cd();
         let ci = &files[0];
         assert_eq!(ci.path, ".github/workflows/ci.yml");

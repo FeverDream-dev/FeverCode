@@ -140,7 +140,6 @@ impl ProjectProfile {
 mod tests {
     use super::*;
     use std::fs;
-    use std::path::PathBuf;
 
     #[test]
     fn save_and_load_profile_roundtrip() {
@@ -171,7 +170,7 @@ mod tests {
         };
 
         let dir = std::env::temp_dir();
-        let mut path = PathBuf::from(dir);
+        let mut path = dir;
         path.push("fever_onboard_profile_test.json");
 
         // Ensure no existing file
