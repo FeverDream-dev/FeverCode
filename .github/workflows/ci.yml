@@ -68,4 +68,4 @@ jobs:
     - name: Check binary
       run: |
         test -f target/release/fever
-        ./target/release/fever --version
+        ./target/release/fever version
