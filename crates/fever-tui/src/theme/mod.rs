@@ -62,15 +62,56 @@ impl Theme {
     pub fn detect() -> Self {
         if Self::supports_truecolor() {
             Self::fever_dream()
+        } else if Self::supports_256color() {
+            Self::fever_obsidian()
         } else {
             Self::fallback_16()
         }
     }
 
     fn supports_truecolor() -> bool {
-        std::env::var("COLORTERM")
-            .map(|v| v.contains("truecolor") || v.contains("24bit"))
-            .unwrap_or(false)
+        let colorterm = std::env::var("COLORTERM")
+            .unwrap_or_default()
+            .to_lowercase();
+        if colorterm.contains("truecolor")
+            || colorterm.contains("24bit")
+            || colorterm.contains("direct")
+        {
+            return true;
+        }
+
+        let term_program = std::env::var("TERM_PROGRAM")
+            .unwrap_or_default()
+            .to_lowercase();
+        let truecolor_terminals = [
+            "iterm",
+            "wezterm",
+            "kitty",
+            "alacritty",
+            "ghostty",
+            "rio",
+            "warp",
+            "hyper",
+            "tabby",
+            "vscode",
+            "jetbrains",
+        ];
+        if truecolor_terminals.iter().any(|t| term_program.contains(t)) {
+            return true;
+        }
+
+        let term = std::env::var("TERM").unwrap_or_default().to_lowercase();
+        term.contains("truecolor") || term.contains("direct")
+    }
+
+    fn supports_256color() -> bool {
+        let term = std::env::var("TERM").unwrap_or_default().to_lowercase();
+        term.contains("256color")
+            || term.contains("xterm")
+            || term.contains("screen")
+            || term.contains("tmux")
+            || term.contains("rxvt")
+            || std::env::var("COLORFGBG").is_ok()
     }
 
     pub fn list_all() -> Vec<Theme> {
