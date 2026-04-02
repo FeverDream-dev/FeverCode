@@ -1,3 +1,4 @@
+pub mod agent_bridge;
 pub mod animation;
 pub mod app;
 pub mod components;
@@ -8,5 +9,6 @@ pub mod slash;
 pub mod theme;
 pub mod util;
 
+pub use agent_bridge::AgentHandle;
 pub use app::AppState;
 pub use event::{Command, Message, Screen};

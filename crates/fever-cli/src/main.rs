@@ -1,6 +1,8 @@
+mod agent_handle;
 mod local_version;
 
 use clap::{Parser, Subcommand};
+use fever_core::ToolRegistry;
 use fever_providers::ProviderClient;
 use fever_providers::adapters::anthropic::AnthropicAdapter;
 use fever_providers::adapters::gemini::GeminiAdapter;
@@ -10,6 +12,9 @@ use fever_providers::models::{ChatMessage, ChatRequest};
 use std::env;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use agent_handle::FeverAgentHandle;
+use fever_agent::AgentConfig;
 
 #[derive(Parser)]
 #[clap(name = "fever", about = "Fever Code — Terminal AI Coding Agent")]
@@ -163,6 +168,15 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
     client
 }
 
+fn build_tool_registry() -> ToolRegistry {
+    let mut registry = ToolRegistry::new();
+    let _ = registry.register(Box::new(fever_tools::ShellTool::new()));
+    let _ = registry.register(Box::new(fever_tools::FilesystemTool::new()));
+    let _ = registry.register(Box::new(fever_tools::GitTool::new()));
+    let _ = registry.register(Box::new(fever_tools::GrepTool::new()));
+    registry
+}
+
 fn handle_version(local: bool, bump: Option<String>) {
     let home = env::var("HOME").unwrap_or(".".to_string());
     let store_path = PathBuf::from(home)
@@ -280,6 +294,34 @@ async fn main() -> anyhow::Result<()> {
         }
         None => {
             let mut app = fever_tui::AppState::new();
+
+            let provider = Arc::new(build_provider_client(false).await);
+            let tools = Arc::new(build_tool_registry());
+            let default_model = provider
+                .get_default_provider()
+                .map(|p| format!("{}/gpt-4o", p))
+                .unwrap_or_else(|| "openai/gpt-4o".to_string());
+
+            let config = AgentConfig {
+                default_model: default_model.clone(),
+                ..AgentConfig::default()
+            };
+
+            let handle = FeverAgentHandle::new(provider, tools, config);
+            app.provider_name = handle
+                .default_model()
+                .split('/')
+                .next()
+                .unwrap_or("none")
+                .to_string();
+            app.model_name = handle
+                .default_model()
+                .split('/')
+                .nth(1)
+                .unwrap_or("none")
+                .to_string();
+            app.agent = Some(Arc::new(handle));
+
             app.run()?;
         }
     }

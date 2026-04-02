@@ -1,4 +1,12 @@
 use std::env;
+use std::sync::{Mutex, MutexGuard, OnceLock};
+
+/// Mutex to serialize env-var access in tests (avoids race conditions
+/// between unit tests and integration tests that both touch TELEGRAM_* vars).
+pub fn test_env_lock() -> MutexGuard<'static, ()> {
+    static MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+    MUTEX.get_or_init(|| Mutex::new(())).lock().unwrap()
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TelegramConfig {
@@ -52,6 +60,7 @@ mod tests {
     use super::*;
     #[test]
     fn from_env_minimal() {
+        let _lock = test_env_lock();
         unsafe {
             std::env::set_var("TELEGRAM_BOT_TOKEN", "tok");
         }
@@ -64,6 +73,7 @@ mod tests {
 
     #[test]
     fn from_env_with_chat() {
+        let _lock = test_env_lock();
         unsafe {
             std::env::set_var("TELEGRAM_BOT_TOKEN", "tok");
         }

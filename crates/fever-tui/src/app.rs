@@ -1,5 +1,6 @@
 use std::io;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crossterm::{
@@ -13,6 +14,7 @@ use ratatui::Frame;
 use ratatui::backend::CrosstermBackend;
 use tokio::sync::mpsc;
 
+use crate::agent_bridge::AgentHandle;
 use crate::animation::AnimationState;
 use crate::components::message::{MessageBubble, MessageRole};
 use crate::components::tool_card::ToolCard;
@@ -61,6 +63,9 @@ pub struct AppState {
     // Settings screen
     pub settings_tab: usize,
 
+    // Agent bridge (optional — set by CLI when provider is configured)
+    pub agent: Option<Arc<dyn AgentHandle>>,
+
     // Onboarding screen
     pub onboarding_step: usize,
     pub onboarding_selection: usize,
@@ -98,6 +103,7 @@ impl AppState {
             settings_tab: 0,
             onboarding_step: 0,
             onboarding_selection: 0,
+            agent: None,
         }
     }
 
@@ -596,34 +602,41 @@ impl AppState {
                 Command::SendMessage { content } => {
                     self.streaming = true;
                     let tx = tx.clone();
-                    tokio::spawn(async move {
-                        // Simulated AI response — will be replaced with real provider streaming
-                        let first_line = content.lines().next().unwrap_or(&content);
-                        let response = format!(
-                            "◈ Received: \"{}\"\n\n\
-                             I am Fever, your cold sacred coding assistant.\n\
-                             Provider streaming will be wired next.\n\
-                             This is a simulated response to demonstrate the async TUI.",
-                            if first_line.len() > 60 {
-                                format!("{}...", &first_line[..60])
-                            } else {
-                                first_line.to_string()
+
+                    if let Some(agent) = self.agent.clone() {
+                        let content = content.clone();
+                        tokio::spawn(async move {
+                            agent.submit(content, tx);
+                        });
+                    } else {
+                        tokio::spawn(async move {
+                            let first_line = content.lines().next().unwrap_or(&content);
+                            let response = format!(
+                                "◈ Received: \"{}\"\n\n\
+                                 I am Fever, your cold sacred coding assistant.\n\
+                                 No provider configured — set one in ~/.config/fevercode/config.toml\n\
+                                 or use /provider and /model commands.",
+                                if first_line.len() > 60 {
+                                    format!("{}...", &first_line[..60])
+                                } else {
+                                    first_line.to_string()
+                                }
+                            );
+                            for ch in response.chars() {
+                                if tx
+                                    .send(Message::StreamChunk {
+                                        content: ch.to_string(),
+                                    })
+                                    .await
+                                    .is_err()
+                                {
+                                    break;
+                                }
+                                tokio::time::sleep(Duration::from_millis(12)).await;
                             }
-                        );
-                        for ch in response.chars() {
-                            if tx
-                                .send(Message::StreamChunk {
-                                    content: ch.to_string(),
-                                })
-                                .await
-                                .is_err()
-                            {
-                                break;
-                            }
-                            tokio::time::sleep(Duration::from_millis(12)).await;
-                        }
-                        tx.send(Message::StreamEnd).await.ok();
-                    });
+                            tx.send(Message::StreamEnd).await.ok();
+                        });
+                    }
                 }
                 Command::DetectProviders => {
                     // TODO: Probe for configured providers

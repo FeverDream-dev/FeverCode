@@ -3,6 +3,7 @@ use std::env;
 
 #[test]
 fn test_from_env_config_present() {
+    let _lock = fever_telegram::config::test_env_lock();
     unsafe {
         env::set_var("TELEGRAM_BOT_TOKEN", "test-token");
     }
@@ -38,6 +39,7 @@ fn test_from_env_config_present() {
 
 #[test]
 fn test_from_env_config_missing_token() {
+    let _lock = fever_telegram::config::test_env_lock();
     unsafe {
         env::remove_var("TELEGRAM_BOT_TOKEN");
     }
