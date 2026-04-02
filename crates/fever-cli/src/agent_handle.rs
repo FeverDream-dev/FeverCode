@@ -8,7 +8,7 @@ use fever_core::{
     ToolRegistry,
 };
 use fever_providers::ProviderClient;
-use fever_providers::models::{ChatRequest, ChatMessage};
+use fever_providers::models::{ChatMessage, ChatRequest};
 use fever_tui::AgentHandle;
 use fever_tui::event::Message;
 
@@ -49,7 +49,8 @@ impl AgentHandle for FeverAgentHandle {
             let initial_messages = [CoreMessage::user(content)];
             let context = AgentContext::new("tui-session".to_string());
 
-            let result = run_streaming_loop(&agent, &provider, &initial_messages, &context, &tx).await;
+            let result =
+                run_streaming_loop(&agent, &provider, &initial_messages, &context, &tx).await;
 
             if let Err(err_msg) = result {
                 for ch in err_msg.chars() {
@@ -85,11 +86,7 @@ async fn run_streaming_loop(
 
     // Build the initial request with system prompt from the agent's role
     let role = agent.get_current_role();
-    let system_content = format!(
-        "{}\n\nContext: {}",
-        role.system_prompt,
-        context.metadata,
-    );
+    let system_content = format!("{}\n\nContext: {}", role.system_prompt, context.metadata,);
 
     for iteration in 0..max_iterations {
         let mut chat_messages = vec![ChatMessage {
@@ -262,8 +259,10 @@ async fn run_streaming_loop(
                 content: response_content,
             });
 
-            let execution_context =
-                ExecutionContext::new("loop_plan".to_string(), format!("iteration-{}", iteration + 1));
+            let execution_context = ExecutionContext::new(
+                "loop_plan".to_string(),
+                format!("iteration-{}", iteration + 1),
+            );
 
             let tool_results = agent
                 .call_tools(&tool_calls, &execution_context)
