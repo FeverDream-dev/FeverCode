@@ -61,21 +61,13 @@ pub fn known_models_for_provider(provider: &str) -> Vec<&'static str> {
             "claude-3-5-haiku-20241022",
             "claude-3-opus-20240229",
         ],
-        "gemini" => vec![
-            "gemini-2.0-flash",
-            "gemini-1.5-pro",
-            "gemini-1.5-flash",
-        ],
+        "gemini" => vec!["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
         "groq" => vec![
             "llama-3.3-70b-versatile",
             "llama-3.1-8b-instant",
             "mixtral-8x7b-32768",
         ],
-        "deepseek" => vec![
-            "deepseek-chat",
-            "deepseek-coder",
-            "deepseek-reasoner",
-        ],
+        "deepseek" => vec!["deepseek-chat", "deepseek-coder", "deepseek-reasoner"],
         "mistral" => vec![
             "mistral-large-latest",
             "mistral-medium-latest",
@@ -97,10 +89,7 @@ pub fn known_models_for_provider(provider: &str) -> Vec<&'static str> {
             "accounts/fireworks/models/llama-v3p1-70b-instruct",
             "accounts/fireworks/models/mixtral-8x7b-instruct",
         ],
-        "perplexity" => vec![
-            "sonar-pro",
-            "sonar",
-        ],
+        "perplexity" => vec!["sonar-pro", "sonar"],
         "ollama" => vec![
             "llama3.3",
             "codellama",
@@ -313,15 +302,36 @@ impl AppState {
             let config_path = config_dir.join("config.toml");
 
             let mut defaults = toml::value::Table::new();
-            defaults.insert("provider".to_string(), toml::Value::String(self.provider_name.clone()));
-            defaults.insert("model".to_string(), toml::Value::String(self.model_name.clone()));
-            defaults.insert("temperature".to_string(), toml::Value::Float(self.temperature as f64));
-            defaults.insert("max_tokens".to_string(), toml::Value::Integer(self.max_tokens as i64));
+            defaults.insert(
+                "provider".to_string(),
+                toml::Value::String(self.provider_name.clone()),
+            );
+            defaults.insert(
+                "model".to_string(),
+                toml::Value::String(self.model_name.clone()),
+            );
+            defaults.insert(
+                "temperature".to_string(),
+                toml::Value::Float(self.temperature as f64),
+            );
+            defaults.insert(
+                "max_tokens".to_string(),
+                toml::Value::Integer(self.max_tokens as i64),
+            );
 
             let mut ui = toml::value::Table::new();
-            ui.insert("auto_scroll".to_string(), toml::Value::Boolean(self.auto_scroll));
-            ui.insert("show_thinking".to_string(), toml::Value::Boolean(self.show_thinking));
-            ui.insert("theme".to_string(), toml::Value::String(self.theme.name.to_string()));
+            ui.insert(
+                "auto_scroll".to_string(),
+                toml::Value::Boolean(self.auto_scroll),
+            );
+            ui.insert(
+                "show_thinking".to_string(),
+                toml::Value::Boolean(self.show_thinking),
+            );
+            ui.insert(
+                "theme".to_string(),
+                toml::Value::String(self.theme.name.to_string()),
+            );
 
             let mut root = toml::value::Table::new();
             root.insert("defaults".to_string(), toml::Value::Table(defaults));
@@ -695,7 +705,10 @@ impl AppState {
                 self.settings_tab = (self.settings_tab + 1) % 4;
                 if self.settings_tab == 1 {
                     let models = known_models_for_provider(&self.provider_name);
-                    let idx = models.iter().position(|m| *m == self.model_name).unwrap_or(0);
+                    let idx = models
+                        .iter()
+                        .position(|m| *m == self.model_name)
+                        .unwrap_or(0);
                     self.settings_model_cursor = idx;
                 }
             }
@@ -703,7 +716,10 @@ impl AppState {
                 self.settings_tab = (self.settings_tab + 3) % 4;
                 if self.settings_tab == 1 {
                     let models = known_models_for_provider(&self.provider_name);
-                    let idx = models.iter().position(|m| *m == self.model_name).unwrap_or(0);
+                    let idx = models
+                        .iter()
+                        .position(|m| *m == self.model_name)
+                        .unwrap_or(0);
                     self.settings_model_cursor = idx;
                 }
             }
@@ -783,12 +799,18 @@ impl AppState {
                 0 => {
                     self.auto_scroll = !self.auto_scroll;
                     self.save_config();
-                    self.notify(&format!("Auto-scroll: {}", if self.auto_scroll { "on" } else { "off" }));
+                    self.notify(&format!(
+                        "Auto-scroll: {}",
+                        if self.auto_scroll { "on" } else { "off" }
+                    ));
                 }
                 1 => {
                     self.show_thinking = !self.show_thinking;
                     self.save_config();
-                    self.notify(&format!("Show thinking: {}", if self.show_thinking { "on" } else { "off" }));
+                    self.notify(&format!(
+                        "Show thinking: {}",
+                        if self.show_thinking { "on" } else { "off" }
+                    ));
                 }
                 2 => {
                     self.temperature = if self.temperature >= 1.5 {
@@ -865,7 +887,10 @@ impl AppState {
                     self.settings_tab = clicked_tab;
                     if self.settings_tab == 1 {
                         let models = known_models_for_provider(&self.provider_name);
-                        let idx = models.iter().position(|m| *m == self.model_name).unwrap_or(0);
+                        let idx = models
+                            .iter()
+                            .position(|m| *m == self.model_name)
+                            .unwrap_or(0);
                         self.settings_model_cursor = idx;
                     }
                 } else if self.settings_tab == 0 && inner_y >= 3 {
@@ -901,20 +926,35 @@ impl AppState {
                         match item_index {
                             0 => {
                                 self.auto_scroll = !self.auto_scroll;
-                                self.notify(&format!("Auto-scroll: {}", if self.auto_scroll { "on" } else { "off" }));
+                                self.notify(&format!(
+                                    "Auto-scroll: {}",
+                                    if self.auto_scroll { "on" } else { "off" }
+                                ));
                             }
                             1 => {
                                 self.show_thinking = !self.show_thinking;
-                                self.notify(&format!("Show thinking: {}", if self.show_thinking { "on" } else { "off" }));
+                                self.notify(&format!(
+                                    "Show thinking: {}",
+                                    if self.show_thinking { "on" } else { "off" }
+                                ));
                             }
                             2 => {
-                                self.temperature = if self.temperature >= 1.5 { 0.0 } else { self.temperature + 0.1 };
+                                self.temperature = if self.temperature >= 1.5 {
+                                    0.0
+                                } else {
+                                    self.temperature + 0.1
+                                };
                                 self.notify(&format!("Temperature: {:.1}", self.temperature));
                             }
                             3 => {
                                 self.max_tokens = match self.max_tokens {
-                                    256 => 512, 512 => 1024, 1024 => 2048,
-                                    2048 => 4096, 4096 => 8192, 8192 => 16384, _ => 256,
+                                    256 => 512,
+                                    512 => 1024,
+                                    1024 => 2048,
+                                    2048 => 4096,
+                                    4096 => 8192,
+                                    8192 => 16384,
+                                    _ => 256,
                                 };
                                 self.notify(&format!("Max tokens: {}", self.max_tokens));
                             }
@@ -1207,7 +1247,11 @@ Available themes:
                                             let modified = meta.modified().ok()?;
                                             let time =
                                                 chrono::DateTime::<chrono::Local>::from(modified);
-                                            Some(format!("  {}  {}", stem, time.format("%Y-%m-%d %H:%M")))
+                                            Some(format!(
+                                                "  {}  {}",
+                                                stem,
+                                                time.format("%Y-%m-%d %H:%M")
+                                            ))
                                         } else {
                                             None
                                         }
@@ -1224,10 +1268,8 @@ Available themes:
                         } else {
                             let mut lines = vec![format!("Sessions ({}):", sessions.len())];
                             lines.extend(sessions);
-                            self.messages.push(MessageBubble::new(
-                                MessageRole::System,
-                                lines.join("\n"),
-                            ));
+                            self.messages
+                                .push(MessageBubble::new(MessageRole::System, lines.join("\n")));
                         }
                     }
                 } else if action == "clear" {
