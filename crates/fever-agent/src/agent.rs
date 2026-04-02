@@ -7,7 +7,6 @@ use fever_core::{
 use fever_providers::{ChatRequest, ChatResponse, ProviderClient, ToolDefinition};
 use std::path::PathBuf;
 use std::sync::Arc;
-
 pub struct AgentConfig {
     pub default_model: String,
     pub default_temperature: f32,
@@ -31,7 +30,7 @@ pub struct FeverAgent {
     roles: RoleRegistry,
     config: AgentConfig,
     current_role: String,
-    tools: Option<Arc<fever_core::ToolRegistry>>,
+    pub tools: Option<Arc<fever_core::ToolRegistry>>,
     permission_guard: Option<Arc<std::sync::RwLock<PermissionGuard>>>,
     workspace_root: PathBuf,
 }
@@ -62,6 +61,10 @@ impl FeverAgent {
     pub fn with_permissions(mut self, guard: Arc<std::sync::RwLock<PermissionGuard>>) -> Self {
         self.permission_guard = Some(guard);
         self
+    }
+
+    pub fn default_model(&self) -> &str {
+        &self.config.default_model
     }
 
     pub fn with_workspace_root(mut self, root: PathBuf) -> Self {
