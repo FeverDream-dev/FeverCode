@@ -9,6 +9,7 @@ pub enum SlashCommand {
     Status,
     Role(String),
     Provider(String),
+    Save,
 }
 
 impl SlashCommand {
@@ -32,6 +33,7 @@ impl SlashCommand {
             "status" => Some(Self::Status),
             "role" => Some(Self::Role(parts.get(1).unwrap_or(&"").to_string())),
             "provider" => Some(Self::Provider(parts.get(1).unwrap_or(&"").to_string())),
+            "save" => Some(Self::Save),
             _ => None,
         }
     }
@@ -47,6 +49,7 @@ impl SlashCommand {
             Self::Status => "status",
             Self::Role(_) => "role",
             Self::Provider(_) => "provider",
+            Self::Save => "save",
         }
     }
 
@@ -61,6 +64,7 @@ impl SlashCommand {
             Self::Status => "Show provider/model status",
             Self::Role(_) => "Set or view current role",
             Self::Provider(_) => "Switch or view provider",
+            Self::Save => "Save current session",
         }
     }
 }

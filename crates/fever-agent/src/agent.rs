@@ -1,7 +1,11 @@
 use crate::role::{RoleRegistry, SpecialistRole};
 use crate::{LoopConfig, LoopDriver};
-use fever_core::{Agent, AgentContext, AgentResponse, Message, Result, ToolCall, ToolResult};
-use fever_providers::{ChatRequest, ChatResponse, ProviderClient};
+use fever_core::{
+    Agent, AgentContext, AgentResponse, Message, PermissionGuard, Result, ToolCall, ToolResult,
+    ToolResultData, redact_secrets,
+};
+use fever_providers::{ChatRequest, ChatResponse, ProviderClient, ToolDefinition};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 pub struct AgentConfig {
@@ -28,6 +32,8 @@ pub struct FeverAgent {
     config: AgentConfig,
     current_role: String,
     tools: Option<Arc<fever_core::ToolRegistry>>,
+    permission_guard: Option<Arc<std::sync::RwLock<PermissionGuard>>>,
+    workspace_root: PathBuf,
 }
 
 impl FeverAgent {
@@ -38,6 +44,8 @@ impl FeverAgent {
             config,
             current_role: "default".to_string(),
             tools: None,
+            permission_guard: None,
+            workspace_root: std::env::current_dir().unwrap_or_default(),
         }
     }
 
@@ -48,6 +56,16 @@ impl FeverAgent {
 
     pub fn with_tools(mut self, tools: Arc<fever_core::ToolRegistry>) -> Self {
         self.tools = Some(tools);
+        self
+    }
+
+    pub fn with_permissions(mut self, guard: Arc<std::sync::RwLock<PermissionGuard>>) -> Self {
+        self.permission_guard = Some(guard);
+        self
+    }
+
+    pub fn with_workspace_root(mut self, root: PathBuf) -> Self {
+        self.workspace_root = root;
         self
     }
 
@@ -121,10 +139,23 @@ impl FeverAgent {
             });
         }
 
+        // Convert ToolSchema to ToolDefinition for the provider
+        let tool_definitions: Option<Vec<ToolDefinition>> = self.tools.as_ref().map(|tools| {
+            tools
+                .schemas()
+                .into_iter()
+                .map(|schema| ToolDefinition {
+                    name: schema.name,
+                    description: schema.description,
+                    parameters: schema.parameters,
+                })
+                .collect()
+        });
+
         ChatRequest {
             model: self.config.default_model.clone(),
             messages: chat_messages,
-            tools: None,
+            tools: tool_definitions,
             temperature: Some(role.temperature.unwrap_or(self.config.default_temperature)),
             max_tokens: Some(self.config.max_tokens),
             stream: self.config.stream,
@@ -181,16 +212,38 @@ impl Agent for FeverAgent {
         let mut results: Vec<ToolResult> = Vec::new();
 
         for call in calls {
-            match tools.execute_call(call, context).await {
-                Ok(result) => results.push(result),
-                Err(e) => results.push(ToolResult {
+            // Permission check before execution
+            let permission_denied = self.check_tool_permission(call);
+            if let Some((verdict, scope)) = permission_denied {
+                results.push(ToolResult {
                     call_id: call.id.clone(),
-                    result: fever_core::ToolResultData::Error {
+                    result: ToolResultData::Error {
+                        message: format!(
+                            "Permission denied for {:?}: {}",
+                            scope, verdict.reason
+                        ),
+                    },
+                    duration_ms: 0,
+                });
+                continue;
+            }
+
+            // Execute the tool
+            let result = match tools.execute_call(call, context).await {
+                Ok(mut result) => {
+                    // Apply secret redaction to the output
+                    Self::redact_tool_result(&mut result);
+                    result
+                }
+                Err(e) => ToolResult {
+                    call_id: call.id.clone(),
+                    result: ToolResultData::Error {
                         message: e.to_string(),
                     },
                     duration_ms: 0,
-                }),
-            }
+                },
+            };
+            results.push(result);
         }
 
         Ok(results)
@@ -198,5 +251,76 @@ impl Agent for FeverAgent {
 
     fn name(&self) -> &str {
         "Fever Agent"
+    }
+}
+
+impl FeverAgent {
+    
+    /// Check if a tool call is permitted. Returns Some((verdict, scope)) if denied.
+    fn check_tool_permission(
+        &self,
+        call: &ToolCall,
+    ) -> Option<(fever_core::PermissionVerdict, fever_core::PermissionScope)> {
+        let guard = match &self.permission_guard {
+            Some(g) => g,
+            None => return None, // No guard = allow all (for backward compatibility)
+        };
+
+        let guard = match guard.read() {
+            Ok(g) => g,
+            Err(_) => return None, // Poisoned lock = allow to avoid blocking
+        };
+
+        match call.name.as_str() {
+            "shell" => {
+                // Extract command from arguments
+                if let Some(command) = call.arguments.get("command").and_then(|v| v.as_str()) {
+                    let verdict = guard.check_command(command);
+                    if !verdict.allowed {
+                        return Some((verdict, fever_core::PermissionScope::ShellExec));
+                    }
+                }
+            }
+            "filesystem" => {
+                // Extract path from arguments
+                if let Some(path) = call.arguments.get("path").and_then(|v| v.as_str()) {
+                    use std::path::Path;
+                    let path = Path::new(path);
+                    let verdict = guard.check_path(path);
+                    if !verdict.allowed {
+                        return Some((verdict, fever_core::PermissionScope::FilesystemRead));
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        None
+    }
+
+    
+    /// Apply secret redaction to a tool result's output
+    fn redact_tool_result(result: &mut ToolResult) {
+        match &mut result.result {
+            ToolResultData::Success { output } => {
+                if let serde_json::Value::String(s) = output {
+                    let redacted = redact_secrets(s);
+                    *output = serde_json::Value::String(redacted);
+                } else if let serde_json::Value::Object(map) = output {
+                    if let Some(serde_json::Value::String(s)) = map.get_mut("content") {
+                        *s = redact_secrets(s);
+                    }
+                    if let Some(serde_json::Value::String(s)) = map.get_mut("stdout") {
+                        *s = redact_secrets(s);
+                    }
+                    if let Some(serde_json::Value::String(s)) = map.get_mut("stderr") {
+                        *s = redact_secrets(s);
+                    }
+                }
+            }
+            ToolResultData::Error { message } => {
+                *message = redact_secrets(message);
+            }
+        }
     }
 }

@@ -1,9 +1,9 @@
 use ratatui::{
-    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Wrap},
+    Frame,
 };
 
 use crate::app::AppState;
@@ -22,23 +22,59 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
     let msg_width = chunks[0].width.saturating_sub(4) as usize;
     let mut lines: Vec<Line> = Vec::new();
 
-    for msg in &state.messages {
-        lines.push(Line::from(""));
-        let (label, label_style) = match msg.role {
-            MessageRole::User => (
-                "[you]",
+    if state.messages.is_empty() && !state.streaming {
+        let empty_lines = vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                "  No messages yet.",
+                Style::default().fg(theme.fg_dimmed()),
+            )),
+            Line::from(Span::styled(
+                "  Type a message below or press ? for help.",
+                Style::default().fg(theme.fg_dimmed()),
+            )),
+            Line::from(""),
+            Line::from(Span::styled(
+                "  Quick start:",
                 Style::default()
                     .fg(theme.accent())
                     .add_modifier(Modifier::BOLD),
-            ),
-            MessageRole::Assistant => ("\u{25c8} fever", Style::default().fg(theme.fg_dimmed())),
-            MessageRole::System => ("[system]", Style::default().fg(theme.warning())),
-        };
-        lines.push(Line::from(Span::styled(label, label_style)));
+            )),
+            Line::from(Span::styled(
+                "  1. Set an API key: export OPENAI_API_KEY=sk-...",
+                Style::default().fg(theme.fg_dimmed()),
+            )),
+            Line::from(Span::styled(
+                "  2. Or use config: fever config --validate",
+                Style::default().fg(theme.fg_dimmed()),
+            )),
+            Line::from(Span::styled(
+                "  3. Then chat: /help for slash commands",
+                Style::default().fg(theme.fg_dimmed()),
+            )),
+        ];
+        lines.extend(empty_lines);
+    } else {
+        for msg in &state.messages {
+            lines.push(Line::from(""));
+            let (label, label_style) = match msg.role {
+                MessageRole::User => (
+                    "[you]",
+                    Style::default()
+                        .fg(theme.accent())
+                        .add_modifier(Modifier::BOLD),
+                ),
+                MessageRole::Assistant => {
+                    ("\u{25c8} fever", Style::default().fg(theme.fg_dimmed()))
+                }
+                MessageRole::System => ("[system]", Style::default().fg(theme.warning())),
+            };
+            lines.push(Line::from(Span::styled(label, label_style)));
 
-        let wrapped = text::wrap_text(&msg.content, msg_width);
-        for line in wrapped {
-            lines.push(Line::from(format!("  {}", line)));
+            let wrapped = text::wrap_text(&msg.content, msg_width);
+            for line in wrapped {
+                lines.push(Line::from(format!("  {}", line)));
+            }
         }
     }
 
@@ -49,14 +85,16 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
         )));
     }
 
+    let title = format!(" Chat ({} messages) ", state.messages.len());
     let messages_block = Block::default()
         .borders(Borders::ALL)
         .border_style(theme.style_border(true))
-        .title(Span::styled(" Chat ", theme.style_title(true)));
+        .title(Span::styled(title, theme.style_title(true)));
 
     let messages_para = Paragraph::new(lines)
         .block(messages_block)
         .wrap(Wrap { trim: false })
+        .scroll((state.scroll_offset as u16, 0))
         .style(Style::default().fg(theme.fg()).bg(theme.bg()));
     f.render_widget(messages_para, chunks[0]);
 

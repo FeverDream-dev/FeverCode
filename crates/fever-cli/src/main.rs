@@ -29,6 +29,10 @@ struct Cli {
     /// Re-run onboarding with existing profile
     #[clap(long)]
     re_onboard: bool,
+
+    /// Increase verbosity (-v, -vv, -vvv)
+    #[clap(short, long, action = clap::ArgAction::Count)]
+    verbose: u8,
 }
 
 #[derive(Subcommand)]
@@ -54,9 +58,50 @@ enum Command {
     },
     /// Run project onboarding wizard
     Init,
+    /// Check system health and configuration
+    Doctor,
+    /// Show or manage configuration
+    Config {
+        /// Show full config file path
+        #[arg(long)]
+        path: bool,
+        /// Show current configuration values
+        #[arg(long)]
+        show: bool,
+        /// Validate configuration without making changes
+        #[arg(long)]
+        validate: bool,
+    },
+    /// List available models from all configured providers
+    Models {
+        /// Filter models by provider name
+        #[arg(short, long)]
+        provider: Option<String>,
+    },
+    /// Run a prompt non-interactively and print the response
+    Run {
+        /// The prompt to send
+        prompt: Vec<String>,
+        /// Model to use (provider/model format)
+        #[arg(short, long)]
+        model: Option<String>,
+        /// Output raw JSON response
+        #[arg(long)]
+        json: bool,
+    },
+    /// Manage chat sessions
+    Session {
+        /// Action: list, show, clear
+        #[arg(default_value = "list")]
+        action: String,
+        /// Session ID (for show/clear)
+        #[arg(short, long)]
+        id: Option<String>,
+    },
 }
 
 async fn build_provider_client(fetch_models: bool) -> ProviderClient {
+    tracing::debug!("Building provider client (fetch_models={fetch_models})");
     let mut client = ProviderClient::new();
 
     if let Ok(key) = env::var("OPENAI_API_KEY") {
@@ -65,6 +110,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
             let _ = adapter.fetch_models().await;
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
+        tracing::info!("Registered provider: openai");
     }
 
     if let Ok(key) = env::var("OPENROUTER_API_KEY") {
@@ -73,11 +119,13 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
             let _ = adapter.fetch_models().await;
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
+        tracing::info!("Registered provider: openrouter");
     }
 
     if let Ok(key) = env::var("ANTHROPIC_API_KEY") {
         let adapter = AnthropicAdapter::claude(key.as_str());
         client.register(Arc::new(adapter), client.list_providers().is_empty());
+        tracing::info!("Registered provider: anthropic");
     }
 
     if let Ok(key) = env::var("GEMINI_API_KEY") {
@@ -86,6 +134,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
             let _ = adapter.fetch_models().await;
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
+        tracing::info!("Registered provider: gemini");
     }
 
     if let Ok(key) = env::var("GROQ_API_KEY") {
@@ -94,6 +143,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
             let _ = adapter.fetch_models().await;
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
+        tracing::info!("Registered provider: groq");
     }
 
     if let Ok(key) = env::var("TOGETHER_API_KEY") {
@@ -102,6 +152,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
             let _ = adapter.fetch_models().await;
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
+        tracing::info!("Registered provider: together");
     }
 
     if let Ok(key) = env::var("DEEPSEEK_API_KEY") {
@@ -110,6 +161,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
             let _ = adapter.fetch_models().await;
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
+        tracing::info!("Registered provider: deepseek");
     }
 
     if let Ok(key) = env::var("MISTRAL_API_KEY") {
@@ -118,6 +170,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
             let _ = adapter.fetch_models().await;
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
+        tracing::info!("Registered provider: mistral");
     }
 
     if let Ok(key) = env::var("FIREWORKS_API_KEY") {
@@ -126,6 +179,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
             let _ = adapter.fetch_models().await;
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
+        tracing::info!("Registered provider: fireworks");
     }
 
     if let Ok(key) = env::var("PERPLEXITY_API_KEY") {
@@ -134,6 +188,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
             let _ = adapter.fetch_models().await;
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
+        tracing::info!("Registered provider: perplexity");
     }
 
     if let Ok(key) = env::var("MINIMAX_API_KEY") {
@@ -142,6 +197,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
             let _ = adapter.fetch_models().await;
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
+        tracing::info!("Registered provider: minimax");
     }
 
     if let Ok(url) = env::var("OLLAMA_BASE_URL") {
@@ -156,6 +212,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
         let adapter = OllamaAdapter::local();
         client.register(Arc::new(adapter), client.list_providers().is_empty());
     }
+    tracing::info!("Registered provider: ollama");
 
     if let Ok(key) = env::var("FEVER_ZAI_KEY") {
         let adapter = OpenAiAdapter::openrouter(key);
@@ -163,6 +220,7 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
             let _ = adapter.fetch_models().await;
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
+        tracing::info!("Registered provider: fever_zai");
     }
 
     client
@@ -225,9 +283,386 @@ fn run_re_onboard() -> anyhow::Result<()> {
     Ok(())
 }
 
+fn run_doctor() -> anyhow::Result<()> {
+    let mut checks = Vec::new();
+
+    checks.push(("Config directory", {
+        let cm = fever_config::ConfigManager::new();
+        match cm {
+            Ok(_) => ("ok".to_string(), true),
+            Err(e) => (format!("failed: {e}"), false),
+        }
+    }));
+
+    let cm = fever_config::ConfigManager::new().ok();
+    let config = cm.as_ref().and_then(|c| c.load().ok());
+
+    checks.push(("Config file", {
+        if let Some(ref cm) = cm {
+            let path = cm.config_path();
+            if path.exists() {
+                ("found".to_string(), true)
+            } else {
+                ("missing (run `fever init` to create)".to_string(), false)
+            }
+        } else {
+            ("unknown (config dir failed)".to_string(), false)
+        }
+    }));
+
+    let provider_env_vars = [
+        ("OPENAI_API_KEY", "OpenAI"),
+        ("OPENROUTER_API_KEY", "OpenRouter"),
+        ("ANTHROPIC_API_KEY", "Anthropic"),
+        ("GEMINI_API_KEY", "Gemini"),
+        ("GROQ_API_KEY", "Groq"),
+        ("DEEPSEEK_API_KEY", "DeepSeek"),
+        ("MISTRAL_API_KEY", "Mistral"),
+    ];
+
+    let mut provider_count = 0usize;
+    for (var, name) in &provider_env_vars {
+        if std::env::var(var).is_ok() {
+            provider_count += 1;
+            checks.push((name, (format!("key set ({var})"), true)));
+        }
+    }
+    if provider_count == 0 {
+        checks.push(("Providers", ("none configured".to_string(), false)));
+    }
+
+    if let Some(ref config) = config {
+        let enabled: Vec<_> = config
+            .providers
+            .iter()
+            .filter(|(_, p)| p.enabled)
+            .map(|(n, _)| n.as_str())
+            .collect();
+        checks.push((
+            "Config providers",
+            (
+                if enabled.is_empty() {
+                    "none enabled in config".to_string()
+                } else {
+                    format!("{}: {}", enabled.len(), enabled.join(", "))
+                },
+                !enabled.is_empty(),
+            ),
+        ));
+        if let Some(ref provider) = config.defaults.provider {
+            checks.push(("Default provider", (provider.clone(), true)));
+        }
+        if let Some(ref model) = config.defaults.model {
+            checks.push(("Default model", (model.clone(), true)));
+        }
+    }
+
+    checks.push(("Terminal (TTY)", {
+        use std::io::IsTerminal;
+        if std::io::stdout().is_terminal() {
+            ("interactive".to_string(), true)
+        } else {
+            ("non-interactive (piped)".to_string(), true)
+        }
+    }));
+
+    checks.push(("Working directory", {
+        match std::env::current_dir() {
+            Ok(cwd) => (format!("{}", cwd.display()), true),
+            Err(e) => (format!("cannot read: {e}"), false),
+        }
+    }));
+
+    checks.push((".git directory", {
+        let git_dir = std::env::current_dir()
+            .ok()
+            .map(|d| d.join(".git"));
+        match git_dir {
+            Some(ref d) if d.exists() => ("found".to_string(), true),
+            Some(_) => ("not found (not a git repo)".to_string(), false),
+            None => ("cannot check".to_string(), false),
+        }
+    }));
+
+    println!("\n  Fever Doctor — System Health Check\n");
+    let all_pass = checks.iter().all(|(_, (_, pass))| *pass);
+    for (name, (status, pass)) in &checks {
+        let icon = if *pass { "\u{2713}" } else { "\u{2717}" };
+        let style = if *pass { "\x1b[32m" } else { "\x1b[33m" };
+        let reset = "\x1b[0m";
+        println!("  {style}{icon}{reset}  {:<24} {}", name, status);
+    }
+
+    println!();
+    if all_pass {
+        println!("  All checks passed. Fever is ready to run.");
+    } else {
+        println!("  Some checks failed. See above for details.");
+        println!("  Run `fever init` to set up project configuration.");
+    }
+    println!();
+
+    Ok(())
+}
+
+fn run_config(path: bool, show: bool, validate: bool) -> anyhow::Result<()> {
+    let cm = fever_config::ConfigManager::new()
+        .map_err(|e| anyhow::anyhow!("Cannot access config directory: {e}"))?;
+
+    if path {
+        println!("{}", cm.config_path().display());
+        return Ok(());
+    }
+
+    if show {
+        let config = cm.load()?;
+        println!(
+            "Config path: {}\n",
+            cm.config_path().display()
+        );
+        println!("Config dir:  {}", cm.config_dir().display());
+        println!("Data dir:   {}", cm.data_dir().display());
+        println!("Cache dir:  {}\n", cm.cache_dir().display());
+        println!("{}", toml::to_string_pretty(&config)?);
+        return Ok(());
+    }
+
+    if validate {
+        let config = cm.load()?;
+        let mut warnings: Vec<String> = Vec::new();
+
+        if config.providers.is_empty() {
+            warnings.push("No providers configured in config.toml".to_string());
+        }
+        if config.defaults.provider.is_none() && config.providers.is_empty() {
+            warnings.push("No default provider set".to_string());
+        }
+
+        let provider_env_vars = [
+            "OPENAI_API_KEY", "OPENROUTER_API_KEY", "ANTHROPIC_API_KEY",
+            "GEMINI_API_KEY", "GROQ_API_KEY", "DEEPSEEK_API_KEY", "MISTRAL_API_KEY",
+        ];
+        let has_any_key = provider_env_vars.iter().any(|v| std::env::var(v).is_ok());
+        if !has_any_key && config.providers.is_empty() {
+            warnings.push("No API keys found in environment variables".to_string());
+        }
+
+        let enabled: Vec<_> = config
+            .providers
+            .iter()
+            .filter(|(_, p)| p.enabled)
+            .collect();
+        for (name, prov) in &enabled {
+            if prov.api_key.is_none() {
+                warnings.push(format!(
+                    "Provider '{name}' is enabled but has no api_key set"
+                ));
+            }
+        }
+
+        if warnings.is_empty() {
+            println!("Configuration is valid.");
+        } else {
+            for w in &warnings {
+                println!("  \u{26a0}  {w}");
+            }
+        }
+        return Ok(());
+    }
+
+    println!("Usage: fever config [OPTIONS]");
+    println!("  --path      Show config file path");
+    println!("  --show      Show current configuration");
+    println!("  --validate  Validate configuration");
+
+    Ok(())
+}
+
+fn run_models(provider_filter: Option<String>) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+    tokio::spawn(async move {
+        let client = build_provider_client(true).await;
+        let providers = client.list_providers();
+
+        if providers.is_empty() {
+            println!("No providers configured. Set API keys or run `fever init`.");
+            return Ok(());
+        }
+
+        for name in providers {
+            if let Some(ref filter) = provider_filter {
+                if !name.eq_ignore_ascii_case(filter) {
+                    continue;
+                }
+            }
+
+            if let Some(adapter) = client.get_provider(&name) {
+                let caps = adapter.capabilities();
+                let models = adapter.list_models();
+
+                if models.is_empty() {
+                    println!("{} (0 models — API key may be invalid)", name);
+                } else {
+                    println!("{} ({} models{})", name, models.len(),
+                        if caps.supports_chat { "" } else { ", no chat" });
+                    for m in &models {
+                        println!("  {}", m);
+                    }
+                }
+                println!();
+            }
+        }
+
+        Ok(())
+    })
+}
+
+async fn run_run(prompt: Vec<String>, model: Option<String>, json_output: bool) -> anyhow::Result<()> {
+    let content = prompt.join(" ");
+    if content.trim().is_empty() {
+        anyhow::bail!("No prompt provided. Usage: fever run \"your prompt\"");
+    }
+
+    let client = build_provider_client(false).await;
+    let model = model.unwrap_or_else(|| {
+        client.get_default_provider()
+            .map(|p| format!("{}/gpt-4o", p))
+            .unwrap_or_else(|| "openai/gpt-4o".to_string())
+    });
+
+    let req = ChatRequest {
+        model,
+        messages: vec![ChatMessage {
+            role: "user".to_string(),
+            content,
+            tool_calls: None,
+            tool_call_id: None,
+        }],
+        tools: None,
+        temperature: None,
+        max_tokens: None,
+        stream: false,
+    };
+
+    let start = std::time::Instant::now();
+    match client.chat(&req).await {
+        Ok(resp) => {
+            let elapsed = start.elapsed();
+            if json_output {
+                println!("{}", serde_json::to_string_pretty(&resp)?);
+            } else {
+                if let Some(choice) = resp.choices.first() {
+                    println!("{}", choice.message.content.trim());
+                }
+                if let Some(usage) = &resp.usage {
+                    eprintln!("  ({:.1}s, {} prompt + {} completion tokens)",
+                        elapsed.as_secs_f64(),
+                        usage.prompt_tokens,
+                        usage.completion_tokens);
+                }
+            }
+        }
+        Err(e) => {
+            tracing::error!("Run failed: {:#}", e);
+            anyhow::bail!("Provider error: {:#}", e);
+        }
+    }
+
+    Ok(())
+}
+
+fn run_session(action: &str, _id: Option<&str>) -> anyhow::Result<()> {
+    let cm = fever_config::ConfigManager::new()?;
+    let data_dir = cm.data_dir();
+    let sessions_dir = data_dir.join("sessions");
+
+    match action {
+        "list" => {
+            if !sessions_dir.exists() {
+                println!("No sessions found.");
+                return Ok(());
+            }
+            let mut sessions: Vec<_> = std::fs::read_dir(&sessions_dir)?
+                .filter_map(|e| e.ok())
+                .filter_map(|e| {
+                    let name = e.file_name().to_string_lossy().to_string();
+                    if name.ends_with(".json") {
+                        let stem = name.trim_end_matches(".json").to_string();
+                        let meta = e.metadata().ok()?;
+                        let modified = meta.modified().ok()?;
+                        Some((stem, modified))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            sessions.sort_by(|a, b| b.1.cmp(&a.1));
+
+            if sessions.is_empty() {
+                println!("No sessions found.");
+            } else {
+                println!("  Sessions ({}):\n", sessions.len());
+                for (id, modified) in sessions {
+                    let time = chrono::DateTime::<chrono::Local>::from(modified);
+                    println!("  {}  {}", id, time.format("%Y-%m-%d %H:%M"));
+                }
+            }
+        }
+        "clear" => {
+            if sessions_dir.exists() {
+                let count = std::fs::read_dir(&sessions_dir)?
+                    .filter_map(|e| e.ok())
+                    .filter(|e| e.path().extension().map(|ext| ext == "json").unwrap_or(false))
+                    .count();
+                if count == 0 {
+                    println!("No sessions to clear.");
+                } else {
+                    std::fs::remove_dir_all(&sessions_dir)?;
+                    std::fs::create_dir_all(&sessions_dir)?;
+                    println!("Cleared {} session(s).", count);
+                }
+            } else {
+                println!("No sessions to clear.");
+            }
+        }
+        _ => {
+            println!("Usage: fever session <list|clear>");
+        }
+    }
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
+
+    let log_level = match cli.verbose {
+        0 => "warn",
+        1 => "info",
+        2 => "debug",
+        _ => "trace",
+    };
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(log_level))
+        )
+        .with_target(false)
+        .init();
+    tracing::info!("fever v{} starting", env!("CARGO_PKG_VERSION"));
+
+    let config_manager = fever_config::ConfigManager::new()
+        .map_err(|e| anyhow::anyhow!("Failed to initialize config: {e}"))?;
+    let config = config_manager.load()
+        .map_err(|e| anyhow::anyhow!("Failed to load config: {e}"))?;
+
+    tracing::debug!(config_path = ?config_manager.config_path(), "Loaded configuration");
+    if let Some(provider) = &config.defaults.provider {
+        tracing::info!("Default provider from config: {provider}");
+    }
+    if let Some(model) = &config.defaults.model {
+        tracing::info!("Default model from config: {model}");
+    }
 
     // Handle --init flag or Init subcommand
     if cli.init || matches!(cli.command, Some(Command::Init)) {
@@ -263,7 +698,10 @@ async fn main() -> anyhow::Result<()> {
                         println!("{}", choice.message.content);
                     }
                 }
-                Err(e) => eprintln!("Error: {:?}", e),
+                Err(e) => {
+                    tracing::error!("Chat failed: {:#}", e);
+                    eprintln!("Error: {:#}", e);
+                }
             }
         }
         Some(Command::Providers { fetch }) => {
@@ -292,11 +730,38 @@ async fn main() -> anyhow::Result<()> {
         Some(Command::Init) => {
             run_onboard()?;
         }
+        Some(Command::Doctor) => {
+            run_doctor()?;
+        }
+        Some(Command::Config { path, show, validate }) => {
+            run_config(path, show, validate)?;
+        }
+        Some(Command::Models { provider }) => {
+            run_models(provider).await??;
+        }
+        Some(Command::Run { prompt, model, json }) => {
+            run_run(prompt, model, json).await?;
+        }
+        Some(Command::Session { action, id }) => {
+            run_session(&action, id.as_deref())?;
+        }
         None => {
             let mut app = fever_tui::AppState::new();
 
             let provider = Arc::new(build_provider_client(false).await);
             let tools = Arc::new(build_tool_registry());
+
+            let mut guard = fever_core::PermissionGuard::new();
+            guard.grant(fever_core::PermissionScope::ShellExec);
+            guard.grant(fever_core::PermissionScope::FilesystemRead);
+            guard.grant(fever_core::PermissionScope::FilesystemWrite);
+            guard.grant(fever_core::PermissionScope::FilesystemDelete);
+            guard.grant(fever_core::PermissionScope::GitOperations);
+            if let Ok(cwd) = std::env::current_dir() {
+                guard.allow_path(&cwd);
+            }
+            let guard = Arc::new(std::sync::RwLock::new(guard));
+
             let default_model = provider
                 .get_default_provider()
                 .map(|p| format!("{}/gpt-4o", p))
@@ -307,7 +772,7 @@ async fn main() -> anyhow::Result<()> {
                 ..AgentConfig::default()
             };
 
-            let handle = FeverAgentHandle::new(provider, tools, config);
+            let handle = FeverAgentHandle::new(provider, tools, config, guard);
             app.provider_name = handle
                 .default_model()
                 .split('/')
@@ -322,7 +787,7 @@ async fn main() -> anyhow::Result<()> {
                 .to_string();
             app.agent = Some(Arc::new(handle));
 
-            app.run()?;
+            app.run().await?;
         }
     }
 

@@ -1,8 +1,8 @@
-use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
+use ratatui::Frame;
 
 use crate::theme::Theme;
 use crate::util::glyphs;
@@ -13,6 +13,7 @@ pub struct StatusBar {
     pub workspace: String,
     pub token_count: usize,
     pub streaming: bool,
+    pub message_count: usize,
 }
 
 impl StatusBar {
@@ -23,6 +24,7 @@ impl StatusBar {
             workspace: "~".to_string(),
             token_count: 0,
             streaming: false,
+            message_count: 0,
         }
     }
 
@@ -48,7 +50,7 @@ impl StatusBar {
             ),
             Span::styled(" ", Style::default()),
             Span::styled(
-                format!("{} tok ", self.token_count),
+                format!("{} msg ", self.message_count),
                 Style::default().fg(theme.fg_dimmed()),
             ),
             Span::styled(

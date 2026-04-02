@@ -1,11 +1,11 @@
 use crate::app::AppState;
 use crate::components::status_bar::StatusBar;
 use ratatui::{
-    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Clear, Paragraph},
+    Frame,
 };
 
 pub fn render_frame(f: &mut Frame, state: &mut AppState) {
@@ -25,10 +25,15 @@ pub fn render_frame(f: &mut Frame, state: &mut AppState) {
     sb.model = state.model_name.clone();
     sb.workspace = state.workspace.clone();
     sb.streaming = state.streaming;
+    sb.message_count = state.messages.len();
     sb.render(f, chunks[1], &state.theme);
 
     if state.show_command_palette {
         render_command_palette(f, size, state);
+    }
+
+    if state.show_help {
+        render_help_overlay(f, size, state);
     }
 }
 
@@ -114,5 +119,68 @@ fn render_command_palette(f: &mut Frame, area: Rect, state: &AppState) {
             Span::styled(format!("  {}", cmd.description()), style),
         ]);
         f.render_widget(Paragraph::new(line), cmd_area);
+    }
+}
+
+fn render_help_overlay(f: &mut Frame, area: Rect, state: &AppState) {
+    let theme = &state.theme;
+
+    let overlay_width = 44.min(area.width.saturating_sub(4));
+    let overlay_height = 18.min(area.height.saturating_sub(4));
+    let x = (area.width.saturating_sub(overlay_width)) / 2;
+    let y = (area.height.saturating_sub(overlay_height)) / 2;
+
+    let overlay_area = Rect {
+        x,
+        y,
+        width: overlay_width,
+        height: overlay_height,
+    };
+
+    f.render_widget(Clear, overlay_area);
+
+    let block = Block::default()
+        .borders(ratatui::widgets::Borders::ALL)
+        .border_style(theme.style_accent())
+        .title(Span::styled(
+            " Keyboard Shortcuts ",
+            theme.style_accent_bold(),
+        ))
+        .style(Style::default().bg(theme.bg_panel()));
+
+    let inner = block.inner(overlay_area);
+    f.render_widget(block, overlay_area);
+
+    let shortcuts = vec![
+        ("Enter", "Send message"),
+        ("Up / Down", "Recall input history"),
+        ("PgUp / PgDn", "Scroll messages"),
+        ("Esc", "Go back / Close"),
+        ("?", "Toggle this help"),
+        ("Ctrl+K", "Command palette"),
+        ("Ctrl+B", "Toggle sidebar"),
+        ("Ctrl+C", "Quit"),
+        ("/", "Start slash command"),
+    ];
+
+    for (i, (key, desc)) in shortcuts.iter().enumerate() {
+        let row_y = inner.y + i as u16;
+        if row_y >= inner.y + inner.height {
+            break;
+        }
+
+        let line = Line::from(vec![
+            Span::styled(
+                format!("  {:<14}", key),
+                Style::default()
+                    .fg(theme.accent())
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(*desc, theme.style_fg()),
+        ]);
+        f.render_widget(
+            Paragraph::new(line),
+            Rect::new(inner.x, row_y, inner.width, 1),
+        );
     }
 }

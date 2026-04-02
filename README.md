@@ -7,11 +7,13 @@ An open-source terminal coding agent for Linux.
 ## Features
 
 ### Agent Core
-- **CLI Entry Points**: `fever`, (TUI), `fever chat "`, `fever version`, `fever providers`, `fever --init`, `fever --re-onboard`
+- **CLI Commands**: `fever` (TUI), `fever chat`, `fever run`, `fever doctor`, `fever config`, `fever models`, `fever providers`, `fever session`, `fever version`, `fever init`, `fever --re-onboard`
 - **Core Tools**: Shell execution, filesystem operations (read/write/list), git operations, code search (grep)
-- **TUI**: Terminal UI with chat, plan, tasks, tool log, browser panels, Elm-style architecture
-- **Configuration**: TOML-based config in `~/.config/fevercode/`
+- **TUI**: Terminal UI with chat, settings, command palette (Ctrl+K), help overlay (?), input history, session auto-save
+- **Configuration**: TOML-based config in `~/.config/fevercode/`, validated on startup
+- **Diagnostics**: `fever doctor` health check, `fever config --validate`
 - **Role System**: 10+ specialist roles for different tasks
+- **Logging**: Structured tracing with `-v`/`-vv`/`-vvv` verbosity levels
 
 ### Project Onboarding (`--init`)
 First-time setup via a21 targeted questions across 5 blocks:
@@ -48,17 +50,39 @@ fever
 # One-shot chat message
 fever chat "explain the auth module" --model gpt-4o
 
-# Show version
-fever version
+# Run a prompt non-interactively (with timing)
+fever run "fix the build error in src/main.rs"
 
 # List configured providers
 fever providers
 
+# List available models
+fever models
+fever models --provider openai
+
+# Check system health and configuration
+fever doctor
+
+# Show or manage configuration
+fever config --show
+fever config --validate
+fever config --path
+
+# Manage chat sessions
+fever session list
+fever session clear
+
+# Show version
+fever version
+
 # Project onboarding (first time)
-fever --init
+fever init
 
 # Re-run onboarding with existing profile
 fever --re-onboard
+
+# Verbose logging (-v info, -vv debug, -vvv trace)
+fever -vv run "debug this"
 ```
 
 ## Configuration
@@ -93,7 +117,7 @@ Fever Code is built with Rust and organized into focused crates:
 
 | Crate | Purpose |
 |-------|---------|
-| **fever-cli** | Command-line interface with `--init` and `--re-onboard` flags |
+| **fever-cli** | Command-line interface (10 subcommands) |
 | **fever-tui** | Terminal user interface (Elm-style) ratatui) |
 | **fever-core** | Core abstractions (Task, Plan, Tool, EventBus) |
 | **fever-agent** | Coding agent with role system |
@@ -109,7 +133,7 @@ Fever Code is built with Rust and organized into focused crates:
 ## Development
 
 ```bash
-# Run tests (182 tests, full suite)
+# Run tests (193 tests, full suite)
 cargo test
 
 # Format code

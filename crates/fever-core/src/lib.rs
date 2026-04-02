@@ -17,6 +17,7 @@ mod permission;
 mod retry;
 mod task;
 mod tool;
+mod understand;
 
 pub use agent::{Agent, AgentContext, AgentResponse, Message};
 pub use error::{Error, Result, TaskStatus, ToolCall, ToolResult, ToolResultData};
@@ -30,3 +31,4 @@ pub use permission::{
 pub use retry::{BackoffType, RetryPolicy, retry_with_policy};
 pub use task::{Plan, Task, Todo};
 pub use tool::{Tool, ToolRegistry, ToolSchema, generate_call_id};
+pub use understand::{BuildSystem, LanguageInfo, ProjectSummary, ProjectUnderstanding};

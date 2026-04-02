@@ -10,6 +10,7 @@ Fever Commands
   /model <name>      Switch model
   /role <name>       Switch role
   /provider <name>   Switch provider
+  /save              Save current session
   /clear             Clear conversation
   /settings          Open settings
   /status            Show status

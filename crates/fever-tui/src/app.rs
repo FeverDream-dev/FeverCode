@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -56,6 +57,13 @@ pub struct AppState {
     pub palette_query: String,
     pub palette_selection: usize,
 
+    // Help overlay (?)
+    pub show_help: bool,
+
+    // Input history (up/down recall)
+    pub input_history: VecDeque<String>,
+    pub history_index: Option<usize>,
+
     // Sidebar (Ctrl+B)
     pub show_sidebar: bool,
     pub sidebar_selection: usize,
@@ -69,6 +77,9 @@ pub struct AppState {
     // Onboarding screen
     pub onboarding_step: usize,
     pub onboarding_selection: usize,
+
+    // Session persistence
+    pub session_id: String,
 }
 
 impl AppState {
@@ -79,7 +90,7 @@ impl AppState {
             .to_string_lossy()
             .to_string();
 
-        Self {
+        let mut state = Self {
             screen: Screen::Home,
             should_quit: false,
             theme: Theme::detect(),
@@ -98,13 +109,19 @@ impl AppState {
             show_command_palette: false,
             palette_query: String::new(),
             palette_selection: 0,
+            show_help: false,
+            input_history: VecDeque::new(),
+            history_index: None,
             show_sidebar: false,
             sidebar_selection: 0,
             settings_tab: 0,
             onboarding_step: 0,
             onboarding_selection: 0,
             agent: None,
-        }
+            session_id: format!("session-{}", chrono::Local::now().format("%Y%m%d-%H%M%S")),
+        };
+        state.load_config();
+        state
     }
 
     /// Try to load provider/model from fever-config.
@@ -173,7 +190,9 @@ impl AppState {
                 self.scroll_offset = 0;
 
                 vec![Command::SendMessage {
-                    content: self.messages.last().unwrap().content.clone(),
+                    content: self.messages.last()
+                        .map(|m| m.content.clone())
+                        .unwrap_or_default(),
                 }]
             }
             Message::StreamChunk { content } => {
@@ -230,7 +249,13 @@ impl AppState {
     // ── Key dispatch ────────────────────────────────────────────────
 
     fn handle_key(&mut self, key: KeyEvent) -> Vec<Command> {
-        // Global shortcuts — always active regardless of screen
+        if self.show_help {
+            if key.code == KeyCode::Esc || key.code == KeyCode::Char('?') {
+                self.show_help = false;
+            }
+            return vec![];
+        }
+
         if key.modifiers.contains(KeyModifiers::CONTROL) {
             match key.code {
                 KeyCode::Char('c') => {
@@ -251,6 +276,11 @@ impl AppState {
                 }
                 _ => {}
             }
+        }
+
+        if key.code == KeyCode::Char('?') && !self.show_command_palette {
+            self.show_help = true;
+            return vec![];
         }
 
         // Command palette intercepts all input when open
@@ -311,6 +341,7 @@ impl AppState {
         let all = vec![
             SlashCommand::Help,
             SlashCommand::Clear,
+            SlashCommand::Save,
             SlashCommand::Settings,
             SlashCommand::Status,
             SlashCommand::Version,
@@ -352,13 +383,53 @@ impl AppState {
 
     fn handle_chat_key(&mut self, key: KeyEvent) -> Vec<Command> {
         match key.code {
-            KeyCode::Enter => self.update(Message::InputSubmitted),
+            KeyCode::Enter => {
+                if !self.input_buffer.is_empty() {
+                    if self.input_history.back() != Some(&self.input_buffer) {
+                        self.input_history.push_back(self.input_buffer.clone());
+                        if self.input_history.len() > 100 {
+                            self.input_history.pop_front();
+                        }
+                    }
+                }
+                self.history_index = None;
+                self.update(Message::InputSubmitted)
+            }
             KeyCode::Char(c) => {
                 self.input_buffer.push(c);
                 vec![]
             }
             KeyCode::Backspace => {
                 self.input_buffer.pop();
+                vec![]
+            }
+            KeyCode::Up => {
+                if let Some(idx) = self.history_index {
+                    if idx > 0 {
+                        self.history_index = Some(idx - 1);
+                    }
+                } else if !self.input_history.is_empty() {
+                    self.history_index = Some(self.input_history.len() - 1);
+                }
+                if let Some(idx) = self.history_index {
+                    if let Some(entry) = self.input_history.get(idx) {
+                        self.input_buffer = entry.clone();
+                    }
+                }
+                vec![]
+            }
+            KeyCode::Down => {
+                if let Some(idx) = self.history_index {
+                    if idx + 1 < self.input_history.len() {
+                        self.history_index = Some(idx + 1);
+                        if let Some(entry) = self.input_history.get(idx + 1) {
+                            self.input_buffer = entry.clone();
+                        }
+                    } else {
+                        self.history_index = None;
+                        self.input_buffer.clear();
+                    }
+                }
                 vec![]
             }
             KeyCode::Esc => {
@@ -493,8 +564,49 @@ impl AppState {
                     ));
                 }
             }
+            SlashCommand::Save => {
+                self.save_session();
+                self.messages.push(MessageBubble::new(
+                    MessageRole::System,
+                    format!("Session saved: {}", self.session_id),
+                ));
+            }
         }
         vec![]
+    }
+
+    // ── Session persistence ───────────────────────────────────────
+
+    pub fn save_session(&self) {
+        if self.messages.is_empty() {
+            return;
+        }
+
+        let sessions_dir = dirs::data_dir()
+            .map(|d| d.join("fevercode").join("sessions"))
+            .unwrap_or_else(|| std::path::PathBuf::from(".fevercode/sessions"));
+
+        let _ = std::fs::create_dir_all(&sessions_dir);
+
+        let session_data = serde_json::json!({
+            "id": self.session_id,
+            "provider": self.provider_name,
+            "model": self.model_name,
+            "workspace": self.workspace,
+            "messages": self.messages.iter().map(|m| {
+                serde_json::json!({
+                    "role": format!("{:?}", m.role).to_lowercase(),
+                    "content": m.content,
+                })
+            }).collect::<Vec<_>>(),
+            "saved_at": chrono::Local::now().to_rfc3339(),
+        });
+
+        let path = sessions_dir.join(format!("{}.json", self.session_id));
+        if let Ok(json) = serde_json::to_string_pretty(&session_data) {
+            let _ = std::fs::write(&path, json);
+            tracing::info!(session = %self.session_id, "Saved session");
+        }
     }
 
     // ── Rendering ──────────────────────────────────────────────────
@@ -511,8 +623,19 @@ impl AppState {
 
     // ── Main event loop (async) ─────────────────────────────────────
 
-    /// Run the TUI application. Sets up terminal, runs async event loop, restores terminal.
-    pub fn run(&mut self) -> anyhow::Result<()> {
+    pub async fn run(&mut self) -> anyhow::Result<()> {
+        // Install panic hook to restore terminal on crash
+        let original_hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            let _ = disable_raw_mode();
+            let _ = execute!(
+                io::stderr(),
+                LeaveAlternateScreen,
+                DisableMouseCapture
+            );
+            original_hook(info);
+        }));
+
         enable_raw_mode()?;
         let mut stdout = io::stdout();
         execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
@@ -520,18 +643,15 @@ impl AppState {
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = ratatui::Terminal::new(backend)?;
 
-        // Create a tokio runtime for async operations (provider streaming, etc.)
-        let rt = tokio::runtime::Runtime::new()?;
-        let result = rt.block_on(self.run_loop_async(&mut terminal));
+        let result = self.run_loop_async(&mut terminal).await;
 
-        // Restore terminal
-        disable_raw_mode()?;
-        execute!(
+        let _ = disable_raw_mode();
+        let _ = execute!(
             terminal.backend_mut(),
             LeaveAlternateScreen,
             DisableMouseCapture
-        )?;
-        terminal.show_cursor()?;
+        );
+        let _ = terminal.show_cursor();
 
         result.map_err(Into::into)
     }
@@ -590,6 +710,7 @@ impl AppState {
             }
 
             if self.should_quit {
+                self.save_session();
                 return Ok(());
             }
         }
