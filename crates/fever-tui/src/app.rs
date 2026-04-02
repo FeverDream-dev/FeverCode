@@ -526,8 +526,8 @@ impl AppState {
             KeyCode::Enter if self.settings_tab == 3 => {
                 let all = Theme::list_all();
                 if let Some(selected) = all.get(self.settings_theme_cursor) {
-                    self.theme = Theme::find_by_name(selected.name)
-                        .unwrap_or_else(|| self.theme.clone());
+                    self.theme =
+                        Theme::find_by_name(selected.name).unwrap_or_else(|| self.theme.clone());
                 }
             }
             _ => {}
@@ -723,8 +723,10 @@ impl AppState {
 Available themes:
   {}",
                             self.theme.name,
-                            available.join("
-  ")
+                            available.join(
+                                "
+  "
+                            )
                         );
                         self.messages
                             .push(MessageBubble::new(MessageRole::System, info));
@@ -740,8 +742,10 @@ Available themes:
 Available themes:
   {}",
                         self.theme.name,
-                        available.join("
-  ")
+                        available.join(
+                            "
+  "
+                        )
                     );
                     self.messages
                         .push(MessageBubble::new(MessageRole::System, info));
@@ -755,7 +759,8 @@ Available themes:
                 self.tool_calls.clear();
                 self.streaming = false;
                 self.streaming_buffer.clear();
-                self.session_id = format!("session-{}", chrono::Local::now().format("%Y%m%d-%H%M%S"));
+                self.session_id =
+                    format!("session-{}", chrono::Local::now().format("%Y%m%d-%H%M%S"));
                 self.messages.push(MessageBubble::new(
                     MessageRole::System,
                     format!("New session: {}", self.session_id),
@@ -765,11 +770,26 @@ Available themes:
                 let checks: Vec<(&str, (String, bool))> = vec![
                     ("Terminal", {
                         let check = std::io::stdout().is_terminal();
-                        (if check { "interactive" } else { "piped" }.to_string(), check)
+                        (
+                            if check { "interactive" } else { "piped" }.to_string(),
+                            check,
+                        )
                     }),
                     ("Theme", (self.theme.name.to_string(), true)),
-                    ("Provider", (self.provider_name.clone(), !self.provider_name.is_empty() && self.provider_name != "none")),
-                    ("Model", (self.model_name.clone(), !self.model_name.is_empty() && self.model_name != "none")),
+                    (
+                        "Provider",
+                        (
+                            self.provider_name.clone(),
+                            !self.provider_name.is_empty() && self.provider_name != "none",
+                        ),
+                    ),
+                    (
+                        "Model",
+                        (
+                            self.model_name.clone(),
+                            !self.model_name.is_empty() && self.model_name != "none",
+                        ),
+                    ),
                     ("Messages", (self.messages.len().to_string(), true)),
                 ];
                 let mut lines: Vec<String> = Vec::new();
@@ -785,9 +805,13 @@ Available themes:
                 };
                 lines.push(String::new());
                 lines.push(status.to_string());
-                self.messages
-                    .push(MessageBubble::new(MessageRole::System, lines.join("
-")));
+                self.messages.push(MessageBubble::new(
+                    MessageRole::System,
+                    lines.join(
+                        "
+",
+                    ),
+                ));
             }
         }
         vec![]
@@ -918,10 +942,12 @@ Available themes:
                             break;
                         }
                     }
-                    Ok(Event::Mouse(me @ MouseEvent {
-                        kind: MouseEventKind::Down(MouseButton::Left),
-                        ..
-                    })) => {
+                    Ok(Event::Mouse(
+                        me @ MouseEvent {
+                            kind: MouseEventKind::Down(MouseButton::Left),
+                            ..
+                        },
+                    )) => {
                         if event_tx.blocking_send(Message::Mouse(me)).is_err() {
                             break;
                         }

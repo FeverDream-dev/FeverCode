@@ -860,9 +860,7 @@ async fn main() -> anyhow::Result<()> {
                         if let Some(usage) = &response.usage {
                             println!(
                                 "  Tokens: {} prompt + {} completion = {} total",
-                                usage.prompt_tokens,
-                                usage.completion_tokens,
-                                usage.total_tokens
+                                usage.prompt_tokens, usage.completion_tokens, usage.total_tokens
                             );
                         }
                     }
