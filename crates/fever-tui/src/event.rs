@@ -15,6 +15,7 @@ pub enum Message {
     Tick,
     StreamChunk { content: String },
     StreamEnd,
+    StreamError { message: String },
     ToolCallStarted { tool: String, args: String },
     ToolCallCompleted { tool: String, result: String },
     ToolCallFailed { tool: String, error: String },

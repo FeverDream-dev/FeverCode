@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use crossterm::{
     event::{
         self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers,
+        MouseEvent, MouseEventKind,
     },
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
@@ -46,6 +47,7 @@ pub struct AppState {
 
     // Chat screen state
     pub streaming: bool,
+    pub loading: bool,
     pub streaming_buffer: String,
     pub input_buffer: String,
     pub messages: Vec<MessageBubble>,
@@ -73,6 +75,7 @@ pub struct AppState {
 
     // Agent bridge (optional — set by CLI when provider is configured)
     pub agent: Option<Arc<dyn AgentHandle>>,
+    pub cancel_token: Option<tokio_util::sync::CancellationToken>,
 
     // Onboarding screen
     pub onboarding_step: usize,
@@ -101,6 +104,7 @@ impl AppState {
             model_name: "none".to_string(),
             workspace,
             streaming: false,
+            loading: false,
             streaming_buffer: String::new(),
             input_buffer: String::new(),
             messages: Vec::new(),
@@ -118,6 +122,7 @@ impl AppState {
             onboarding_step: 0,
             onboarding_selection: 0,
             agent: None,
+            cancel_token: None,
             session_id: format!("session-{}", chrono::Local::now().format("%Y%m%d-%H%M%S")),
         };
         state.load_config();
@@ -188,6 +193,7 @@ impl AppState {
                     .push(MessageBubble::new(MessageRole::User, content));
                 self.input_buffer.clear();
                 self.scroll_offset = 0;
+                self.loading = true;
 
                 vec![Command::SendMessage {
                     content: self
@@ -200,6 +206,7 @@ impl AppState {
             Message::StreamChunk { content } => {
                 if !self.streaming {
                     self.streaming = true;
+                    self.loading = false;
                     self.streaming_buffer.clear();
                     self.messages
                         .push(MessageBubble::new(MessageRole::Assistant, String::new()));
@@ -212,10 +219,20 @@ impl AppState {
             }
             Message::StreamEnd => {
                 self.streaming = false;
+                self.loading = false;
                 if let Some(last) = self.messages.last_mut() {
                     last.finish_stream();
                 }
                 self.streaming_buffer.clear();
+                vec![]
+            }
+            Message::StreamError { message } => {
+                self.streaming = false;
+                self.loading = false;
+                self.messages.push(MessageBubble::new(
+                    MessageRole::System,
+                    format!("Error: {}", message),
+                ));
                 vec![]
             }
             Message::ToolCallStarted { tool, args } => {
@@ -261,7 +278,19 @@ impl AppState {
         if key.modifiers.contains(KeyModifiers::CONTROL) {
             match key.code {
                 KeyCode::Char('c') => {
-                    self.should_quit = true;
+                    if self.streaming || self.loading {
+                        if let Some(token) = &self.cancel_token {
+                            token.cancel();
+                        }
+                        self.streaming = false;
+                        self.loading = false;
+                        self.messages.push(MessageBubble::new(
+                            MessageRole::System,
+                            "Cancelled.".to_string(),
+                        ));
+                    } else {
+                        self.should_quit = true;
+                    }
                     return vec![];
                 }
                 KeyCode::Char('k') => {
@@ -439,11 +468,19 @@ impl AppState {
                 vec![]
             }
             KeyCode::PageUp => {
-                self.scroll_offset = self.scroll_offset.saturating_add(5);
+                self.scroll_offset = self.scroll_offset.saturating_add(10);
                 vec![]
             }
             KeyCode::PageDown => {
-                self.scroll_offset = self.scroll_offset.saturating_sub(5);
+                self.scroll_offset = self.scroll_offset.saturating_sub(10);
+                vec![]
+            }
+            KeyCode::Home => {
+                self.scroll_offset = u16::MAX;
+                vec![]
+            }
+            KeyCode::End => {
+                self.scroll_offset = 0;
                 vec![]
             }
             _ => vec![],
@@ -668,10 +705,41 @@ impl AppState {
                 if event::poll(Duration::from_millis(50)).ok() != Some(true) {
                     continue;
                 }
-                if let Ok(Event::Key(key)) = event::read() {
-                    if event_tx.blocking_send(Message::Key(key)).is_err() {
-                        break;
+                match event::read() {
+                    Ok(Event::Key(key)) => {
+                        if event_tx.blocking_send(Message::Key(key)).is_err() {
+                            break;
+                        }
                     }
+                    Ok(Event::Mouse(MouseEvent {
+                        kind: MouseEventKind::ScrollUp,
+                        ..
+                    })) => {
+                        if event_tx
+                            .blocking_send(Message::Key(KeyEvent::new(
+                                KeyCode::PageUp,
+                                KeyModifiers::NONE,
+                            )))
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
+                    Ok(Event::Mouse(MouseEvent {
+                        kind: MouseEventKind::ScrollDown,
+                        ..
+                    })) => {
+                        if event_tx
+                            .blocking_send(Message::Key(KeyEvent::new(
+                                KeyCode::PageDown,
+                                KeyModifiers::NONE,
+                            )))
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
+                    _ => {}
                 }
             }
         });
@@ -722,6 +790,10 @@ impl AppState {
                     self.streaming = true;
                     let tx = tx.clone();
 
+                    let cancel_token = tokio_util::sync::CancellationToken::new();
+                    let cancel_clone = cancel_token.clone();
+                    self.cancel_token = Some(cancel_token);
+
                     if let Some(agent) = self.agent.clone() {
                         let content = content.clone();
                         tokio::spawn(async move {
@@ -742,12 +814,13 @@ impl AppState {
                                 }
                             );
                             for ch in response.chars() {
-                                if tx
-                                    .send(Message::StreamChunk {
-                                        content: ch.to_string(),
-                                    })
-                                    .await
-                                    .is_err()
+                                if cancel_clone.is_cancelled()
+                                    || tx
+                                        .send(Message::StreamChunk {
+                                            content: ch.to_string(),
+                                        })
+                                        .await
+                                        .is_err()
                                 {
                                     break;
                                 }

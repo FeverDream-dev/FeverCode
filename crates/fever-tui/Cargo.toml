@@ -32,3 +32,4 @@ pulldown-cmark = { workspace = true }
 unicode-segmentation = { workspace = true }
 dirs = { workspace = true }
 unicode-width = "0.2"
+tokio-util = { workspace = true }

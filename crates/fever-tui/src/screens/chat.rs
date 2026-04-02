@@ -83,6 +83,11 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
             "  ...\u{258c}",
             Style::default().fg(theme.accent()),
         )));
+    } else if state.loading {
+        lines.push(Line::from(Span::styled(
+            "  \u{25b6} Thinking...",
+            Style::default().fg(theme.accent()),
+        )));
     }
 
     let title = format!(" Chat ({} messages) ", state.messages.len());

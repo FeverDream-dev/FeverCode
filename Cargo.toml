@@ -54,6 +54,7 @@ serde_urlencoded = "0.7"
 scraper = "0.22"
 url = "2.5"
 mockito = "1.5"
+tokio-util = { version = "0.7", features = ["rt"] }
 
 [profile.release]
 opt-level = 3
