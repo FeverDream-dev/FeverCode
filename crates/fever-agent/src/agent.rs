@@ -218,10 +218,7 @@ impl Agent for FeverAgent {
                 results.push(ToolResult {
                     call_id: call.id.clone(),
                     result: ToolResultData::Error {
-                        message: format!(
-                            "Permission denied for {:?}: {}",
-                            scope, verdict.reason
-                        ),
+                        message: format!("Permission denied for {:?}: {}", scope, verdict.reason),
                     },
                     duration_ms: 0,
                 });
@@ -255,7 +252,6 @@ impl Agent for FeverAgent {
 }
 
 impl FeverAgent {
-    
     /// Check if a tool call is permitted. Returns Some((verdict, scope)) if denied.
     fn check_tool_permission(
         &self,
@@ -298,7 +294,6 @@ impl FeverAgent {
         None
     }
 
-    
     /// Apply secret redaction to a tool result's output
     fn redact_tool_result(result: &mut ToolResult) {
         match &mut result.result {

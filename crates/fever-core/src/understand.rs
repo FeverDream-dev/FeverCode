@@ -380,11 +380,19 @@ impl ProjectUnderstanding {
             "rb" => Some(("Ruby".to_string(), vec!["rb".to_string()])),
             "cpp" | "cc" | "cxx" | "hpp" => Some((
                 "C++".to_string(),
-                vec!["cpp".to_string(), "cc".to_string(), "cxx".to_string(), "hpp".to_string()],
+                vec![
+                    "cpp".to_string(),
+                    "cc".to_string(),
+                    "cxx".to_string(),
+                    "hpp".to_string(),
+                ],
             )),
             "c" | "h" => Some(("C".to_string(), vec!["c".to_string(), "h".to_string()])),
             "swift" => Some(("Swift".to_string(), vec!["swift".to_string()])),
-            "kt" | "kts" => Some(("Kotlin".to_string(), vec!["kt".to_string(), "kts".to_string()])),
+            "kt" | "kts" => Some((
+                "Kotlin".to_string(),
+                vec!["kt".to_string(), "kts".to_string()],
+            )),
             _ => None,
         }
     }
@@ -564,7 +572,10 @@ impl ProjectUnderstanding {
         file_count: usize,
         dir_count: usize,
     ) -> String {
-        let primary_lang = languages.first().map(|l| l.name.as_str()).unwrap_or("Unknown");
+        let primary_lang = languages
+            .first()
+            .map(|l| l.name.as_str())
+            .unwrap_or("Unknown");
         let primary_count = languages.first().map(|l| l.file_count).unwrap_or(0);
 
         let build_str = match build_system {
@@ -616,10 +627,7 @@ impl ProjectUnderstanding {
         if !summary.languages.is_empty() {
             context.push_str("**Languages:**\n");
             for lang in &summary.languages {
-                context.push_str(&format!(
-                    "- {} ({} files)\n",
-                    lang.name, lang.file_count
-                ));
+                context.push_str(&format!("- {} ({} files)\n", lang.name, lang.file_count));
             }
             context.push('\n');
         }
@@ -644,20 +652,32 @@ impl ProjectUnderstanding {
 
         // Commands
         if !summary.build_commands.is_empty() {
-            context.push_str(&format!("**Build Commands:** {}\n\n", summary.build_commands.join(", ")));
+            context.push_str(&format!(
+                "**Build Commands:** {}\n\n",
+                summary.build_commands.join(", ")
+            ));
         }
         if !summary.test_commands.is_empty() {
-            context.push_str(&format!("**Test Commands:** {}\n\n", summary.test_commands.join(", ")));
+            context.push_str(&format!(
+                "**Test Commands:** {}\n\n",
+                summary.test_commands.join(", ")
+            ));
         }
 
         // Entrypoints
         if !summary.entrypoints.is_empty() {
-            context.push_str(&format!("**Entrypoints:** {}\n\n", summary.entrypoints.join(", ")));
+            context.push_str(&format!(
+                "**Entrypoints:** {}\n\n",
+                summary.entrypoints.join(", ")
+            ));
         }
 
         // Frameworks
         if !summary.frameworks.is_empty() {
-            context.push_str(&format!("**Frameworks:** {}\n\n", summary.frameworks.join(", ")));
+            context.push_str(&format!(
+                "**Frameworks:** {}\n\n",
+                summary.frameworks.join(", ")
+            ));
         }
 
         // Summary
@@ -698,10 +718,30 @@ mod tests {
         let understanding = ProjectUnderstanding::new(temp.clone());
         let summary = understanding.analyze().await.expect("Analysis failed");
 
-        assert!(summary.languages.iter().any(|l| l.name == "Rust" && l.file_count == 1));
-        assert!(summary.languages.iter().any(|l| l.name == "TypeScript" && l.file_count == 1));
-        assert!(summary.languages.iter().any(|l| l.name == "Python" && l.file_count == 1));
-        assert!(summary.languages.iter().any(|l| l.name == "Go" && l.file_count == 1));
+        assert!(
+            summary
+                .languages
+                .iter()
+                .any(|l| l.name == "Rust" && l.file_count == 1)
+        );
+        assert!(
+            summary
+                .languages
+                .iter()
+                .any(|l| l.name == "TypeScript" && l.file_count == 1)
+        );
+        assert!(
+            summary
+                .languages
+                .iter()
+                .any(|l| l.name == "Python" && l.file_count == 1)
+        );
+        assert!(
+            summary
+                .languages
+                .iter()
+                .any(|l| l.name == "Go" && l.file_count == 1)
+        );
 
         cleanup(&temp);
     }
@@ -766,7 +806,12 @@ axum = "0.7"
 
         // Should only count the actual_file.rs
         assert_eq!(summary.file_count, 1);
-        assert!(summary.languages.iter().any(|l| l.name == "Rust" && l.file_count == 1));
+        assert!(
+            summary
+                .languages
+                .iter()
+                .any(|l| l.name == "Rust" && l.file_count == 1)
+        );
 
         cleanup(&temp);
     }

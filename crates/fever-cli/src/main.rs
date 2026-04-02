@@ -374,9 +374,7 @@ fn run_doctor() -> anyhow::Result<()> {
     }));
 
     checks.push((".git directory", {
-        let git_dir = std::env::current_dir()
-            .ok()
-            .map(|d| d.join(".git"));
+        let git_dir = std::env::current_dir().ok().map(|d| d.join(".git"));
         match git_dir {
             Some(ref d) if d.exists() => ("found".to_string(), true),
             Some(_) => ("not found (not a git repo)".to_string(), false),
@@ -416,10 +414,7 @@ fn run_config(path: bool, show: bool, validate: bool) -> anyhow::Result<()> {
 
     if show {
         let config = cm.load()?;
-        println!(
-            "Config path: {}\n",
-            cm.config_path().display()
-        );
+        println!("Config path: {}\n", cm.config_path().display());
         println!("Config dir:  {}", cm.config_dir().display());
         println!("Data dir:   {}", cm.data_dir().display());
         println!("Cache dir:  {}\n", cm.cache_dir().display());
@@ -439,19 +434,20 @@ fn run_config(path: bool, show: bool, validate: bool) -> anyhow::Result<()> {
         }
 
         let provider_env_vars = [
-            "OPENAI_API_KEY", "OPENROUTER_API_KEY", "ANTHROPIC_API_KEY",
-            "GEMINI_API_KEY", "GROQ_API_KEY", "DEEPSEEK_API_KEY", "MISTRAL_API_KEY",
+            "OPENAI_API_KEY",
+            "OPENROUTER_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "GEMINI_API_KEY",
+            "GROQ_API_KEY",
+            "DEEPSEEK_API_KEY",
+            "MISTRAL_API_KEY",
         ];
         let has_any_key = provider_env_vars.iter().any(|v| std::env::var(v).is_ok());
         if !has_any_key && config.providers.is_empty() {
             warnings.push("No API keys found in environment variables".to_string());
         }
 
-        let enabled: Vec<_> = config
-            .providers
-            .iter()
-            .filter(|(_, p)| p.enabled)
-            .collect();
+        let enabled: Vec<_> = config.providers.iter().filter(|(_, p)| p.enabled).collect();
         for (name, prov) in &enabled {
             if prov.api_key.is_none() {
                 warnings.push(format!(
@@ -502,8 +498,12 @@ fn run_models(provider_filter: Option<String>) -> tokio::task::JoinHandle<anyhow
                 if models.is_empty() {
                     println!("{} (0 models — API key may be invalid)", name);
                 } else {
-                    println!("{} ({} models{})", name, models.len(),
-                        if caps.supports_chat { "" } else { ", no chat" });
+                    println!(
+                        "{} ({} models{})",
+                        name,
+                        models.len(),
+                        if caps.supports_chat { "" } else { ", no chat" }
+                    );
                     for m in &models {
                         println!("  {}", m);
                     }
@@ -516,7 +516,11 @@ fn run_models(provider_filter: Option<String>) -> tokio::task::JoinHandle<anyhow
     })
 }
 
-async fn run_run(prompt: Vec<String>, model: Option<String>, json_output: bool) -> anyhow::Result<()> {
+async fn run_run(
+    prompt: Vec<String>,
+    model: Option<String>,
+    json_output: bool,
+) -> anyhow::Result<()> {
     let content = prompt.join(" ");
     if content.trim().is_empty() {
         anyhow::bail!("No prompt provided. Usage: fever run \"your prompt\"");
@@ -524,7 +528,8 @@ async fn run_run(prompt: Vec<String>, model: Option<String>, json_output: bool) 
 
     let client = build_provider_client(false).await;
     let model = model.unwrap_or_else(|| {
-        client.get_default_provider()
+        client
+            .get_default_provider()
             .map(|p| format!("{}/gpt-4o", p))
             .unwrap_or_else(|| "openai/gpt-4o".to_string())
     });
@@ -554,10 +559,12 @@ async fn run_run(prompt: Vec<String>, model: Option<String>, json_output: bool) 
                     println!("{}", choice.message.content.trim());
                 }
                 if let Some(usage) = &resp.usage {
-                    eprintln!("  ({:.1}s, {} prompt + {} completion tokens)",
+                    eprintln!(
+                        "  ({:.1}s, {} prompt + {} completion tokens)",
                         elapsed.as_secs_f64(),
                         usage.prompt_tokens,
-                        usage.completion_tokens);
+                        usage.completion_tokens
+                    );
                 }
             }
         }
@@ -611,7 +618,12 @@ fn run_session(action: &str, _id: Option<&str>) -> anyhow::Result<()> {
             if sessions_dir.exists() {
                 let count = std::fs::read_dir(&sessions_dir)?
                     .filter_map(|e| e.ok())
-                    .filter(|e| e.path().extension().map(|ext| ext == "json").unwrap_or(false))
+                    .filter(|e| {
+                        e.path()
+                            .extension()
+                            .map(|ext| ext == "json")
+                            .unwrap_or(false)
+                    })
                     .count();
                 if count == 0 {
                     println!("No sessions to clear.");
@@ -645,7 +657,7 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(log_level))
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(log_level)),
         )
         .with_target(false)
         .init();
@@ -653,7 +665,8 @@ async fn main() -> anyhow::Result<()> {
 
     let config_manager = fever_config::ConfigManager::new()
         .map_err(|e| anyhow::anyhow!("Failed to initialize config: {e}"))?;
-    let config = config_manager.load()
+    let config = config_manager
+        .load()
         .map_err(|e| anyhow::anyhow!("Failed to load config: {e}"))?;
 
     tracing::debug!(config_path = ?config_manager.config_path(), "Loaded configuration");
@@ -733,13 +746,21 @@ async fn main() -> anyhow::Result<()> {
         Some(Command::Doctor) => {
             run_doctor()?;
         }
-        Some(Command::Config { path, show, validate }) => {
+        Some(Command::Config {
+            path,
+            show,
+            validate,
+        }) => {
             run_config(path, show, validate)?;
         }
         Some(Command::Models { provider }) => {
             run_models(provider).await??;
         }
-        Some(Command::Run { prompt, model, json }) => {
+        Some(Command::Run {
+            prompt,
+            model,
+            json,
+        }) => {
             run_run(prompt, model, json).await?;
         }
         Some(Command::Session { action, id }) => {

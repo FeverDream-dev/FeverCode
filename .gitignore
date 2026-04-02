@@ -43,3 +43,17 @@ release/
 # Temporary files
 *.tmp
 tmp/
+
+# Stray build copies (not workspace crates)
+/fever-core/
+/fever-agent/
+/fever-cli/
+/fever-tui/
+/fever-providers/
+/fever-tools/
+/fever-config/
+/fever-search/
+/fever-telegram/
+/fever-onboard/
+/fever-browser/
+/fever-release/

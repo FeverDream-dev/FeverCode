@@ -190,7 +190,9 @@ impl AppState {
                 self.scroll_offset = 0;
 
                 vec![Command::SendMessage {
-                    content: self.messages.last()
+                    content: self
+                        .messages
+                        .last()
                         .map(|m| m.content.clone())
                         .unwrap_or_default(),
                 }]
@@ -628,11 +630,7 @@ impl AppState {
         let original_hook = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |info| {
             let _ = disable_raw_mode();
-            let _ = execute!(
-                io::stderr(),
-                LeaveAlternateScreen,
-                DisableMouseCapture
-            );
+            let _ = execute!(io::stderr(), LeaveAlternateScreen, DisableMouseCapture);
             original_hook(info);
         }));
 

@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use fever_agent::AgentConfig;
-use fever_core::{Agent, AgentContext, ExecutionContext, Message as CoreMessage, PermissionGuard, ToolRegistry};
+use fever_core::{
+    Agent, AgentContext, ExecutionContext, Message as CoreMessage, PermissionGuard, ToolRegistry,
+};
 use fever_providers::ProviderClient;
 use fever_tui::AgentHandle;
 use fever_tui::event::Message;
@@ -93,7 +95,13 @@ async fn run_loop_with_events(
     for iteration in 0..max_iterations {
         let response = tokio::time::timeout(request_timeout, agent.chat(&history, context))
             .await
-            .map_err(|_| format!("LLM request timed out after {}s on iteration {}", request_timeout.as_secs(), iteration + 1))?
+            .map_err(|_| {
+                format!(
+                    "LLM request timed out after {}s on iteration {}",
+                    request_timeout.as_secs(),
+                    iteration + 1
+                )
+            })?
             .map_err(|e| format!("LLM error on iteration {}: {}", iteration + 1, e))?;
 
         if response.tool_calls.is_empty() || response.finish_reason.as_deref() == Some("stop") {
@@ -130,8 +138,7 @@ async fn run_loop_with_events(
             .map_err(|e| format!("Tool execution error: {}", e))?;
 
         for (call, result) in response.tool_calls.iter().zip(tool_results.iter()) {
-            let is_success =
-                matches!(result.result, fever_core::ToolResultData::Success { .. });
+            let is_success = matches!(result.result, fever_core::ToolResultData::Success { .. });
             let result_str = match &result.result {
                 fever_core::ToolResultData::Success { output } => {
                     let s = serde_json::to_string(output).unwrap_or_default();

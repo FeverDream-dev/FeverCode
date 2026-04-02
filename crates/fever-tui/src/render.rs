@@ -1,11 +1,11 @@
 use crate::app::AppState;
 use crate::components::status_bar::StatusBar;
 use ratatui::{
+    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Clear, Paragraph},
-    Frame,
 };
 
 pub fn render_frame(f: &mut Frame, state: &mut AppState) {
