@@ -26,6 +26,95 @@ use crate::slash::SlashCommand;
 use crate::theme::Theme;
 
 // ─────────────────────────────────────────────────────────────────────
+// Known providers and models
+// ─────────────────────────────────────────────────────────────────────
+
+pub const KNOWN_PROVIDERS: &[&str] = &[
+    "openai",
+    "anthropic",
+    "gemini",
+    "groq",
+    "deepseek",
+    "mistral",
+    "together",
+    "openrouter",
+    "fireworks",
+    "perplexity",
+    "ollama",
+];
+
+pub fn known_models_for_provider(provider: &str) -> Vec<&'static str> {
+    match provider {
+        "openai" => vec![
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4-turbo",
+            "gpt-4",
+            "gpt-3.5-turbo",
+            "o1",
+            "o1-mini",
+            "o3-mini",
+        ],
+        "anthropic" => vec![
+            "claude-sonnet-4-20250514",
+            "claude-3-5-sonnet-20241022",
+            "claude-3-5-haiku-20241022",
+            "claude-3-opus-20240229",
+        ],
+        "gemini" => vec![
+            "gemini-2.0-flash",
+            "gemini-1.5-pro",
+            "gemini-1.5-flash",
+        ],
+        "groq" => vec![
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant",
+            "mixtral-8x7b-32768",
+        ],
+        "deepseek" => vec![
+            "deepseek-chat",
+            "deepseek-coder",
+            "deepseek-reasoner",
+        ],
+        "mistral" => vec![
+            "mistral-large-latest",
+            "mistral-medium-latest",
+            "mistral-small-latest",
+            "codestral-latest",
+        ],
+        "together" => vec![
+            "meta-llama/Llama-3-70b-chat-hf",
+            "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "togethercomputer/RedPajama-INCITE-7B-Chat",
+        ],
+        "openrouter" => vec![
+            "openai/gpt-4o",
+            "anthropic/claude-sonnet-4-20250514",
+            "google/gemini-2.0-flash",
+            "meta-llama/llama-3.3-70b-instruct",
+        ],
+        "fireworks" => vec![
+            "accounts/fireworks/models/llama-v3p1-70b-instruct",
+            "accounts/fireworks/models/mixtral-8x7b-instruct",
+        ],
+        "perplexity" => vec![
+            "sonar-pro",
+            "sonar",
+        ],
+        "ollama" => vec![
+            "llama3.3",
+            "codellama",
+            "mistral",
+            "mixtral",
+            "deepseek-coder",
+            "phi3",
+            "gemma2",
+        ],
+        _ => vec!["default"],
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // AppState — single source of truth for the entire TUI
 // ─────────────────────────────────────────────────────────────────────
 
@@ -72,7 +161,14 @@ pub struct AppState {
 
     // Settings screen
     pub settings_tab: usize,
+    pub settings_provider_cursor: usize,
+    pub settings_model_cursor: usize,
     pub settings_theme_cursor: usize,
+    pub settings_behavior_cursor: usize,
+    pub auto_scroll: bool,
+    pub show_thinking: bool,
+    pub temperature: f32,
+    pub max_tokens: u32,
 
     // Agent bridge (optional — set by CLI when provider is configured)
     pub agent: Option<Arc<dyn AgentHandle>>,
@@ -84,6 +180,9 @@ pub struct AppState {
 
     // Session persistence
     pub session_id: String,
+
+    pub notification: Option<String>,
+    pub notification_tick: usize,
 
     pub terminal_size: (u16, u16),
 }
@@ -122,12 +221,21 @@ impl AppState {
             show_sidebar: false,
             sidebar_selection: 0,
             settings_tab: 0,
+            settings_provider_cursor: 0,
+            settings_model_cursor: 0,
             settings_theme_cursor: 0,
+            settings_behavior_cursor: 0,
+            auto_scroll: true,
+            show_thinking: true,
+            temperature: 0.7,
+            max_tokens: 4096,
             onboarding_step: 0,
             onboarding_selection: 0,
             agent: None,
             cancel_token: None,
             session_id: format!("session-{}", chrono::Local::now().format("%Y%m%d-%H%M%S")),
+            notification: None,
+            notification_tick: 0,
             terminal_size: (80, 24),
         };
         state.load_config();
@@ -155,10 +263,84 @@ impl AppState {
                         {
                             self.model_name = model.to_string();
                         }
+                        if let Some(temp) = value
+                            .get("defaults")
+                            .and_then(|d| d.get("temperature"))
+                            .and_then(|v| v.as_float())
+                        {
+                            self.temperature = temp as f32;
+                        }
+                        if let Some(max_tok) = value
+                            .get("defaults")
+                            .and_then(|d| d.get("max_tokens"))
+                            .and_then(|v| v.as_integer())
+                        {
+                            self.max_tokens = max_tok as u32;
+                        }
+                        if let Some(auto) = value
+                            .get("ui")
+                            .and_then(|u| u.get("auto_scroll"))
+                            .and_then(|v| v.as_bool())
+                        {
+                            self.auto_scroll = auto;
+                        }
+                        if let Some(show) = value
+                            .get("ui")
+                            .and_then(|u| u.get("show_thinking"))
+                            .and_then(|v| v.as_bool())
+                        {
+                            self.show_thinking = show;
+                        }
+                        if let Some(theme_name) = value
+                            .get("ui")
+                            .and_then(|u| u.get("theme"))
+                            .and_then(|v| v.as_str())
+                        {
+                            if let Some(t) = Theme::find_by_name(theme_name) {
+                                self.theme = t;
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+
+    pub fn save_config(&self) {
+        if let Some(config_dir) = dirs::config_dir() {
+            let config_dir = config_dir.join("fevercode");
+            let _ = std::fs::create_dir_all(&config_dir);
+            let config_path = config_dir.join("config.toml");
+
+            let mut defaults = toml::value::Table::new();
+            defaults.insert("provider".to_string(), toml::Value::String(self.provider_name.clone()));
+            defaults.insert("model".to_string(), toml::Value::String(self.model_name.clone()));
+            defaults.insert("temperature".to_string(), toml::Value::Float(self.temperature as f64));
+            defaults.insert("max_tokens".to_string(), toml::Value::Integer(self.max_tokens as i64));
+
+            let mut ui = toml::value::Table::new();
+            ui.insert("auto_scroll".to_string(), toml::Value::Boolean(self.auto_scroll));
+            ui.insert("show_thinking".to_string(), toml::Value::Boolean(self.show_thinking));
+            ui.insert("theme".to_string(), toml::Value::String(self.theme.name.to_string()));
+
+            let mut root = toml::value::Table::new();
+            root.insert("defaults".to_string(), toml::Value::Table(defaults));
+            root.insert("ui".to_string(), toml::Value::Table(ui));
+
+            let doc = toml::Value::Table(root);
+            if let Ok(toml_str) = toml::to_string_pretty(&doc) {
+                if let Err(e) = std::fs::write(&config_path, toml_str) {
+                    tracing::warn!(path = %config_path.display(), error = %e, "Failed to write config");
+                } else {
+                    tracing::info!(path = %config_path.display(), "Config saved");
+                }
+            }
+        }
+    }
+
+    fn notify(&mut self, text: &str) {
+        self.notification = Some(text.to_string());
+        self.notification_tick = 0;
     }
 
     // ── Elm update ──────────────────────────────────────────────────
@@ -171,6 +353,13 @@ impl AppState {
                 let delta = self.last_tick.elapsed();
                 self.animations.tick(delta);
                 self.last_tick = Instant::now();
+                if self.notification.is_some() {
+                    self.notification_tick += 1;
+                    if self.notification_tick > 30 {
+                        self.notification = None;
+                        self.notification_tick = 0;
+                    }
+                }
                 vec![]
             }
             Message::Navigate(screen) => {
@@ -389,6 +578,7 @@ impl AppState {
             SlashCommand::Theme(String::new()),
             SlashCommand::New,
             SlashCommand::Doctor,
+            SlashCommand::Session(String::new()),
         ];
         if self.palette_query.is_empty() {
             return all;
@@ -503,10 +693,127 @@ impl AppState {
             }
             KeyCode::Tab => {
                 self.settings_tab = (self.settings_tab + 1) % 4;
+                if self.settings_tab == 1 {
+                    let models = known_models_for_provider(&self.provider_name);
+                    let idx = models.iter().position(|m| *m == self.model_name).unwrap_or(0);
+                    self.settings_model_cursor = idx;
+                }
             }
             KeyCode::BackTab => {
                 self.settings_tab = (self.settings_tab + 3) % 4;
+                if self.settings_tab == 1 {
+                    let models = known_models_for_provider(&self.provider_name);
+                    let idx = models.iter().position(|m| *m == self.model_name).unwrap_or(0);
+                    self.settings_model_cursor = idx;
+                }
             }
+            KeyCode::Up if self.settings_tab == 0 => {
+                let total = KNOWN_PROVIDERS.len();
+                if self.settings_provider_cursor > 0 {
+                    self.settings_provider_cursor -= 1;
+                } else {
+                    self.settings_provider_cursor = total.saturating_sub(1);
+                }
+            }
+            KeyCode::Down if self.settings_tab == 0 => {
+                let total = KNOWN_PROVIDERS.len();
+                if self.settings_provider_cursor < total.saturating_sub(1) {
+                    self.settings_provider_cursor += 1;
+                } else {
+                    self.settings_provider_cursor = 0;
+                }
+            }
+            KeyCode::Enter if self.settings_tab == 0 => {
+                if let Some(provider) = KNOWN_PROVIDERS.get(self.settings_provider_cursor) {
+                    self.provider_name = provider.to_string();
+                    let models = known_models_for_provider(provider);
+                    if !models.is_empty() {
+                        self.model_name = models[0].to_string();
+                    }
+                    self.settings_model_cursor = 0;
+                    self.save_config();
+                    self.notify(&format!("Provider: {} / {}", provider, self.model_name));
+                }
+            }
+            KeyCode::Up if self.settings_tab == 1 => {
+                let models = known_models_for_provider(&self.provider_name);
+                let total = models.len();
+                if total > 0 {
+                    if self.settings_model_cursor > 0 {
+                        self.settings_model_cursor -= 1;
+                    } else {
+                        self.settings_model_cursor = total.saturating_sub(1);
+                    }
+                }
+            }
+            KeyCode::Down if self.settings_tab == 1 => {
+                let models = known_models_for_provider(&self.provider_name);
+                let total = models.len();
+                if total > 0 {
+                    if self.settings_model_cursor < total.saturating_sub(1) {
+                        self.settings_model_cursor += 1;
+                    } else {
+                        self.settings_model_cursor = 0;
+                    }
+                }
+            }
+            KeyCode::Enter if self.settings_tab == 1 => {
+                let models = known_models_for_provider(&self.provider_name);
+                if let Some(model) = models.get(self.settings_model_cursor) {
+                    self.model_name = model.to_string();
+                    self.save_config();
+                    self.notify(&format!("Model: {}", model));
+                }
+            }
+            KeyCode::Up if self.settings_tab == 2 => {
+                if self.settings_behavior_cursor > 0 {
+                    self.settings_behavior_cursor -= 1;
+                } else {
+                    self.settings_behavior_cursor = 3;
+                }
+            }
+            KeyCode::Down if self.settings_tab == 2 => {
+                if self.settings_behavior_cursor < 3 {
+                    self.settings_behavior_cursor += 1;
+                } else {
+                    self.settings_behavior_cursor = 0;
+                }
+            }
+            KeyCode::Enter if self.settings_tab == 2 => match self.settings_behavior_cursor {
+                0 => {
+                    self.auto_scroll = !self.auto_scroll;
+                    self.save_config();
+                    self.notify(&format!("Auto-scroll: {}", if self.auto_scroll { "on" } else { "off" }));
+                }
+                1 => {
+                    self.show_thinking = !self.show_thinking;
+                    self.save_config();
+                    self.notify(&format!("Show thinking: {}", if self.show_thinking { "on" } else { "off" }));
+                }
+                2 => {
+                    self.temperature = if self.temperature >= 1.5 {
+                        0.0
+                    } else {
+                        self.temperature + 0.1
+                    };
+                    self.save_config();
+                    self.notify(&format!("Temperature: {:.1}", self.temperature));
+                }
+                3 => {
+                    self.max_tokens = match self.max_tokens {
+                        256 => 512,
+                        512 => 1024,
+                        1024 => 2048,
+                        2048 => 4096,
+                        4096 => 8192,
+                        8192 => 16384,
+                        _ => 256,
+                    };
+                    self.save_config();
+                    self.notify(&format!("Max tokens: {}", self.max_tokens));
+                }
+                _ => {}
+            },
             KeyCode::Up if self.settings_tab == 3 => {
                 let total = Theme::list_all().len();
                 if self.settings_theme_cursor > 0 {
@@ -528,6 +835,8 @@ impl AppState {
                 if let Some(selected) = all.get(self.settings_theme_cursor) {
                     self.theme =
                         Theme::find_by_name(selected.name).unwrap_or_else(|| self.theme.clone());
+                    self.save_config();
+                    self.notify(&format!("Theme: {}", selected.name));
                 }
             }
             _ => {}
@@ -537,30 +846,83 @@ impl AppState {
 
     fn handle_mouse_click(&mut self, event: MouseEvent) -> Vec<Command> {
         let (term_w, term_h) = self.terminal_size;
-        // Ignore clicks on the status bar (last row)
         if event.row >= term_h.saturating_sub(1) {
             return vec![];
         }
 
         match self.screen {
             Screen::Home => {
-                // Click anywhere on home screen → go to chat
                 self.screen = Screen::Chat;
                 self.input_buffer.clear();
             }
             Screen::Settings => {
-                // Settings panel: borders take 1 top + 1 bottom
                 let inner_y = event.row.saturating_sub(1);
                 let inner_x = event.column.saturating_sub(1);
 
-                // Tab bar is the first row inside the panel
                 if inner_y == 0 {
-                    // Determine which tab was clicked based on x position
                     let tab_width = term_w / 4;
                     let clicked_tab = (inner_x / tab_width.max(1)).min(3) as usize;
                     self.settings_tab = clicked_tab;
+                    if self.settings_tab == 1 {
+                        let models = known_models_for_provider(&self.provider_name);
+                        let idx = models.iter().position(|m| *m == self.model_name).unwrap_or(0);
+                        self.settings_model_cursor = idx;
+                    }
+                } else if self.settings_tab == 0 && inner_y >= 3 {
+                    let provider_index = inner_y.saturating_sub(3) as usize;
+                    if provider_index < KNOWN_PROVIDERS.len() {
+                        self.settings_provider_cursor = provider_index;
+                        if let Some(provider) = KNOWN_PROVIDERS.get(provider_index) {
+                            self.provider_name = provider.to_string();
+                            let models = known_models_for_provider(provider);
+                            if !models.is_empty() {
+                                self.model_name = models[0].to_string();
+                            }
+                            self.settings_model_cursor = 0;
+                            self.save_config();
+                            self.notify(&format!("Provider: {} / {}", provider, self.model_name));
+                        }
+                    }
+                } else if self.settings_tab == 1 && inner_y >= 3 {
+                    let models = known_models_for_provider(&self.provider_name);
+                    let model_index = inner_y.saturating_sub(3) as usize;
+                    if model_index < models.len() {
+                        self.settings_model_cursor = model_index;
+                        if let Some(model) = models.get(model_index) {
+                            self.model_name = model.to_string();
+                            self.save_config();
+                            self.notify(&format!("Model: {}", model));
+                        }
+                    }
+                } else if self.settings_tab == 2 && inner_y >= 3 {
+                    let item_index = inner_y.saturating_sub(3) as usize;
+                    if item_index < 4 {
+                        self.settings_behavior_cursor = item_index;
+                        match item_index {
+                            0 => {
+                                self.auto_scroll = !self.auto_scroll;
+                                self.notify(&format!("Auto-scroll: {}", if self.auto_scroll { "on" } else { "off" }));
+                            }
+                            1 => {
+                                self.show_thinking = !self.show_thinking;
+                                self.notify(&format!("Show thinking: {}", if self.show_thinking { "on" } else { "off" }));
+                            }
+                            2 => {
+                                self.temperature = if self.temperature >= 1.5 { 0.0 } else { self.temperature + 0.1 };
+                                self.notify(&format!("Temperature: {:.1}", self.temperature));
+                            }
+                            3 => {
+                                self.max_tokens = match self.max_tokens {
+                                    256 => 512, 512 => 1024, 1024 => 2048,
+                                    2048 => 4096, 4096 => 8192, 8192 => 16384, _ => 256,
+                                };
+                                self.notify(&format!("Max tokens: {}", self.max_tokens));
+                            }
+                            _ => {}
+                        }
+                        self.save_config();
+                    }
                 } else if self.settings_tab == 3 && inner_y >= 3 {
-                    // Theme list: starts 3 rows below the inner top (title + separator + blank)
                     let theme_index = inner_y.saturating_sub(3) as usize;
                     let total = Theme::list_all().len();
                     if theme_index < total {
@@ -568,6 +930,8 @@ impl AppState {
                         if let Some(selected) = Theme::list_all().get(theme_index) {
                             self.theme = Theme::find_by_name(selected.name)
                                 .unwrap_or_else(|| self.theme.clone());
+                            self.save_config();
+                            self.notify(&format!("Theme: {}", selected.name));
                         }
                     }
                 }
@@ -642,6 +1006,7 @@ impl AppState {
             SlashCommand::Model(name) => {
                 if !name.is_empty() {
                     self.model_name = name.clone();
+                    self.save_config();
                     self.messages.push(MessageBubble::new(
                         MessageRole::System,
                         format!("Model switched to: {}", name),
@@ -677,6 +1042,7 @@ impl AppState {
             SlashCommand::Provider(name) => {
                 if !name.is_empty() {
                     self.provider_name = name.clone();
+                    self.save_config();
                     self.messages.push(MessageBubble::new(
                         MessageRole::System,
                         format!("Provider switched to: {}", name),
@@ -708,6 +1074,7 @@ impl AppState {
                 if !name.is_empty() {
                     if let Some(t) = crate::theme::Theme::find_by_name(&name) {
                         self.theme = t;
+                        self.save_config();
                         self.messages.push(MessageBubble::new(
                             MessageRole::System,
                             format!("Theme changed to: {}", name),
@@ -767,6 +1134,7 @@ Available themes:
                 ));
             }
             SlashCommand::Doctor => {
+                let glyph_tier = format!("{:?}", crate::util::glyphs::detect_tier());
                 let checks: Vec<(&str, (String, bool))> = vec![
                     ("Terminal", {
                         let check = std::io::stdout().is_terminal();
@@ -776,6 +1144,7 @@ Available themes:
                         )
                     }),
                     ("Theme", (self.theme.name.to_string(), true)),
+                    ("Glyphs", (glyph_tier, true)),
                     (
                         "Provider",
                         (
@@ -812,6 +1181,89 @@ Available themes:
 ",
                     ),
                 ));
+            }
+            SlashCommand::Session(action) => {
+                let sessions_dir = dirs::data_dir()
+                    .map(|d| d.join("fevercode").join("sessions"))
+                    .unwrap_or_else(|| std::path::PathBuf::from(".fevercode/sessions"));
+
+                if action == "list" || action.is_empty() {
+                    if !sessions_dir.exists() {
+                        self.messages.push(MessageBubble::new(
+                            MessageRole::System,
+                            "No sessions found.".to_string(),
+                        ));
+                    } else {
+                        let mut sessions: Vec<_> = std::fs::read_dir(&sessions_dir)
+                            .ok()
+                            .map(|entries| {
+                                entries
+                                    .filter_map(|e| e.ok())
+                                    .filter_map(|e| {
+                                        let name = e.file_name().to_string_lossy().to_string();
+                                        if name.ends_with(".json") {
+                                            let stem = name.trim_end_matches(".json").to_string();
+                                            let meta = e.metadata().ok()?;
+                                            let modified = meta.modified().ok()?;
+                                            let time =
+                                                chrono::DateTime::<chrono::Local>::from(modified);
+                                            Some(format!("  {}  {}", stem, time.format("%Y-%m-%d %H:%M")))
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+                        sessions.sort();
+                        if sessions.is_empty() {
+                            self.messages.push(MessageBubble::new(
+                                MessageRole::System,
+                                "No sessions found.".to_string(),
+                            ));
+                        } else {
+                            let mut lines = vec![format!("Sessions ({}):", sessions.len())];
+                            lines.extend(sessions);
+                            self.messages.push(MessageBubble::new(
+                                MessageRole::System,
+                                lines.join("\n"),
+                            ));
+                        }
+                    }
+                } else if action == "clear" {
+                    if sessions_dir.exists() {
+                        let count = std::fs::read_dir(&sessions_dir)
+                            .ok()
+                            .map(|entries| {
+                                entries
+                                    .filter_map(|e| e.ok())
+                                    .filter(|e| {
+                                        e.path()
+                                            .extension()
+                                            .map(|ext| ext == "json")
+                                            .unwrap_or(false)
+                                    })
+                                    .count()
+                            })
+                            .unwrap_or(0);
+                        let _ = std::fs::remove_dir_all(&sessions_dir);
+                        let _ = std::fs::create_dir_all(&sessions_dir);
+                        self.messages.push(MessageBubble::new(
+                            MessageRole::System,
+                            format!("Cleared {} session(s).", count),
+                        ));
+                    } else {
+                        self.messages.push(MessageBubble::new(
+                            MessageRole::System,
+                            "No sessions to clear.".to_string(),
+                        ));
+                    }
+                } else {
+                    self.messages.push(MessageBubble::new(
+                        MessageRole::System,
+                        "Usage: /session [list|clear]".to_string(),
+                    ));
+                }
             }
         }
         vec![]

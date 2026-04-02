@@ -1,12 +1,13 @@
 use ratatui::{
-    Frame,
     layout::Rect,
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
+    Frame,
 };
 
 use crate::app::AppState;
+use crate::app::{known_models_for_provider, KNOWN_PROVIDERS};
 use crate::theme::Theme;
 use crate::util::glyphs;
 
@@ -50,7 +51,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
         .collect();
     lines.push(Line::from(tab_strs));
     lines.push(Line::from(Span::styled(
-        "\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}",
+        glyphs::SECTION_LINE.repeat(4),
         Style::default().fg(theme.accent()),
     )));
     lines.push(Line::from(""));
@@ -62,16 +63,92 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
                 Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
             )));
             lines.push(Line::from(""));
-            lines.push(Line::from(format!("  Provider: {}", state.provider_name)));
-            lines.push(Line::from(format!("  Model: {}", state.model_name)));
+
+            for (i, provider) in KNOWN_PROVIDERS.iter().enumerate() {
+                let is_active = *provider == state.provider_name;
+                let is_cursor = i == state.settings_provider_cursor;
+
+                let marker = if is_cursor && is_active {
+                    glyphs::ACTIVE
+                } else if is_cursor {
+                    "\u{25b6}"
+                } else if is_active {
+                    glyphs::ACTIVE
+                } else {
+                    glyphs::INACTIVE
+                };
+
+                let style = if is_active {
+                    Style::default()
+                        .fg(theme.accent())
+                        .add_modifier(Modifier::BOLD)
+                } else if is_cursor {
+                    Style::default().fg(theme.fg())
+                } else {
+                    Style::default().fg(theme.fg_dimmed())
+                };
+
+                let model_hint = if is_active {
+                    format!("  {}", state.model_name)
+                } else {
+                    String::new()
+                };
+
+                lines.push(Line::from(Span::styled(
+                    format!("  {} {}{}", marker, provider, model_hint),
+                    style,
+                )));
+            }
+
+            if state.settings_provider_cursor >= KNOWN_PROVIDERS.len() {
+                state.settings_provider_cursor = KNOWN_PROVIDERS.len().saturating_sub(1);
+            }
         }
         1 => {
             lines.push(Line::from(Span::styled(
                 "  Model Selection",
                 Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
             )));
+            lines.push(Line::from(Span::styled(
+                format!("  Provider: {}", state.provider_name),
+                Style::default().fg(theme.fg_dimmed()),
+            )));
             lines.push(Line::from(""));
-            lines.push(Line::from(format!("  Current: {}", state.model_name)));
+
+            let models = known_models_for_provider(&state.provider_name);
+            for (i, model) in models.iter().enumerate() {
+                let is_active = *model == state.model_name;
+                let is_cursor = i == state.settings_model_cursor;
+
+                let marker = if is_cursor && is_active {
+                    glyphs::ACTIVE
+                } else if is_cursor {
+                    "\u{25b6}"
+                } else if is_active {
+                    glyphs::ACTIVE
+                } else {
+                    glyphs::INACTIVE
+                };
+
+                let style = if is_active {
+                    Style::default()
+                        .fg(theme.accent())
+                        .add_modifier(Modifier::BOLD)
+                } else if is_cursor {
+                    Style::default().fg(theme.fg())
+                } else {
+                    Style::default().fg(theme.fg_dimmed())
+                };
+
+                lines.push(Line::from(Span::styled(
+                    format!("  {} {}", marker, model),
+                    style,
+                )));
+            }
+
+            if state.settings_model_cursor >= models.len() {
+                state.settings_model_cursor = models.len().saturating_sub(1);
+            }
         }
         2 => {
             lines.push(Line::from(Span::styled(
@@ -79,7 +156,54 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
                 Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
             )));
             lines.push(Line::from(""));
-            lines.push(Line::from("  (coming soon)"));
+
+            let items = [
+                format!(
+                    "  {} Auto-scroll  {}",
+                    if state.settings_behavior_cursor == 0 {
+                        glyphs::ACTIVE
+                    } else {
+                        " "
+                    },
+                    if state.auto_scroll { "on" } else { "off" }
+                ),
+                format!(
+                    "  {} Show thinking  {}",
+                    if state.settings_behavior_cursor == 1 {
+                        glyphs::ACTIVE
+                    } else {
+                        " "
+                    },
+                    if state.show_thinking { "on" } else { "off" }
+                ),
+                format!(
+                    "  {} Temperature  {:.1}",
+                    if state.settings_behavior_cursor == 2 {
+                        glyphs::ACTIVE
+                    } else {
+                        " "
+                    },
+                    state.temperature
+                ),
+                format!(
+                    "  {} Max tokens  {}",
+                    if state.settings_behavior_cursor == 3 {
+                        glyphs::ACTIVE
+                    } else {
+                        " "
+                    },
+                    state.max_tokens
+                ),
+            ];
+
+            for (i, item) in items.iter().enumerate() {
+                let style = if i == state.settings_behavior_cursor {
+                    Style::default().fg(theme.accent())
+                } else {
+                    Style::default().fg(theme.fg())
+                };
+                lines.push(Line::from(Span::styled(item.clone(), style)));
+            }
         }
         3 => {
             lines.push(Line::from(Span::styled(
@@ -97,7 +221,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
                 let marker = if is_cursor && is_active {
                     glyphs::ACTIVE
                 } else if is_cursor {
-                    "▶"
+                    "\u{25b6}"
                 } else if is_active {
                     glyphs::ACTIVE
                 } else {
@@ -127,22 +251,39 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
     }
 
     lines.push(Line::from(""));
-    if state.settings_tab == 3 {
-        lines.push(Line::from(vec![
-            Span::styled("  [Esc] ", Style::default().fg(theme.accent())),
-            Span::styled("back    ", Style::default().fg(theme.fg())),
-            Span::styled("[↑↓] ", Style::default().fg(theme.accent())),
-            Span::styled("navigate    ", Style::default().fg(theme.fg())),
-            Span::styled("[Enter] ", Style::default().fg(theme.accent())),
-            Span::styled("apply", Style::default().fg(theme.fg())),
-        ]));
-    } else {
-        lines.push(Line::from(vec![
-            Span::styled("  [Esc] ", Style::default().fg(theme.accent())),
-            Span::styled("back    ", Style::default().fg(theme.fg())),
-            Span::styled("[Tab] ", Style::default().fg(theme.accent())),
-            Span::styled("next section", Style::default().fg(theme.fg())),
-        ]));
+    match state.settings_tab {
+        0 | 1 => {
+            lines.push(Line::from(vec![
+                Span::styled("  [Esc] ", Style::default().fg(theme.accent())),
+                Span::styled("back    ", Style::default().fg(theme.fg())),
+                Span::styled("[Tab] ", Style::default().fg(theme.accent())),
+                Span::styled("next section    ", Style::default().fg(theme.fg())),
+                Span::styled("[\u{2191}\u{2193}] ", Style::default().fg(theme.accent())),
+                Span::styled("navigate    ", Style::default().fg(theme.fg())),
+                Span::styled("[Enter] ", Style::default().fg(theme.accent())),
+                Span::styled("select", Style::default().fg(theme.fg())),
+            ]));
+        }
+        3 => {
+            lines.push(Line::from(vec![
+                Span::styled("  [Esc] ", Style::default().fg(theme.accent())),
+                Span::styled("back    ", Style::default().fg(theme.fg())),
+                Span::styled("[\u{2191}\u{2193}] ", Style::default().fg(theme.accent())),
+                Span::styled("navigate    ", Style::default().fg(theme.fg())),
+                Span::styled("[Enter] ", Style::default().fg(theme.accent())),
+                Span::styled("apply", Style::default().fg(theme.fg())),
+            ]));
+        }
+        _ => {
+            lines.push(Line::from(vec![
+                Span::styled("  [Esc] ", Style::default().fg(theme.accent())),
+                Span::styled("back    ", Style::default().fg(theme.fg())),
+                Span::styled("[\u{2191}\u{2193}] ", Style::default().fg(theme.accent())),
+                Span::styled("navigate    ", Style::default().fg(theme.fg())),
+                Span::styled("[Enter] ", Style::default().fg(theme.accent())),
+                Span::styled("toggle", Style::default().fg(theme.fg())),
+            ]));
+        }
     }
 
     let paragraph = Paragraph::new(lines).style(Style::default().bg(theme.bg()).fg(theme.fg()));

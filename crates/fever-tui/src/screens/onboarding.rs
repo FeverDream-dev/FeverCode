@@ -41,7 +41,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
         Style::default().fg(theme.accent()),
     )));
     lines.push(Line::from(Span::styled(
-        text::center_text("cold sacred code", w),
+        text::center_text("code like fever, ship like dream", w),
         Style::default().fg(theme.fg_dimmed()),
     )));
     lines.push(Line::from(""));
