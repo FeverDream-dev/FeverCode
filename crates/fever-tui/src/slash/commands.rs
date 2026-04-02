@@ -13,9 +13,36 @@ pub enum SlashCommand {
     Theme(String),
     New,
     Doctor,
+    Session(String),
 }
 
 impl SlashCommand {
+    pub fn all_names() -> &'static [&'static str] {
+        &[
+            "help", "model", "clear", "settings", "quit", "version", "status", "role", "provider",
+            "save", "theme", "new", "doctor", "session",
+        ]
+    }
+
+    pub fn all_descriptions() -> &'static [(&'static str, &'static str)] {
+        &[
+            ("help", "Show available commands"),
+            ("model", "Switch or view current model"),
+            ("clear", "Clear chat history"),
+            ("settings", "Open settings screen"),
+            ("quit", "Quit Fever"),
+            ("version", "Show version"),
+            ("status", "Show provider/model status"),
+            ("role", "Set or view current role"),
+            ("provider", "Switch or view provider"),
+            ("save", "Save current session"),
+            ("theme", "Switch or list themes"),
+            ("new", "Start new session"),
+            ("doctor", "Run diagnostics"),
+            ("session", "List or manage sessions"),
+        ]
+    }
+
     pub fn parse(input: &str) -> Option<Self> {
         let input = input.trim();
         if !input.starts_with('/') {
@@ -40,6 +67,7 @@ impl SlashCommand {
             "theme" => Some(Self::Theme(parts.get(1).unwrap_or(&"").to_string())),
             "new" => Some(Self::New),
             "doctor" => Some(Self::Doctor),
+            "session" => Some(Self::Session(parts.get(1).unwrap_or(&"").to_string())),
             _ => None,
         }
     }
@@ -59,6 +87,7 @@ impl SlashCommand {
             Self::Theme(_) => "theme",
             Self::New => "new",
             Self::Doctor => "doctor",
+            Self::Session(_) => "session",
         }
     }
 
@@ -77,6 +106,7 @@ impl SlashCommand {
             Self::Theme(_) => "Switch or list themes",
             Self::New => "Start new session",
             Self::Doctor => "Run diagnostics",
+            Self::Session(_) => "List or manage sessions",
         }
     }
 }
