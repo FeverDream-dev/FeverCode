@@ -7,6 +7,24 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Accumulator state for directory walk, bundling mutable scan results.
+#[derive(Default)]
+struct WalkState {
+    languages: HashMap<String, (Vec<String>, usize)>,
+    build_system: Option<BuildSystem>,
+    test_framework: Option<String>,
+    test_commands: Vec<String>,
+    build_commands: Vec<String>,
+    entrypoints: Vec<String>,
+    config_files: Vec<String>,
+    frameworks: Vec<String>,
+    file_count: usize,
+    dir_count: usize,
+    package_manager: Option<String>,
+    has_yarn_lock: bool,
+    has_pnpm_lock: bool,
+}
+
 /// A structured summary of a project, produced by scanning the repository.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectSummary {
@@ -86,22 +104,8 @@ impl ProjectUnderstanding {
         Self { root }
     }
 
-    /// Scan the repository and produce a structured summary.
     pub async fn analyze(&self) -> Result<ProjectSummary> {
-        let mut languages: HashMap<String, (Vec<String>, usize)> = HashMap::new();
-        let mut build_system: Option<BuildSystem> = None;
-        let mut test_framework: Option<String> = None;
-        let mut test_commands: Vec<String> = Vec::new();
-        let mut build_commands: Vec<String> = Vec::new();
-        let mut entrypoints: Vec<String> = Vec::new();
-        let mut config_files: Vec<String> = Vec::new();
-        let mut frameworks: Vec<String> = Vec::new();
-        let mut file_count: usize = 0;
-        let mut dir_count: usize = 0;
         let mut top_dirs: Vec<String> = Vec::new();
-        let mut package_manager: Option<String> = None;
-        let mut has_yarn_lock = false;
-        let mut has_pnpm_lock = false;
 
         if let Ok(entries) = fs::read_dir(&self.root) {
             for entry in entries.flatten() {
@@ -115,48 +119,30 @@ impl ProjectUnderstanding {
         }
         top_dirs.sort();
 
-        // Walk the directory tree
-        self.walk_dir(
-            &self.root,
-            &mut languages,
-            &mut build_system,
-            &mut test_framework,
-            &mut test_commands,
-            &mut build_commands,
-            &mut entrypoints,
-            &mut config_files,
-            &mut frameworks,
-            &mut file_count,
-            &mut dir_count,
-            &mut package_manager,
-            &mut has_yarn_lock,
-            &mut has_pnpm_lock,
-        )?;
+        let mut state = WalkState::default();
+        self.walk_dir(&self.root, &mut state)?;
 
-        // Refine build system based on lock files
-        if build_system == Some(BuildSystem::Npm) {
-            if has_pnpm_lock {
-                build_system = Some(BuildSystem::Pnpm);
-            } else if has_yarn_lock {
-                build_system = Some(BuildSystem::Yarn);
+        if state.build_system == Some(BuildSystem::Npm) {
+            if state.has_pnpm_lock {
+                state.build_system = Some(BuildSystem::Pnpm);
+            } else if state.has_yarn_lock {
+                state.build_system = Some(BuildSystem::Yarn);
             }
         }
 
-        // Set commands based on build system
-        if test_commands.is_empty() {
-            test_commands = Self::detect_test_commands(&build_system);
+        if state.test_commands.is_empty() {
+            state.test_commands = Self::detect_test_commands(&state.build_system);
         }
-        if build_commands.is_empty() {
-            build_commands = Self::detect_build_commands(&build_system);
-        }
-
-        // Set package manager based on build system
-        if package_manager.is_none() {
-            package_manager = Self::detect_package_manager(&build_system);
+        if state.build_commands.is_empty() {
+            state.build_commands = Self::detect_build_commands(&state.build_system);
         }
 
-        // Convert language map to sorted vec
-        let mut languages_vec: Vec<LanguageInfo> = languages
+        if state.package_manager.is_none() {
+            state.package_manager = Self::detect_package_manager(&state.build_system);
+        }
+
+        let mut languages_vec: Vec<LanguageInfo> = state
+            .languages
             .into_iter()
             .map(|(name, (extensions, count))| LanguageInfo {
                 name,
@@ -166,58 +152,40 @@ impl ProjectUnderstanding {
             .collect();
         languages_vec.sort_by(|a, b| b.file_count.cmp(&a.file_count));
 
-        // Generate summary text
         let summary_text = Self::generate_summary_text(
             &languages_vec,
-            &build_system,
-            &entrypoints,
-            &frameworks,
-            file_count,
-            dir_count,
+            &state.build_system,
+            &state.entrypoints,
+            &state.frameworks,
+            state.file_count,
+            state.dir_count,
         );
 
-        // Deduplicate and sort
-        frameworks.sort();
-        frameworks.dedup();
-        entrypoints.sort();
-        entrypoints.dedup();
-        config_files.sort();
-        config_files.dedup();
+        state.frameworks.sort();
+        state.frameworks.dedup();
+        state.entrypoints.sort();
+        state.entrypoints.dedup();
+        state.config_files.sort();
+        state.config_files.dedup();
 
         Ok(ProjectSummary {
             languages: languages_vec,
-            build_system,
-            test_framework,
-            test_commands,
-            build_commands,
-            entrypoints,
-            config_files,
-            frameworks,
-            file_count,
-            dir_count,
+            build_system: state.build_system,
+            test_framework: state.test_framework,
+            test_commands: state.test_commands,
+            build_commands: state.build_commands,
+            entrypoints: state.entrypoints,
+            config_files: state.config_files,
+            frameworks: state.frameworks,
+            file_count: state.file_count,
+            dir_count: state.dir_count,
             top_dirs,
-            package_manager,
+            package_manager: state.package_manager,
             summary_text,
         })
     }
 
-    fn walk_dir(
-        &self,
-        dir: &Path,
-        languages: &mut HashMap<String, (Vec<String>, usize)>,
-        build_system: &mut Option<BuildSystem>,
-        test_framework: &mut Option<String>,
-        test_commands: &mut Vec<String>,
-        build_commands: &mut Vec<String>,
-        entrypoints: &mut Vec<String>,
-        config_files: &mut Vec<String>,
-        frameworks: &mut Vec<String>,
-        file_count: &mut usize,
-        dir_count: &mut usize,
-        package_manager: &mut Option<String>,
-        has_yarn_lock: &mut bool,
-        has_pnpm_lock: &mut bool,
-    ) -> Result<()> {
+    fn walk_dir(&self, dir: &Path, state: &mut WalkState) -> Result<()> {
         let entries = fs::read_dir(dir)?;
 
         for entry in entries.flatten() {
@@ -232,32 +200,15 @@ impl ProjectUnderstanding {
             let file_type = entry.file_type()?;
 
             if file_type.is_dir() {
-                // Skip certain directories
                 if SKIP_DIRS.contains(&file_name.as_str()) {
                     continue;
                 }
 
-                *dir_count += 1;
+                state.dir_count += 1;
 
-                // Recurse
-                self.walk_dir(
-                    &path,
-                    languages,
-                    build_system,
-                    test_framework,
-                    test_commands,
-                    build_commands,
-                    entrypoints,
-                    config_files,
-                    frameworks,
-                    file_count,
-                    dir_count,
-                    package_manager,
-                    has_yarn_lock,
-                    has_pnpm_lock,
-                )?;
+                self.walk_dir(&path, state)?;
             } else if file_type.is_file() {
-                *file_count += 1;
+                state.file_count += 1;
 
                 // Check file size
                 if let Ok(metadata) = fs::metadata(&path) {
@@ -270,7 +221,7 @@ impl ProjectUnderstanding {
                 if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
                     let ext_lower = ext.to_lowercase();
                     if let Some((lang_name, _extensions)) = Self::detect_language(&ext_lower) {
-                        let entry = languages.entry(lang_name).or_insert((vec![], 0));
+                        let entry = state.languages.entry(lang_name).or_insert((vec![], 0));
                         if !entry.0.contains(&ext_lower) {
                             entry.0.push(ext_lower.clone());
                         }
@@ -285,64 +236,66 @@ impl ProjectUnderstanding {
                 // Build system detection
                 match file_name.as_str() {
                     "Cargo.toml" => {
-                        *build_system = Some(BuildSystem::Cargo);
-                        *package_manager = Some("cargo".to_string());
+                        state.build_system = Some(BuildSystem::Cargo);
+                        state.package_manager = Some("cargo".to_string());
 
                         // Read file for framework detection
                         if let Ok(content) = fs::read_to_string(&path) {
-                            Self::detect_rust_frameworks(&content, frameworks);
+                            Self::detect_rust_frameworks(&content, &mut state.frameworks);
                         }
                     }
                     "package.json" => {
-                        *build_system = Some(BuildSystem::Npm);
-                        *package_manager = Some("npm".to_string());
+                        state.build_system = Some(BuildSystem::Npm);
+                        state.package_manager = Some("npm".to_string());
 
                         // Read file for framework detection
                         if let Ok(content) = fs::read_to_string(&path) {
-                            Self::detect_js_frameworks(&content, frameworks, test_framework);
+                            Self::detect_js_frameworks(
+                                &content,
+                                &mut state.frameworks,
+                                &mut state.test_framework,
+                            );
                         }
                     }
                     "yarn.lock" => {
-                        *has_yarn_lock = true;
-                        *package_manager = Some("yarn".to_string());
+                        state.has_yarn_lock = true;
+                        state.package_manager = Some("yarn".to_string());
                     }
                     "pnpm-lock.yaml" => {
-                        *has_pnpm_lock = true;
-                        *package_manager = Some("pnpm".to_string());
+                        state.has_pnpm_lock = true;
+                        state.package_manager = Some("pnpm".to_string());
                     }
                     "Makefile" => {
-                        *build_system = Some(BuildSystem::Make);
+                        state.build_system = Some(BuildSystem::Make);
                     }
                     "CMakeLists.txt" => {
-                        *build_system = Some(BuildSystem::Cmake);
+                        state.build_system = Some(BuildSystem::Cmake);
                     }
                     "build.gradle" | "settings.gradle" => {
-                        *build_system = Some(BuildSystem::Gradle);
+                        state.build_system = Some(BuildSystem::Gradle);
                     }
                     "pom.xml" => {
-                        *build_system = Some(BuildSystem::Maven);
+                        state.build_system = Some(BuildSystem::Maven);
                     }
                     "go.mod" => {
-                        *build_system = Some(BuildSystem::GoModules);
-                        *package_manager = Some("go".to_string());
+                        state.build_system = Some(BuildSystem::GoModules);
+                        state.package_manager = Some("go".to_string());
                     }
                     "requirements.txt" => {
-                        if build_system.is_none() {
-                            *build_system = Some(BuildSystem::Pip);
-                            *package_manager = Some("pip".to_string());
+                        if state.build_system.is_none() {
+                            state.build_system = Some(BuildSystem::Pip);
+                            state.package_manager = Some("pip".to_string());
                         }
                     }
                     "pyproject.toml" => {
                         if let Ok(content) = fs::read_to_string(&path) {
                             let has_poetry = content.contains("[tool.poetry]");
                             let has_build_system = content.contains("[build-system]");
-                            if has_poetry || has_build_system {
-                                if build_system.is_none() {
-                                    *build_system = Some(BuildSystem::Pip);
-                                    *package_manager = Some("pip".to_string());
-                                }
+                            if (has_poetry || has_build_system) && state.build_system.is_none() {
+                                state.build_system = Some(BuildSystem::Pip);
+                                state.package_manager = Some("pip".to_string());
                             }
-                            Self::detect_python_frameworks(&content, frameworks);
+                            Self::detect_python_frameworks(&content, &mut state.frameworks);
                         }
                     }
                     _ => {}
@@ -350,12 +303,12 @@ impl ProjectUnderstanding {
 
                 // Check for entrypoints
                 if Self::is_entrypoint(&file_name) {
-                    entrypoints.push(relative_str.to_string());
+                    state.entrypoints.push(relative_str.to_string());
                 }
 
                 // Check for config files
                 if Self::is_config_file(&file_name) {
-                    config_files.push(relative_str.to_string());
+                    state.config_files.push(relative_str.to_string());
                 }
             }
         }

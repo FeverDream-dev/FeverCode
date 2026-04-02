@@ -386,12 +386,12 @@ impl AppState {
     fn handle_chat_key(&mut self, key: KeyEvent) -> Vec<Command> {
         match key.code {
             KeyCode::Enter => {
-                if !self.input_buffer.is_empty() {
-                    if self.input_history.back() != Some(&self.input_buffer) {
-                        self.input_history.push_back(self.input_buffer.clone());
-                        if self.input_history.len() > 100 {
-                            self.input_history.pop_front();
-                        }
+                if !self.input_buffer.is_empty()
+                    && self.input_history.back() != Some(&self.input_buffer)
+                {
+                    self.input_history.push_back(self.input_buffer.clone());
+                    if self.input_history.len() > 100 {
+                        self.input_history.pop_front();
                     }
                 }
                 self.history_index = None;

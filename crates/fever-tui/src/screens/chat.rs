@@ -94,7 +94,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
     let messages_para = Paragraph::new(lines)
         .block(messages_block)
         .wrap(Wrap { trim: false })
-        .scroll((state.scroll_offset as u16, 0))
+        .scroll((state.scroll_offset, 0))
         .style(Style::default().fg(theme.fg()).bg(theme.bg()));
     f.render_widget(messages_para, chunks[0]);
 
