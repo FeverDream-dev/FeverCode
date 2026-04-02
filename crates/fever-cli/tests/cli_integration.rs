@@ -42,7 +42,7 @@ fn cli_config_path_succeeds() {
 
 #[test]
 fn cli_config_validate_runs() {
-    Command::cargo_bin("fever")
+    let _ = Command::cargo_bin("fever")
         .unwrap()
         .args(["config", "--validate"])
         .assert();
@@ -53,5 +53,6 @@ fn cli_session_list_runs() {
     Command::cargo_bin("fever")
         .unwrap()
         .args(["session", "list"])
-        .assert();
+        .assert()
+        .success();
 }

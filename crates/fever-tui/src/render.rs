@@ -126,7 +126,7 @@ fn render_help_overlay(f: &mut Frame, area: Rect, state: &AppState) {
     let theme = &state.theme;
 
     let overlay_width = 44.min(area.width.saturating_sub(4));
-    let overlay_height = 18.min(area.height.saturating_sub(4));
+    let overlay_height = 20.min(area.height.saturating_sub(4));
     let x = (area.width.saturating_sub(overlay_width)) / 2;
     let y = (area.height.saturating_sub(overlay_height)) / 2;
 
@@ -155,11 +155,13 @@ fn render_help_overlay(f: &mut Frame, area: Rect, state: &AppState) {
         ("Enter", "Send message"),
         ("Up / Down", "Recall input history"),
         ("PgUp / PgDn", "Scroll messages"),
+        ("Home / End", "Jump to top / bottom"),
+        ("Mouse wheel", "Scroll messages"),
         ("Esc", "Go back / Close"),
         ("?", "Toggle this help"),
         ("Ctrl+K", "Command palette"),
         ("Ctrl+B", "Toggle sidebar"),
-        ("Ctrl+C", "Quit"),
+        ("Ctrl+C", "Cancel / Quit"),
         ("/", "Start slash command"),
     ];
 

@@ -573,10 +573,21 @@ impl AppState {
                         format!("Model switched to: {}", name),
                     ));
                 } else {
-                    self.messages.push(MessageBubble::new(
-                        MessageRole::System,
-                        format!("Current model: {}", self.model_name),
-                    ));
+                    let info = format!(
+                        "Current: {}/{}\n\
+                         \n\
+                         Usage: /model <name>\n\
+                         \n\
+                         Common models:\n\
+                         gpt-4o, gpt-4o-mini, gpt-4-turbo\n\
+                         claude-sonnet-4-20250514, claude-3-5-sonnet\n\
+                         gemini-2.0-flash, gemini-1.5-pro\n\
+                         deepseek-chat, deepseek-coder\n\
+                         llama-3.3-70b, mixtral-8x7b",
+                        self.provider_name, self.model_name
+                    );
+                    self.messages
+                        .push(MessageBubble::new(MessageRole::System, info));
                 }
             }
             SlashCommand::Role(name) => {
@@ -597,10 +608,19 @@ impl AppState {
                         format!("Provider switched to: {}", name),
                     ));
                 } else {
-                    self.messages.push(MessageBubble::new(
-                        MessageRole::System,
-                        format!("Current provider: {}", self.provider_name),
-                    ));
+                    let info = format!(
+                        "Current provider: {}\n\
+                         Current model: {}/{}\n\
+                         \n\
+                         Usage: /provider <name>\n\
+                         \n\
+                         Available: openai, anthropic, gemini, groq,\n\
+                         deepseek, mistral, together, openrouter,\n\
+                         fireworks, perplexity, ollama",
+                        self.provider_name, self.provider_name, self.model_name
+                    );
+                    self.messages
+                        .push(MessageBubble::new(MessageRole::System, info));
                 }
             }
             SlashCommand::Save => {
