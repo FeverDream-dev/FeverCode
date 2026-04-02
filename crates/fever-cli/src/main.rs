@@ -535,7 +535,7 @@ async fn run_run(
     });
 
     let req = ChatRequest {
-        model,
+        model: model.clone(),
         messages: vec![ChatMessage {
             role: "user".to_string(),
             content,
@@ -545,19 +545,16 @@ async fn run_run(
         tools: None,
         temperature: None,
         max_tokens: None,
-        stream: false,
+        stream: !json_output,
     };
 
     let start = std::time::Instant::now();
-    match client.chat(&req).await {
-        Ok(resp) => {
-            let elapsed = start.elapsed();
-            if json_output {
+
+    if json_output {
+        match client.chat(&req).await {
+            Ok(resp) => {
+                let elapsed = start.elapsed();
                 println!("{}", serde_json::to_string_pretty(&resp)?);
-            } else {
-                if let Some(choice) = resp.choices.first() {
-                    println!("{}", choice.message.content.trim());
-                }
                 if let Some(usage) = &resp.usage {
                     eprintln!(
                         "  ({:.1}s, {} prompt + {} completion tokens)",
@@ -567,10 +564,38 @@ async fn run_run(
                     );
                 }
             }
+            Err(e) => {
+                tracing::error!("Run failed: {:#}", e);
+                anyhow::bail!("Provider error: {:#}", e);
+            }
         }
-        Err(e) => {
-            tracing::error!("Run failed: {:#}", e);
-            anyhow::bail!("Provider error: {:#}", e);
+    } else {
+        use futures::StreamExt;
+        match client.chat_stream(&req).await {
+            Ok(stream) => {
+                let mut stream = stream;
+                while let Some(chunk_result) = stream.next().await {
+                    match chunk_result {
+                        Ok(chunk) => {
+                            if let Some(text) = &chunk.content {
+                                print!("{text}");
+                                use std::io::Write;
+                                std::io::stdout().flush().ok();
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("\nStream error: {e}");
+                            break;
+                        }
+                    }
+                }
+                let elapsed = start.elapsed();
+                eprintln!("\n  ({:.1}s)", elapsed.as_secs_f64());
+            }
+            Err(e) => {
+                tracing::error!("Run failed: {:#}", e);
+                anyhow::bail!("Provider error: {:#}", e);
+            }
         }
     }
 
@@ -703,13 +728,28 @@ async fn main() -> anyhow::Result<()> {
                 tools: None,
                 temperature: None,
                 max_tokens: None,
-                stream: false,
+                stream: true,
             };
-            match client.chat(&req).await {
-                Ok(resp) => {
-                    if let Some(choice) = resp.choices.first() {
-                        println!("{}", choice.message.content);
+            use futures::StreamExt;
+            match client.chat_stream(&req).await {
+                Ok(stream) => {
+                    let mut stream = stream;
+                    while let Some(chunk_result) = stream.next().await {
+                        match chunk_result {
+                            Ok(chunk) => {
+                                if let Some(text) = &chunk.content {
+                                    print!("{text}");
+                                    use std::io::Write;
+                                    std::io::stdout().flush().ok();
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("\nStream error: {e}");
+                                break;
+                            }
+                        }
                     }
+                    println!();
                 }
                 Err(e) => {
                     tracing::error!("Chat failed: {:#}", e);
