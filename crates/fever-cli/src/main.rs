@@ -48,6 +48,9 @@ enum Command {
         /// Fetch available models from each provider
         #[arg(long)]
         fetch: bool,
+        /// Test a specific provider's connectivity
+        #[arg(long, value_name = "NAME")]
+        test: Option<String>,
     },
     /// Show version
     Version {
@@ -71,6 +74,9 @@ enum Command {
         /// Validate configuration without making changes
         #[arg(long)]
         validate: bool,
+        /// Open config file in $EDITOR
+        #[arg(long)]
+        edit: bool,
     },
     /// List available models from all configured providers
     Models {
@@ -221,6 +227,46 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
         }
         client.register(Arc::new(adapter), client.list_providers().is_empty());
         tracing::info!("Registered provider: fever_zai");
+    }
+
+    // Register providers from config.toml
+    if let Ok(cm) = fever_config::ConfigManager::new() {
+        if let Ok(config) = cm.load() {
+            for (name, prov_config) in &config.providers {
+                // Skip disabled providers or those without API keys
+                if !prov_config.enabled {
+                    continue;
+                }
+                let Some(api_key) = &prov_config.api_key else {
+                    continue;
+                };
+
+                // Skip if already registered from env vars
+                if client.get_provider(name).is_some() {
+                    tracing::debug!("Provider '{}' already registered, skipping config", name);
+                    continue;
+                }
+
+                // Create custom adapter with the provider's base_url or default
+                let base_url = prov_config
+                    .base_url
+                    .clone()
+                    .unwrap_or_else(|| "https://api.openai.com/v1".to_string());
+                let adapter = OpenAiAdapter::custom(name.clone(), api_key.clone(), base_url);
+
+                if fetch_models {
+                    let _ = adapter.fetch_models().await;
+                }
+
+                client.register(Arc::new(adapter), false);
+                tracing::info!("Registered provider from config: {}", name);
+            }
+
+            // Set default provider from config if specified
+            if let Some(default_provider) = &config.defaults.provider {
+                let _ = client.set_default_provider(default_provider.clone());
+            }
+        }
     }
 
     client
@@ -403,9 +449,27 @@ fn run_doctor() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_config(path: bool, show: bool, validate: bool) -> anyhow::Result<()> {
+fn run_config(path: bool, show: bool, validate: bool, edit: bool) -> anyhow::Result<()> {
     let cm = fever_config::ConfigManager::new()
         .map_err(|e| anyhow::anyhow!("Cannot access config directory: {e}"))?;
+
+    if edit {
+        let editor = std::env::var("EDITOR").unwrap_or_else(|_| "vi".to_string());
+        let config_path = cm.config_path();
+        if !config_path.exists() {
+            let config = fever_config::Config::default();
+            cm.save(&config)?;
+            println!("Created default config at: {}", config_path.display());
+        }
+        let status = std::process::Command::new(&editor)
+            .arg(config_path)
+            .status()
+            .map_err(|e| anyhow::anyhow!("Failed to run editor '{}': {}", editor, e))?;
+        if !status.success() {
+            eprintln!("Editor exited with non-zero status");
+        }
+        return Ok(());
+    }
 
     if path {
         println!("{}", cm.config_path().display());
@@ -470,6 +534,7 @@ fn run_config(path: bool, show: bool, validate: bool) -> anyhow::Result<()> {
     println!("  --path      Show config file path");
     println!("  --show      Show current configuration");
     println!("  --validate  Validate configuration");
+    println!("  --edit      Open config in $EDITOR");
 
     Ok(())
 }
@@ -757,7 +822,57 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
-        Some(Command::Providers { fetch }) => {
+        Some(Command::Providers { fetch, test }) => {
+            if let Some(provider_name) = test {
+                let client = build_provider_client(false).await;
+                let provider = match client.get_provider(&provider_name) {
+                    Some(p) => p,
+                    None => {
+                        eprintln!("Provider '{}' not found", provider_name);
+                        eprintln!("Available: {}", client.list_providers().join(", "));
+                        return Ok(());
+                    }
+                };
+                println!("Testing provider: {}...", provider_name);
+                match provider.validate_config().await {
+                    Ok(()) => println!("  Config: valid"),
+                    Err(e) => {
+                        println!("  Config: INVALID - {}", e);
+                        return Ok(());
+                    }
+                }
+                let request = ChatRequest {
+                    model: format!("{}/default", provider_name),
+                    messages: vec![ChatMessage {
+                        role: "user".to_string(),
+                        content: "ping".to_string(),
+                        tool_calls: None,
+                        tool_call_id: None,
+                    }],
+                    temperature: Some(0.0),
+                    max_tokens: Some(5),
+                    tools: None,
+                    stream: false,
+                };
+                match provider.chat(&request).await {
+                    Ok(response) => {
+                        println!("  Chat: OK (id: {})", response.id);
+                        if let Some(usage) = &response.usage {
+                            println!(
+                                "  Tokens: {} prompt + {} completion = {} total",
+                                usage.prompt_tokens,
+                                usage.completion_tokens,
+                                usage.total_tokens
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        println!("  Chat: FAILED - {}", e);
+                    }
+                }
+                return Ok(());
+            }
+
             let client = build_provider_client(fetch).await;
             let providers = client.list_providers();
             if providers.is_empty() {
@@ -790,8 +905,9 @@ async fn main() -> anyhow::Result<()> {
             path,
             show,
             validate,
+            edit,
         }) => {
-            run_config(path, show, validate)?;
+            run_config(path, show, validate, edit)?;
         }
         Some(Command::Models { provider }) => {
             run_models(provider).await??;

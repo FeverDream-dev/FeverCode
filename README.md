@@ -9,7 +9,8 @@ An open-source terminal coding agent for Linux.
 ### Agent Core
 - **CLI Commands**: `fever` (TUI), `fever chat`, `fever run`, `fever doctor`, `fever config`, `fever models`, `fever providers`, `fever session`, `fever version`, `fever init`, `fever --re-onboard`
 - **Core Tools**: Shell execution, filesystem operations (read/write/list), git operations, code search (grep)
-- **TUI**: Terminal UI with chat, settings, command palette (Ctrl+K), help overlay (?), input history, session auto-save
+- **TUI**: Terminal UI with chat, settings, command palette (Ctrl+K), help overlay (?), input history, session auto-save, 11 themes with live switching, mouse support
+- **Slash Commands**: `/help`, `/model`, `/role`, `/provider`, `/theme`, `/new`, `/doctor`, `/save`, `/clear`, `/settings`, `/status`, `/version`, `/quit`
 - **Configuration**: TOML-based config in `~/.config/fevercode/`, validated on startup
 - **Diagnostics**: `fever doctor` health check, `fever config --validate`
 - **Role System**: 10+ specialist roles for different tasks
@@ -53,8 +54,9 @@ fever chat "explain the auth module" --model gpt-4o
 # Run a prompt non-interactively (with timing)
 fever run "fix the build error in src/main.rs"
 
-# List configured providers
+# List configured providers (with --fetch to load models, --test to verify)
 fever providers
+fever providers --test openai
 
 # List available models
 fever models
@@ -67,6 +69,7 @@ fever doctor
 fever config --show
 fever config --validate
 fever config --path
+fever config --edit
 
 # Manage chat sessions
 fever session list
@@ -133,7 +136,7 @@ Fever Code is built with Rust and organized into focused crates:
 ## Development
 
 ```bash
-# Run tests (193 tests, full suite)
+# Run tests (209 tests, full suite)
 cargo test
 
 # Format code

@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::io;
+use std::io::{self, IsTerminal};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use crossterm::{
     event::{
         self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers,
-        MouseEvent, MouseEventKind,
+        MouseButton, MouseEvent, MouseEventKind,
     },
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
@@ -72,6 +72,7 @@ pub struct AppState {
 
     // Settings screen
     pub settings_tab: usize,
+    pub settings_theme_cursor: usize,
 
     // Agent bridge (optional — set by CLI when provider is configured)
     pub agent: Option<Arc<dyn AgentHandle>>,
@@ -83,6 +84,8 @@ pub struct AppState {
 
     // Session persistence
     pub session_id: String,
+
+    pub terminal_size: (u16, u16),
 }
 
 impl AppState {
@@ -119,11 +122,13 @@ impl AppState {
             show_sidebar: false,
             sidebar_selection: 0,
             settings_tab: 0,
+            settings_theme_cursor: 0,
             onboarding_step: 0,
             onboarding_selection: 0,
             agent: None,
             cancel_token: None,
             session_id: format!("session-{}", chrono::Local::now().format("%Y%m%d-%H%M%S")),
+            terminal_size: (80, 24),
         };
         state.load_config();
         state
@@ -258,6 +263,7 @@ impl AppState {
                 vec![]
             }
             Message::SlashCommand(cmd) => self.handle_slash_command(cmd),
+            Message::Mouse(event) => self.handle_mouse_click(event),
             Message::Quit => {
                 self.should_quit = true;
                 vec![]
@@ -380,6 +386,9 @@ impl AppState {
             SlashCommand::Role(String::new()),
             SlashCommand::Provider(String::new()),
             SlashCommand::Quit,
+            SlashCommand::Theme(String::new()),
+            SlashCommand::New,
+            SlashCommand::Doctor,
         ];
         if self.palette_query.is_empty() {
             return all;
@@ -497,6 +506,71 @@ impl AppState {
             }
             KeyCode::BackTab => {
                 self.settings_tab = (self.settings_tab + 3) % 4;
+            }
+            KeyCode::Up if self.settings_tab == 3 => {
+                let total = Theme::list_all().len();
+                if self.settings_theme_cursor > 0 {
+                    self.settings_theme_cursor -= 1;
+                } else {
+                    self.settings_theme_cursor = total.saturating_sub(1);
+                }
+            }
+            KeyCode::Down if self.settings_tab == 3 => {
+                let total = Theme::list_all().len();
+                if self.settings_theme_cursor < total.saturating_sub(1) {
+                    self.settings_theme_cursor += 1;
+                } else {
+                    self.settings_theme_cursor = 0;
+                }
+            }
+            KeyCode::Enter if self.settings_tab == 3 => {
+                let all = Theme::list_all();
+                if let Some(selected) = all.get(self.settings_theme_cursor) {
+                    self.theme = Theme::find_by_name(selected.name)
+                        .unwrap_or_else(|| self.theme.clone());
+                }
+            }
+            _ => {}
+        }
+        vec![]
+    }
+
+    fn handle_mouse_click(&mut self, event: MouseEvent) -> Vec<Command> {
+        let (term_w, term_h) = self.terminal_size;
+        // Ignore clicks on the status bar (last row)
+        if event.row >= term_h.saturating_sub(1) {
+            return vec![];
+        }
+
+        match self.screen {
+            Screen::Home => {
+                // Click anywhere on home screen → go to chat
+                self.screen = Screen::Chat;
+                self.input_buffer.clear();
+            }
+            Screen::Settings => {
+                // Settings panel: borders take 1 top + 1 bottom
+                let inner_y = event.row.saturating_sub(1);
+                let inner_x = event.column.saturating_sub(1);
+
+                // Tab bar is the first row inside the panel
+                if inner_y == 0 {
+                    // Determine which tab was clicked based on x position
+                    let tab_width = term_w / 4;
+                    let clicked_tab = (inner_x / tab_width.max(1)).min(3) as usize;
+                    self.settings_tab = clicked_tab;
+                } else if self.settings_tab == 3 && inner_y >= 3 {
+                    // Theme list: starts 3 rows below the inner top (title + separator + blank)
+                    let theme_index = inner_y.saturating_sub(3) as usize;
+                    let total = Theme::list_all().len();
+                    if theme_index < total {
+                        self.settings_theme_cursor = theme_index;
+                        if let Some(selected) = Theme::list_all().get(theme_index) {
+                            self.theme = Theme::find_by_name(selected.name)
+                                .unwrap_or_else(|| self.theme.clone());
+                        }
+                    }
+                }
             }
             _ => {}
         }
@@ -630,6 +704,91 @@ impl AppState {
                     format!("Session saved: {}", self.session_id),
                 ));
             }
+            SlashCommand::Theme(name) => {
+                if !name.is_empty() {
+                    if let Some(t) = crate::theme::Theme::find_by_name(&name) {
+                        self.theme = t;
+                        self.messages.push(MessageBubble::new(
+                            MessageRole::System,
+                            format!("Theme changed to: {}", name),
+                        ));
+                    } else {
+                        let available: Vec<_> = crate::theme::Theme::list_all()
+                            .iter()
+                            .map(|t| t.name.to_string())
+                            .collect();
+                        let info = format!(
+                            "Current: {}
+
+Available themes:
+  {}",
+                            self.theme.name,
+                            available.join("
+  ")
+                        );
+                        self.messages
+                            .push(MessageBubble::new(MessageRole::System, info));
+                    }
+                } else {
+                    let available: Vec<_> = crate::theme::Theme::list_all()
+                        .iter()
+                        .map(|t| t.name.to_string())
+                        .collect();
+                    let info = format!(
+                        "Current: {}
+
+Available themes:
+  {}",
+                        self.theme.name,
+                        available.join("
+  ")
+                    );
+                    self.messages
+                        .push(MessageBubble::new(MessageRole::System, info));
+                }
+            }
+            SlashCommand::New => {
+                if !self.messages.is_empty() {
+                    self.save_session();
+                }
+                self.messages.clear();
+                self.tool_calls.clear();
+                self.streaming = false;
+                self.streaming_buffer.clear();
+                self.session_id = format!("session-{}", chrono::Local::now().format("%Y%m%d-%H%M%S"));
+                self.messages.push(MessageBubble::new(
+                    MessageRole::System,
+                    format!("New session: {}", self.session_id),
+                ));
+            }
+            SlashCommand::Doctor => {
+                let checks: Vec<(&str, (String, bool))> = vec![
+                    ("Terminal", {
+                        let check = std::io::stdout().is_terminal();
+                        (if check { "interactive" } else { "piped" }.to_string(), check)
+                    }),
+                    ("Theme", (self.theme.name.to_string(), true)),
+                    ("Provider", (self.provider_name.clone(), !self.provider_name.is_empty() && self.provider_name != "none")),
+                    ("Model", (self.model_name.clone(), !self.model_name.is_empty() && self.model_name != "none")),
+                    ("Messages", (self.messages.len().to_string(), true)),
+                ];
+                let mut lines: Vec<String> = Vec::new();
+                lines.push("Fever Doctor".to_string());
+                for (label, (value, ok)) in &checks {
+                    let icon = if *ok { "✓" } else { "✗" };
+                    lines.push(format!("  {} {} - {}", icon, label, value));
+                }
+                let status = if checks.iter().all(|(_, (_, ok))| *ok) {
+                    "All checks passed."
+                } else {
+                    "Some checks failed. Run `fever doctor` for details."
+                };
+                lines.push(String::new());
+                lines.push(status.to_string());
+                self.messages
+                    .push(MessageBubble::new(MessageRole::System, lines.join("
+")));
+            }
         }
         vec![]
     }
@@ -759,6 +918,14 @@ impl AppState {
                             break;
                         }
                     }
+                    Ok(Event::Mouse(me @ MouseEvent {
+                        kind: MouseEventKind::Down(MouseButton::Left),
+                        ..
+                    })) => {
+                        if event_tx.blocking_send(Message::Mouse(me)).is_err() {
+                            break;
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -781,7 +948,10 @@ impl AppState {
 
         loop {
             // Render current state
-            terminal.draw(|f| render_frame(f, self))?;
+            terminal.draw(|f| {
+                self.terminal_size = (f.area().width, f.area().height);
+                render_frame(f, self);
+            })?;
 
             // Wait for next message
             if let Some(msg) = ui_rx.recv().await {

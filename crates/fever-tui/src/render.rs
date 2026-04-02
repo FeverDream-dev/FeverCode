@@ -1,15 +1,16 @@
 use crate::app::AppState;
 use crate::components::status_bar::StatusBar;
 use ratatui::{
-    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Clear, Paragraph},
+    Frame,
 };
 
 pub fn render_frame(f: &mut Frame, state: &mut AppState) {
     let size = f.area();
+    state.terminal_size = (size.width, size.height);
 
     let chunks = Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(size);
 

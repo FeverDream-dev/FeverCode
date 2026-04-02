@@ -10,6 +10,9 @@ pub enum SlashCommand {
     Role(String),
     Provider(String),
     Save,
+    Theme(String),
+    New,
+    Doctor,
 }
 
 impl SlashCommand {
@@ -34,6 +37,9 @@ impl SlashCommand {
             "role" => Some(Self::Role(parts.get(1).unwrap_or(&"").to_string())),
             "provider" => Some(Self::Provider(parts.get(1).unwrap_or(&"").to_string())),
             "save" => Some(Self::Save),
+            "theme" => Some(Self::Theme(parts.get(1).unwrap_or(&"").to_string())),
+            "new" => Some(Self::New),
+            "doctor" => Some(Self::Doctor),
             _ => None,
         }
     }
@@ -50,6 +56,9 @@ impl SlashCommand {
             Self::Role(_) => "role",
             Self::Provider(_) => "provider",
             Self::Save => "save",
+            Self::Theme(_) => "theme",
+            Self::New => "new",
+            Self::Doctor => "doctor",
         }
     }
 
@@ -65,6 +74,9 @@ impl SlashCommand {
             Self::Role(_) => "Set or view current role",
             Self::Provider(_) => "Switch or view provider",
             Self::Save => "Save current session",
+            Self::Theme(_) => "Switch or list themes",
+            Self::New => "Start new session",
+            Self::Doctor => "Run diagnostics",
         }
     }
 }

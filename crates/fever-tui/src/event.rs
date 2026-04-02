@@ -1,5 +1,5 @@
 use crate::slash::SlashCommand;
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyEvent, MouseEvent};
 
 #[derive(Debug, Clone)]
 pub enum Screen {
@@ -12,6 +12,7 @@ pub enum Screen {
 #[derive(Debug, Clone)]
 pub enum Message {
     Key(KeyEvent),
+    Mouse(MouseEvent),
     Tick,
     StreamChunk { content: String },
     StreamEnd,
