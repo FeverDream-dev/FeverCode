@@ -327,11 +327,114 @@ impl ProviderAdapter for GeminiAdapter {
 
     async fn chat_stream(
         &self,
-        _request: &ChatRequest,
+        request: &ChatRequest,
     ) -> ProviderResult<Box<dyn Stream<Item = ProviderResult<StreamChunk>> + Send + Unpin>> {
-        Err(ProviderError::RequestFailed(
-            "Streaming not yet implemented".to_string(),
-        ))
+        let url = format!(
+            "{}/chat/completions",
+            self.config.base_url.trim_end_matches('/')
+        );
+        let mut body = self.build_request_body(request);
+        body["stream"] = serde_json::json!(true);
+
+        let resp = self
+            .client
+            .post(&url)
+            .header("Authorization", &self.auth_header())
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| ProviderError::Http(e.to_string()))?;
+
+        let status = resp.status();
+        if status.as_u16() == 401 {
+            return Err(ProviderError::Auth("Invalid API key".to_string()));
+        }
+        if status.as_u16() == 429 {
+            return Err(ProviderError::RateLimit {
+                provider: self.provider_name.clone(),
+            });
+        }
+        if !status.is_success() {
+            let text = resp.text().await.unwrap_or_default();
+            return Err(ProviderError::Api {
+                code: status.as_u16().to_string(),
+                message: text,
+            });
+        }
+
+        let (tx, rx) = tokio::sync::mpsc::channel::<ProviderResult<StreamChunk>>(32);
+
+        tokio::spawn(async move {
+            let mut buffer = String::new();
+            let mut done = false;
+            let mut resp = resp;
+
+            while !done {
+                while let Some(pos) = buffer.find("\n\n") {
+                    let event_text = buffer[..pos].to_string();
+                    buffer = buffer[pos + 2..].to_string();
+
+                    for line in event_text.lines() {
+                        if let Some(data) = line.strip_prefix("data: ") {
+                            if data.trim() == "[DONE]" {
+                                done = true;
+                                let _ = tx
+                                    .send(Ok(StreamChunk {
+                                        id: None,
+                                        delta: None,
+                                        content: None,
+                                        finish_reason: Some("stop".to_string()),
+                                    }))
+                                    .await;
+                                break;
+                            }
+
+                            if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
+                                let id = json.get("id").and_then(|v| v.as_str()).map(String::from);
+                                let content = json
+                                    .pointer("/choices/0/delta/content")
+                                    .and_then(|v| v.as_str())
+                                    .map(String::from);
+                                let finish_reason = json
+                                    .pointer("/choices/0/finish_reason")
+                                    .and_then(|v| v.as_str())
+                                    .map(String::from);
+
+                                if content.is_some() || finish_reason.is_some() {
+                                    let _ = tx
+                                        .send(Ok(StreamChunk {
+                                            id,
+                                            delta: None,
+                                            content,
+                                            finish_reason,
+                                        }))
+                                        .await;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if done {
+                    break;
+                }
+
+                match resp.chunk().await {
+                    Ok(Some(bytes)) => {
+                        buffer.push_str(&String::from_utf8_lossy(&bytes));
+                    }
+                    Ok(None) => break,
+                    Err(e) => {
+                        let _ = tx.send(Err(ProviderError::Http(e.to_string()))).await;
+                        break;
+                    }
+                }
+            }
+        });
+
+        let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
+        Ok(Box::new(stream))
     }
 
     fn list_models(&self) -> Vec<String> {

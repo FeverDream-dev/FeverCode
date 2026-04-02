@@ -224,7 +224,6 @@ impl ProviderAdapter for AnthropicAdapter {
             }
         }
 
-        let _system_fields = anthro.system(); // unused - kept for future use
         let choice = ChatChoice {
             index: 0,
             message: ChatMessage {
@@ -251,13 +250,156 @@ impl ProviderAdapter for AnthropicAdapter {
 
     async fn chat_stream(
         &self,
-        _request: &ChatRequest,
+        request: &ChatRequest,
     ) -> ProviderResult<Box<dyn futures::Stream<Item = ProviderResult<StreamChunk>> + Send + Unpin>>
     {
-        // Streaming not implemented yet
-        Err(ProviderError::InvalidRequest(
-            "Streaming not yet implemented".to_string(),
-        ))
+        let model = self.effective_model(&request.model);
+        let mut system_prompt: Option<String> = None;
+        let mut messages: Vec<AnthropicMessage> = Vec::new();
+        for m in &request.messages {
+            if m.role == "system" {
+                if system_prompt.is_none() {
+                    system_prompt = Some(m.content.clone());
+                }
+            } else {
+                messages.push(AnthropicMessage {
+                    role: m.role.clone(),
+                    content: m.content.clone(),
+                });
+            }
+        }
+
+        let max_tokens = request.max_tokens.unwrap_or(4096);
+        let temperature = request.temperature.unwrap_or(0.7);
+
+        let mut body = serde_json::json!({
+            "model": model,
+            "max_tokens": max_tokens,
+            "messages": messages,
+            "temperature": temperature,
+            "stream": true,
+        });
+        if let Some(sys) = system_prompt {
+            body["system"] = serde_json::json!(sys);
+        }
+
+        let url = format!("{}/v1/messages", self.config.base_url.trim_end_matches('/'));
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            "x-api-key",
+            reqwest::header::HeaderValue::from_str(&self.config.api_key).unwrap(),
+        );
+        headers.insert(
+            "anthropic-version",
+            reqwest::header::HeaderValue::from_static("2023-06-01"),
+        );
+        headers.insert(
+            "Content-Type",
+            reqwest::header::HeaderValue::from_static("application/json"),
+        );
+
+        let resp = self
+            .client
+            .post(&url)
+            .headers(headers)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| ProviderError::Http(e.to_string()))?;
+
+        let status = resp.status();
+        if status.as_u16() == 401 {
+            return Err(ProviderError::Auth("Invalid API key".to_string()));
+        }
+        if status.as_u16() == 429 {
+            return Err(ProviderError::RateLimit {
+                provider: self.name().to_string(),
+            });
+        }
+        if !status.is_success() {
+            let text = resp.text().await.unwrap_or_default();
+            return Err(ProviderError::Api {
+                code: status.as_u16().to_string(),
+                message: text,
+            });
+        }
+
+        let (tx, rx) = tokio::sync::mpsc::channel::<ProviderResult<StreamChunk>>(32);
+
+        tokio::spawn(async move {
+            let mut buffer = String::new();
+            let mut done = false;
+            let mut resp = resp;
+
+            while !done {
+                while let Some(pos) = buffer.find("\n\n") {
+                    let event_text = buffer[..pos].to_string();
+                    buffer = buffer[pos + 2..].to_string();
+
+                    let mut event_type = String::new();
+                    let mut data = String::new();
+
+                    for line in event_text.lines() {
+                        if let Some(et) = line.strip_prefix("event: ") {
+                            event_type = et.to_string();
+                        }
+                        if let Some(d) = line.strip_prefix("data: ") {
+                            data = d.to_string();
+                        }
+                    }
+
+                    if event_type == "message_stop" {
+                        done = true;
+                        let _ = tx
+                            .send(Ok(StreamChunk {
+                                id: None,
+                                delta: None,
+                                content: None,
+                                finish_reason: Some("stop".to_string()),
+                            }))
+                            .await;
+                        break;
+                    }
+
+                    if event_type == "content_block_delta" && !data.is_empty() {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&data) {
+                            let content = json
+                                .pointer("/delta/text")
+                                .and_then(|v| v.as_str())
+                                .map(String::from);
+                            if let Some(text) = content {
+                                let _ = tx
+                                    .send(Ok(StreamChunk {
+                                        id: None,
+                                        delta: None,
+                                        content: Some(text),
+                                        finish_reason: None,
+                                    }))
+                                    .await;
+                            }
+                        }
+                    }
+                }
+
+                if done {
+                    break;
+                }
+
+                match resp.chunk().await {
+                    Ok(Some(bytes)) => {
+                        buffer.push_str(&String::from_utf8_lossy(&bytes));
+                    }
+                    Ok(None) => break,
+                    Err(e) => {
+                        let _ = tx.send(Err(ProviderError::Http(e.to_string()))).await;
+                        break;
+                    }
+                }
+            }
+        });
+
+        let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
+        Ok(Box::new(stream))
     }
 
     fn list_models(&self) -> Vec<String> {
@@ -300,14 +442,5 @@ impl ProviderAdapter for AnthropicAdapter {
 
     fn is_configured(&self) -> bool {
         !self.config.api_key.trim().is_empty()
-    }
-}
-
-// Helpers: expose Anthropic response subset for mapping or avoid unused if not needed
-impl AnthropicResponse {
-    // For potential future enhancements; currently not used directly.
-    fn system(&self) -> Option<String> {
-        // Anthropic response does not include a separate system field; kept for API symmetry if needed
-        None
     }
 }

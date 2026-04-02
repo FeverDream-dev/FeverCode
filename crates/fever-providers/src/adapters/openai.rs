@@ -170,7 +170,7 @@ impl OpenAiAdapter {
             "deepseek".to_string(),
             OpenAiConfig {
                 api_key: api_key.into(),
-                base_url: "https://api.deepseek.com".to_string(),
+                base_url: "https://api.deepseek.com/v1".to_string(),
                 default_model: None,
                 organization: None,
             },
