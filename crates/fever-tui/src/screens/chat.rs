@@ -34,9 +34,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
 
     let theme = &state.theme;
 
-    let has_autocomplete = state.input_buffer.starts_with('/')
-        && !state.input_buffer.contains(' ')
-        && state.input_buffer.len() > 1;
+    let has_autocomplete = state.input_buffer.starts_with('/') && !state.input_buffer.contains(' ');
 
     let autocomplete_hints = if has_autocomplete {
         matching_commands(&state.input_buffer)

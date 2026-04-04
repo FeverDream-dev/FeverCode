@@ -14,13 +14,39 @@ pub enum SlashCommand {
     New,
     Doctor,
     Session(String),
+    Mcp(String),
+    Preprompt(String),
+    Tokens,
+    Cost,
+    Context,
+    Time,
+    Tools,
 }
 
 impl SlashCommand {
     pub fn all_names() -> &'static [&'static str] {
         &[
-            "help", "model", "clear", "settings", "quit", "version", "status", "role", "provider",
-            "save", "theme", "new", "doctor", "session",
+            "help",
+            "model",
+            "clear",
+            "settings",
+            "quit",
+            "version",
+            "status",
+            "role",
+            "provider",
+            "save",
+            "theme",
+            "new",
+            "doctor",
+            "session",
+            "mcp",
+            "preprompt",
+            "tokens",
+            "cost",
+            "context",
+            "time",
+            "tools",
         ]
     }
 
@@ -40,6 +66,13 @@ impl SlashCommand {
             ("new", "Start new session"),
             ("doctor", "Run diagnostics"),
             ("session", "List or manage sessions"),
+            ("mcp", "Manage MCP servers"),
+            ("preprompt", "Manage pre-prompt/system behavior"),
+            ("tokens", "Show token usage"),
+            ("cost", "Show estimated cost"),
+            ("context", "Show context window usage"),
+            ("time", "Show request timing"),
+            ("tools", "List available tools"),
         ]
     }
 
@@ -68,6 +101,13 @@ impl SlashCommand {
             "new" => Some(Self::New),
             "doctor" => Some(Self::Doctor),
             "session" => Some(Self::Session(parts.get(1).unwrap_or(&"").to_string())),
+            "mcp" => Some(Self::Mcp(parts.get(1).unwrap_or(&"").to_string())),
+            "preprompt" => Some(Self::Preprompt(parts.get(1).unwrap_or(&"").to_string())),
+            "tokens" => Some(Self::Tokens),
+            "cost" => Some(Self::Cost),
+            "context" => Some(Self::Context),
+            "time" => Some(Self::Time),
+            "tools" => Some(Self::Tools),
             _ => None,
         }
     }
@@ -88,6 +128,13 @@ impl SlashCommand {
             Self::New => "new",
             Self::Doctor => "doctor",
             Self::Session(_) => "session",
+            Self::Mcp(_) => "mcp",
+            Self::Preprompt(_) => "preprompt",
+            Self::Tokens => "tokens",
+            Self::Cost => "cost",
+            Self::Context => "context",
+            Self::Time => "time",
+            Self::Tools => "tools",
         }
     }
 
@@ -107,6 +154,13 @@ impl SlashCommand {
             Self::New => "Start new session",
             Self::Doctor => "Run diagnostics",
             Self::Session(_) => "List or manage sessions",
+            Self::Mcp(_) => "Manage MCP servers",
+            Self::Preprompt(_) => "Manage pre-prompt/system behavior",
+            Self::Tokens => "Show token usage",
+            Self::Cost => "Show estimated cost",
+            Self::Context => "Show context window usage",
+            Self::Time => "Show request timing",
+            Self::Tools => "List available tools",
         }
     }
 }

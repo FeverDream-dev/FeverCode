@@ -11,7 +11,16 @@ use crate::app::{KNOWN_PROVIDERS, known_models_for_provider};
 use crate::theme::Theme;
 use crate::util::glyphs;
 
-const TABS: &[&str] = &["Providers", "Models", "Behavior", "Theme"];
+const TABS: &[&str] = &[
+    "Providers",
+    "Models",
+    "Behavior",
+    "Theme",
+    "MCP",
+    "PrePrompt",
+    "Telemetry",
+    "Advanced",
+];
 
 pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
     if area.width < 20 || area.height < 10 {
@@ -247,34 +256,186 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
                 state.settings_theme_cursor = total.saturating_sub(1);
             }
         }
+        4 => {
+            lines.push(Line::from(Span::styled(
+                "  MCP Servers",
+                Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
+            )));
+            lines.push(Line::from(""));
+            for (i, server) in state.mcp_servers.iter().enumerate() {
+                let is_cursor = i == state.settings_mcp_cursor;
+                let marker = if is_cursor { "\u{25b6}" } else { " " };
+                let status = if server.enabled && server.connected {
+                    "connected"
+                } else if server.enabled {
+                    "enabled"
+                } else {
+                    "disabled"
+                };
+                let style = if is_cursor {
+                    Style::default().fg(theme.accent())
+                } else {
+                    Style::default().fg(theme.fg_dimmed())
+                };
+                lines.push(Line::from(Span::styled(
+                    format!("  {} {} [{}]", marker, server.name, status),
+                    style,
+                )));
+            }
+            if state.settings_mcp_cursor >= state.mcp_servers.len() {
+                state.settings_mcp_cursor = state.mcp_servers.len().saturating_sub(1);
+            }
+        }
+        5 => {
+            lines.push(Line::from(Span::styled(
+                "  Pre-Prompt",
+                Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
+            )));
+            lines.push(Line::from(""));
+            let items = [
+                format!(
+                    "  {} Enabled  {}",
+                    if state.settings_preprompt_cursor == 0 {
+                        glyphs::ACTIVE
+                    } else {
+                        " "
+                    },
+                    if state.preprompt_enabled { "on" } else { "off" }
+                ),
+                format!(
+                    "  {} Mode  {}",
+                    if state.settings_preprompt_cursor == 1 {
+                        glyphs::ACTIVE
+                    } else {
+                        " "
+                    },
+                    state.preprompt_mode
+                ),
+            ];
+            for (i, item) in items.iter().enumerate() {
+                let style = if i == state.settings_preprompt_cursor {
+                    Style::default().fg(theme.accent())
+                } else {
+                    Style::default().fg(theme.fg())
+                };
+                lines.push(Line::from(Span::styled(item.clone(), style)));
+            }
+        }
+        6 => {
+            lines.push(Line::from(Span::styled(
+                "  Telemetry",
+                Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
+            )));
+            lines.push(Line::from(""));
+            let items = [
+                format!(
+                    "  {} Show tokens  {}",
+                    if state.settings_telemetry_cursor == 0 {
+                        glyphs::ACTIVE
+                    } else {
+                        " "
+                    },
+                    if state.show_tokens_in_status {
+                        "on"
+                    } else {
+                        "off"
+                    }
+                ),
+                format!(
+                    "  {} Show cost  {}",
+                    if state.settings_telemetry_cursor == 1 {
+                        glyphs::ACTIVE
+                    } else {
+                        " "
+                    },
+                    if state.show_cost_in_status {
+                        "on"
+                    } else {
+                        "off"
+                    }
+                ),
+                format!(
+                    "  {} Show elapsed  {}",
+                    if state.settings_telemetry_cursor == 2 {
+                        glyphs::ACTIVE
+                    } else {
+                        " "
+                    },
+                    if state.show_elapsed_in_status {
+                        "on"
+                    } else {
+                        "off"
+                    }
+                ),
+            ];
+            for (i, item) in items.iter().enumerate() {
+                let style = if i == state.settings_telemetry_cursor {
+                    Style::default().fg(theme.accent())
+                } else {
+                    Style::default().fg(theme.fg())
+                };
+                lines.push(Line::from(Span::styled(item.clone(), style)));
+            }
+        }
+        7 => {
+            lines.push(Line::from(Span::styled(
+                "  Advanced",
+                Style::default().fg(theme.fg()).add_modifier(Modifier::BOLD),
+            )));
+            lines.push(Line::from(""));
+            let items = [
+                format!(
+                    "  {} Timeout  {}s",
+                    if state.settings_advanced_cursor == 0 {
+                        glyphs::ACTIVE
+                    } else {
+                        " "
+                    },
+                    state.timeout_secs
+                ),
+                format!(
+                    "  {} Verbosity  {}",
+                    if state.settings_advanced_cursor == 1 {
+                        glyphs::ACTIVE
+                    } else {
+                        " "
+                    },
+                    state.verbosity
+                ),
+                format!(
+                    "  {} Glyph mode  {}",
+                    if state.settings_advanced_cursor == 2 {
+                        glyphs::ACTIVE
+                    } else {
+                        " "
+                    },
+                    state.glyph_mode
+                ),
+                format!(
+                    "  {} Mouse  {}",
+                    if state.settings_advanced_cursor == 3 {
+                        glyphs::ACTIVE
+                    } else {
+                        " "
+                    },
+                    if state.mouse_enabled { "on" } else { "off" }
+                ),
+            ];
+            for (i, item) in items.iter().enumerate() {
+                let style = if i == state.settings_advanced_cursor {
+                    Style::default().fg(theme.accent())
+                } else {
+                    Style::default().fg(theme.fg())
+                };
+                lines.push(Line::from(Span::styled(item.clone(), style)));
+            }
+        }
         _ => {}
     }
 
     lines.push(Line::from(""));
     match state.settings_tab {
-        0 | 1 => {
-            lines.push(Line::from(vec![
-                Span::styled("  [Esc] ", Style::default().fg(theme.accent())),
-                Span::styled("back    ", Style::default().fg(theme.fg())),
-                Span::styled("[Tab] ", Style::default().fg(theme.accent())),
-                Span::styled("next section    ", Style::default().fg(theme.fg())),
-                Span::styled("[\u{2191}\u{2193}] ", Style::default().fg(theme.accent())),
-                Span::styled("navigate    ", Style::default().fg(theme.fg())),
-                Span::styled("[Enter] ", Style::default().fg(theme.accent())),
-                Span::styled("select", Style::default().fg(theme.fg())),
-            ]));
-        }
-        3 => {
-            lines.push(Line::from(vec![
-                Span::styled("  [Esc] ", Style::default().fg(theme.accent())),
-                Span::styled("back    ", Style::default().fg(theme.fg())),
-                Span::styled("[\u{2191}\u{2193}] ", Style::default().fg(theme.accent())),
-                Span::styled("navigate    ", Style::default().fg(theme.fg())),
-                Span::styled("[Enter] ", Style::default().fg(theme.accent())),
-                Span::styled("apply", Style::default().fg(theme.fg())),
-            ]));
-        }
-        _ => {
+        0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 => {
             lines.push(Line::from(vec![
                 Span::styled("  [Esc] ", Style::default().fg(theme.accent())),
                 Span::styled("back    ", Style::default().fg(theme.fg())),
@@ -284,6 +445,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
                 Span::styled("toggle", Style::default().fg(theme.fg())),
             ]));
         }
+        _ => {}
     }
 
     let paragraph = Paragraph::new(lines).style(Style::default().bg(theme.bg()).fg(theme.fg()));

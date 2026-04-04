@@ -19,6 +19,13 @@ Fever Commands
   /status            Show status
   /version           Show version
   /quit, /q          Quit Fever
+  /mcp [name]       Manage MCP servers
+  /preprompt [mode] Manage pre-prompt
+  /tokens           Show token usage
+  /cost             Show estimated cost
+  /context          Show context window usage
+  /time             Show request timing
+  /tools            List available tools
 "#,
         glyphs::SECTION_LINE
     )

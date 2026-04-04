@@ -103,6 +103,13 @@ pub fn known_models_for_provider(provider: &str) -> Vec<&'static str> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct McpServerEntry {
+    pub name: String,
+    pub enabled: bool,
+    pub connected: bool,
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // AppState — single source of truth for the entire TUI
 // ─────────────────────────────────────────────────────────────────────
@@ -158,6 +165,42 @@ pub struct AppState {
     pub show_thinking: bool,
     pub temperature: f32,
     pub max_tokens: u32,
+
+    // Slash menu interactive typeahead
+    pub slash_menu_visible: bool,
+    pub slash_menu_selection: usize,
+
+    // Token/cost/context telemetry
+    pub input_tokens: usize,
+    pub output_tokens: usize,
+    pub total_tokens: usize,
+    pub estimated_cost: f64,
+    pub context_limit: usize,
+    pub request_start: Option<Instant>,
+    pub request_elapsed: Option<Duration>,
+    pub show_tokens_in_status: bool,
+    pub show_cost_in_status: bool,
+    pub show_elapsed_in_status: bool,
+
+    // MCP management
+    pub mcp_servers: Vec<McpServerEntry>,
+    pub mcp_enabled: bool,
+
+    // Pre-prompt controls
+    pub preprompt_enabled: bool,
+    pub preprompt_mode: String,
+
+    // Settings tabs 4-7 cursors
+    pub settings_mcp_cursor: usize,
+    pub settings_preprompt_cursor: usize,
+    pub settings_telemetry_cursor: usize,
+    pub settings_advanced_cursor: usize,
+
+    // Advanced settings
+    pub timeout_secs: u32,
+    pub verbosity: u8,
+    pub glyph_mode: String,
+    pub mouse_enabled: bool,
 
     // Agent bridge (optional — set by CLI when provider is configured)
     pub agent: Option<Arc<dyn AgentHandle>>,
@@ -218,6 +261,47 @@ impl AppState {
             show_thinking: true,
             temperature: 0.7,
             max_tokens: 4096,
+
+            slash_menu_visible: false,
+            slash_menu_selection: 0,
+            input_tokens: 0,
+            output_tokens: 0,
+            total_tokens: 0,
+            estimated_cost: 0.0,
+            context_limit: 128_000,
+            request_start: None,
+            request_elapsed: None,
+            show_tokens_in_status: false,
+            show_cost_in_status: false,
+            show_elapsed_in_status: false,
+            mcp_servers: vec![
+                McpServerEntry {
+                    name: "filesystem".to_string(),
+                    enabled: false,
+                    connected: false,
+                },
+                McpServerEntry {
+                    name: "github".to_string(),
+                    enabled: false,
+                    connected: false,
+                },
+                McpServerEntry {
+                    name: "browser".to_string(),
+                    enabled: false,
+                    connected: false,
+                },
+            ],
+            mcp_enabled: false,
+            preprompt_enabled: true,
+            preprompt_mode: "default".to_string(),
+            settings_mcp_cursor: 0,
+            settings_preprompt_cursor: 0,
+            settings_telemetry_cursor: 0,
+            settings_advanced_cursor: 0,
+            timeout_secs: 120,
+            verbosity: 0,
+            glyph_mode: "auto".to_string(),
+            mouse_enabled: true,
             onboarding_step: 0,
             onboarding_selection: 0,
             agent: None,
@@ -289,6 +373,77 @@ impl AppState {
                                 self.theme = t;
                             }
                         }
+                        // Telemetry/MCP/preprompt/advanced loading
+                        if let Some(show_tok) = value
+                            .get("telemetry")
+                            .and_then(|t| t.get("show_tokens"))
+                            .and_then(|v| v.as_bool())
+                        {
+                            self.show_tokens_in_status = show_tok;
+                        }
+                        if let Some(show_cost) = value
+                            .get("telemetry")
+                            .and_then(|t| t.get("show_cost"))
+                            .and_then(|v| v.as_bool())
+                        {
+                            self.show_cost_in_status = show_cost;
+                        }
+                        if let Some(show_elapsed) = value
+                            .get("telemetry")
+                            .and_then(|t| t.get("show_elapsed"))
+                            .and_then(|v| v.as_bool())
+                        {
+                            self.show_elapsed_in_status = show_elapsed;
+                        }
+                        if let Some(mcp_on) = value
+                            .get("mcp")
+                            .and_then(|m| m.get("enabled"))
+                            .and_then(|v| v.as_bool())
+                        {
+                            self.mcp_enabled = mcp_on;
+                        }
+                        if let Some(pp_on) = value
+                            .get("preprompt")
+                            .and_then(|p| p.get("enabled"))
+                            .and_then(|v| v.as_bool())
+                        {
+                            self.preprompt_enabled = pp_on;
+                        }
+                        if let Some(pp_mode) = value
+                            .get("preprompt")
+                            .and_then(|p| p.get("mode"))
+                            .and_then(|v| v.as_str())
+                        {
+                            self.preprompt_mode = pp_mode.to_string();
+                        }
+                        if let Some(timeout) = value
+                            .get("advanced")
+                            .and_then(|a| a.get("timeout_secs"))
+                            .and_then(|v| v.as_integer())
+                        {
+                            self.timeout_secs = timeout as u32;
+                        }
+                        if let Some(verb) = value
+                            .get("advanced")
+                            .and_then(|a| a.get("verbosity"))
+                            .and_then(|v| v.as_integer())
+                        {
+                            self.verbosity = verb as u8;
+                        }
+                        if let Some(glyph) = value
+                            .get("advanced")
+                            .and_then(|a| a.get("glyph_mode"))
+                            .and_then(|v| v.as_str())
+                        {
+                            self.glyph_mode = glyph.to_string();
+                        }
+                        if let Some(mouse) = value
+                            .get("advanced")
+                            .and_then(|a| a.get("mouse_enabled"))
+                            .and_then(|v| v.as_bool())
+                        {
+                            self.mouse_enabled = mouse;
+                        }
                     }
                 }
             }
@@ -333,10 +488,64 @@ impl AppState {
                 toml::Value::String(self.theme.name.to_string()),
             );
 
+            // Telemetry/MCP/preprompt/advanced configuration sections
+            let mut telemetry = toml::value::Table::new();
+            telemetry.insert(
+                "show_tokens".to_string(),
+                toml::Value::Boolean(self.show_tokens_in_status),
+            );
+            telemetry.insert(
+                "show_cost".to_string(),
+                toml::Value::Boolean(self.show_cost_in_status),
+            );
+            telemetry.insert(
+                "show_elapsed".to_string(),
+                toml::Value::Boolean(self.show_elapsed_in_status),
+            );
+
+            let mut mcp_table = toml::value::Table::new();
+            mcp_table.insert(
+                "enabled".to_string(),
+                toml::Value::Boolean(self.mcp_enabled),
+            );
+
+            let mut preprompt_table = toml::value::Table::new();
+            preprompt_table.insert(
+                "enabled".to_string(),
+                toml::Value::Boolean(self.preprompt_enabled),
+            );
+            preprompt_table.insert(
+                "mode".to_string(),
+                toml::Value::String(self.preprompt_mode.clone()),
+            );
+
+            let mut advanced = toml::value::Table::new();
+            advanced.insert(
+                "timeout_secs".to_string(),
+                toml::Value::Integer(self.timeout_secs as i64),
+            );
+            advanced.insert(
+                "verbosity".to_string(),
+                toml::Value::Integer(self.verbosity as i64),
+            );
+            advanced.insert(
+                "glyph_mode".to_string(),
+                toml::Value::String(self.glyph_mode.clone()),
+            );
+            advanced.insert(
+                "mouse_enabled".to_string(),
+                toml::Value::Boolean(self.mouse_enabled),
+            );
+
             let mut root = toml::value::Table::new();
             root.insert("defaults".to_string(), toml::Value::Table(defaults));
             root.insert("ui".to_string(), toml::Value::Table(ui));
 
+            // Attach extra sections
+            root.insert("telemetry".to_string(), toml::Value::Table(telemetry));
+            root.insert("mcp".to_string(), toml::Value::Table(mcp_table));
+            root.insert("preprompt".to_string(), toml::Value::Table(preprompt_table));
+            root.insert("advanced".to_string(), toml::Value::Table(advanced));
             let doc = toml::Value::Table(root);
             if let Ok(toml_str) = toml::to_string_pretty(&doc) {
                 if let Err(e) = std::fs::write(&config_path, toml_str) {
@@ -408,6 +617,9 @@ impl AppState {
                 }]
             }
             Message::StreamChunk { content } => {
+                if self.request_start.is_none() {
+                    self.request_start = Some(Instant::now());
+                }
                 if !self.streaming {
                     self.streaming = true;
                     self.loading = false;
@@ -427,6 +639,15 @@ impl AppState {
                 if let Some(last) = self.messages.last_mut() {
                     last.finish_stream();
                 }
+                if let Some(start) = self.request_start.take() {
+                    self.request_elapsed = Some(start.elapsed());
+                }
+                let total_chars: usize = self.messages.iter().map(|m| m.content.len()).sum();
+                self.total_tokens = total_chars / 4;
+                self.output_tokens = self.streaming_buffer.len() / 4;
+                let input_cost = (self.input_tokens as f64 / 1_000_000.0) * 5.0;
+                let output_cost = (self.output_tokens as f64 / 1_000_000.0) * 15.0;
+                self.estimated_cost += input_cost + output_cost;
                 self.streaming_buffer.clear();
                 vec![]
             }
@@ -589,6 +810,13 @@ impl AppState {
             SlashCommand::New,
             SlashCommand::Doctor,
             SlashCommand::Session(String::new()),
+            SlashCommand::Mcp(String::new()),
+            SlashCommand::Preprompt(String::new()),
+            SlashCommand::Tokens,
+            SlashCommand::Cost,
+            SlashCommand::Context,
+            SlashCommand::Time,
+            SlashCommand::Tools,
         ];
         if self.palette_query.is_empty() {
             return all;
@@ -622,6 +850,73 @@ impl AppState {
     }
 
     fn handle_chat_key(&mut self, key: KeyEvent) -> Vec<Command> {
+        // Slash menu typeahead navigation and interception
+        let has_slash = self.input_buffer.starts_with('/') && !self.input_buffer.contains(' ');
+        if has_slash {
+            let query = self.input_buffer.trim_start_matches('/').to_lowercase();
+            let matches: Vec<_> = SlashCommand::all_descriptions()
+                .iter()
+                .filter(|(name, _)| name.starts_with(&query))
+                .collect();
+            self.slash_menu_visible = !matches.is_empty();
+            if self.slash_menu_selection >= matches.len() {
+                self.slash_menu_selection = 0;
+            }
+        } else {
+            self.slash_menu_visible = false;
+            self.slash_menu_selection = 0;
+        }
+
+        // Slash menu navigation intercept
+        if self.slash_menu_visible {
+            match key.code {
+                KeyCode::Down => {
+                    let query = self.input_buffer.trim_start_matches('/').to_lowercase();
+                    let matches: Vec<_> = SlashCommand::all_descriptions()
+                        .iter()
+                        .filter(|(name, _)| name.starts_with(&query))
+                        .collect();
+                    if self.slash_menu_selection < matches.len().saturating_sub(1) {
+                        self.slash_menu_selection += 1;
+                    }
+                    return vec![];
+                }
+                KeyCode::Up => {
+                    if self.slash_menu_selection > 0 {
+                        self.slash_menu_selection -= 1;
+                    }
+                    return vec![];
+                }
+                KeyCode::Enter => {
+                    let query = self.input_buffer.trim_start_matches('/').to_lowercase();
+                    let matches: Vec<_> = SlashCommand::all_descriptions()
+                        .iter()
+                        .filter(|(name, _)| name.starts_with(&query))
+                        .collect();
+                    if let Some((name, _)) = matches.get(self.slash_menu_selection) {
+                        let full_cmd = format!("/{0}", name);
+                        if let Some(cmd) = SlashCommand::parse(&full_cmd) {
+                            self.slash_menu_visible = false;
+                            self.slash_menu_selection = 0;
+                            self.input_buffer.clear();
+                            self.history_index = None;
+                            return self.handle_slash_command(cmd);
+                        }
+                    }
+                    self.slash_menu_visible = false;
+                    self.slash_menu_selection = 0;
+                    return vec![];
+                }
+                KeyCode::Esc => {
+                    self.slash_menu_visible = false;
+                    self.slash_menu_selection = 0;
+                    self.input_buffer.clear();
+                    return vec![];
+                }
+                _ => {}
+            }
+        }
+
         match key.code {
             KeyCode::Enter => {
                 if !self.input_buffer.is_empty()
@@ -702,7 +997,7 @@ impl AppState {
                 self.screen = Screen::Home;
             }
             KeyCode::Tab => {
-                self.settings_tab = (self.settings_tab + 1) % 4;
+                self.settings_tab = (self.settings_tab + 1) % 8;
                 if self.settings_tab == 1 {
                     let models = known_models_for_provider(&self.provider_name);
                     let idx = models
@@ -713,7 +1008,7 @@ impl AppState {
                 }
             }
             KeyCode::BackTab => {
-                self.settings_tab = (self.settings_tab + 3) % 4;
+                self.settings_tab = (self.settings_tab + 7) % 8;
                 if self.settings_tab == 1 {
                     let models = known_models_for_provider(&self.provider_name);
                     let idx = models
@@ -861,6 +1156,174 @@ impl AppState {
                     self.notify(&format!("Theme: {}", selected.name));
                 }
             }
+            // Tab 4: MCP
+            KeyCode::Up if self.settings_tab == 4 => {
+                if self.settings_mcp_cursor > 0 {
+                    self.settings_mcp_cursor -= 1;
+                } else {
+                    self.settings_mcp_cursor = self.mcp_servers.len().saturating_sub(1);
+                }
+            }
+            KeyCode::Down if self.settings_tab == 4 => {
+                if self.settings_mcp_cursor < self.mcp_servers.len().saturating_sub(1) {
+                    self.settings_mcp_cursor += 1;
+                } else {
+                    self.settings_mcp_cursor = 0;
+                }
+            }
+            KeyCode::Enter if self.settings_tab == 4 => {
+                let cursor = self.settings_mcp_cursor;
+                if let Some(server) = self.mcp_servers.get_mut(cursor) {
+                    server.enabled = !server.enabled;
+                    let name = server.name.clone();
+                    let status = if server.enabled {
+                        "enabled"
+                    } else {
+                        "disabled"
+                    };
+                    self.notify(&format!("MCP '{}' {}", name, status));
+                }
+            }
+            // Tab 5: PrePrompt
+            KeyCode::Up if self.settings_tab == 5 => {
+                if self.settings_preprompt_cursor > 0 {
+                    self.settings_preprompt_cursor -= 1;
+                } else {
+                    self.settings_preprompt_cursor = 2;
+                }
+            }
+            KeyCode::Down if self.settings_tab == 5 => {
+                if self.settings_preprompt_cursor < 2 {
+                    self.settings_preprompt_cursor += 1;
+                } else {
+                    self.settings_preprompt_cursor = 0;
+                }
+            }
+            KeyCode::Enter if self.settings_tab == 5 => match self.settings_preprompt_cursor {
+                0 => {
+                    self.preprompt_enabled = !self.preprompt_enabled;
+                    self.notify(&format!(
+                        "Pre-prompt: {}",
+                        if self.preprompt_enabled { "on" } else { "off" }
+                    ));
+                }
+                1 => {
+                    let modes = ["default", "concise", "detailed"];
+                    let idx = modes
+                        .iter()
+                        .position(|&m| m == self.preprompt_mode)
+                        .unwrap_or(0);
+                    self.preprompt_mode = modes[(idx + 1) % modes.len()].to_string();
+                    self.notify(&format!("Pre-prompt mode: {}", self.preprompt_mode));
+                }
+                _ => {}
+            },
+            // Tab 6: Telemetry
+            KeyCode::Up if self.settings_tab == 6 => {
+                if self.settings_telemetry_cursor > 0 {
+                    self.settings_telemetry_cursor -= 1;
+                } else {
+                    self.settings_telemetry_cursor = 2;
+                }
+            }
+            KeyCode::Down if self.settings_tab == 6 => {
+                if self.settings_telemetry_cursor < 2 {
+                    self.settings_telemetry_cursor += 1;
+                } else {
+                    self.settings_telemetry_cursor = 0;
+                }
+            }
+            KeyCode::Enter if self.settings_tab == 6 => match self.settings_telemetry_cursor {
+                0 => {
+                    self.show_tokens_in_status = !self.show_tokens_in_status;
+                    self.save_config();
+                    self.notify(&format!(
+                        "Show tokens: {}",
+                        if self.show_tokens_in_status {
+                            "on"
+                        } else {
+                            "off"
+                        }
+                    ));
+                }
+                1 => {
+                    self.show_cost_in_status = !self.show_cost_in_status;
+                    self.save_config();
+                    self.notify(&format!(
+                        "Show cost: {}",
+                        if self.show_cost_in_status {
+                            "on"
+                        } else {
+                            "off"
+                        }
+                    ));
+                }
+                2 => {
+                    self.show_elapsed_in_status = !self.show_elapsed_in_status;
+                    self.save_config();
+                    self.notify(&format!(
+                        "Show elapsed: {}",
+                        if self.show_elapsed_in_status {
+                            "on"
+                        } else {
+                            "off"
+                        }
+                    ));
+                }
+                _ => {}
+            },
+            // Tab 7: Advanced
+            KeyCode::Up if self.settings_tab == 7 => {
+                if self.settings_advanced_cursor > 0 {
+                    self.settings_advanced_cursor -= 1;
+                } else {
+                    self.settings_advanced_cursor = 3;
+                }
+            }
+            KeyCode::Down if self.settings_tab == 7 => {
+                if self.settings_advanced_cursor < 3 {
+                    self.settings_advanced_cursor += 1;
+                } else {
+                    self.settings_advanced_cursor = 0;
+                }
+            }
+            KeyCode::Enter if self.settings_tab == 7 => match self.settings_advanced_cursor {
+                0 => {
+                    self.timeout_secs = match self.timeout_secs {
+                        30 => 60,
+                        60 => 120,
+                        120 => 300,
+                        300 => 600,
+                        _ => 30,
+                    };
+                    self.save_config();
+                    self.notify(&format!("Timeout: {}s", self.timeout_secs));
+                }
+                1 => {
+                    self.verbosity = (self.verbosity + 1) % 4;
+                    self.save_config();
+                    self.notify(&format!("Verbosity: {}", self.verbosity));
+                }
+                2 => {
+                    let modes = ["auto", "unicode", "ascii"];
+                    let idx = modes
+                        .iter()
+                        .position(|&m| m == self.glyph_mode)
+                        .unwrap_or(0);
+                    self.glyph_mode = modes[(idx + 1) % modes.len()].to_string();
+                    self.save_config();
+                    self.notify(&format!("Glyph mode: {}", self.glyph_mode));
+                }
+                3 => {
+                    self.mouse_enabled = !self.mouse_enabled;
+                    self.save_config();
+                    self.notify(&format!(
+                        "Mouse: {}",
+                        if self.mouse_enabled { "on" } else { "off" }
+                    ));
+                }
+                _ => {}
+            },
             _ => {}
         }
         vec![]
@@ -882,8 +1345,8 @@ impl AppState {
                 let inner_x = event.column.saturating_sub(1);
 
                 if inner_y == 0 {
-                    let tab_width = term_w / 4;
-                    let clicked_tab = (inner_x / tab_width.max(1)).min(3) as usize;
+                    let tab_width = term_w / 8;
+                    let clicked_tab = (inner_x / tab_width.max(1)).min(7) as usize;
                     self.settings_tab = clicked_tab;
                     if self.settings_tab == 1 {
                         let models = known_models_for_provider(&self.provider_name);
@@ -1306,6 +1769,148 @@ Available themes:
                         "Usage: /session [list|clear]".to_string(),
                     ));
                 }
+            }
+            SlashCommand::Mcp(sub) => {
+                if sub == "list" || sub.is_empty() {
+                    let mut lines = vec!["MCP Servers:".to_string()];
+                    for server in &self.mcp_servers {
+                        let status = if server.enabled && server.connected {
+                            "connected"
+                        } else if server.enabled {
+                            "enabled"
+                        } else {
+                            "disabled"
+                        };
+                        lines.push(format!("  {} [{}]", server.name, status));
+                    }
+                    lines.push(String::new());
+                    lines.push(format!(
+                        "MCP enabled: {}",
+                        if self.mcp_enabled { "yes" } else { "no" }
+                    ));
+                    self.messages
+                        .push(MessageBubble::new(MessageRole::System, lines.join("\n")));
+                } else {
+                    let found = self.mcp_servers.iter_mut().find(|s| s.name == sub);
+                    if let Some(server) = found {
+                        server.enabled = !server.enabled;
+                        self.messages.push(MessageBubble::new(
+                            MessageRole::System,
+                            format!(
+                                "MCP '{}' {}",
+                                server.name,
+                                if server.enabled {
+                                    "enabled"
+                                } else {
+                                    "disabled"
+                                }
+                            ),
+                        ));
+                    } else {
+                        self.messages.push(MessageBubble::new(
+                            MessageRole::System,
+                            format!(
+                                "Unknown MCP server: '{}'. Use /mcp list to see available.",
+                                sub
+                            ),
+                        ));
+                    }
+                }
+            }
+            SlashCommand::Preprompt(sub) => {
+                if sub == "on" {
+                    self.preprompt_enabled = true;
+                    self.messages.push(MessageBubble::new(
+                        MessageRole::System,
+                        "Pre-prompt enabled.".to_string(),
+                    ));
+                } else if sub == "off" {
+                    self.preprompt_enabled = false;
+                    self.messages.push(MessageBubble::new(
+                        MessageRole::System,
+                        "Pre-prompt disabled.".to_string(),
+                    ));
+                } else if !sub.is_empty() {
+                    self.preprompt_mode = sub.clone();
+                    self.messages.push(MessageBubble::new(
+                        MessageRole::System,
+                        format!("Pre-prompt mode: {}", sub),
+                    ));
+                } else {
+                    self.messages.push(MessageBubble::new(
+                        MessageRole::System,
+                        format!(
+                            "Pre-prompt: {} (mode: {})\nUsage: /preprompt [on|off|<mode>]",
+                            if self.preprompt_enabled {
+                                "enabled"
+                            } else {
+                                "disabled"
+                            },
+                            self.preprompt_mode
+                        ),
+                    ));
+                }
+            }
+            SlashCommand::Tokens => {
+                self.messages.push(MessageBubble::new(
+                    MessageRole::System,
+                    format!(
+                        "Tokens — Input: {} | Output: {} | Total: {}",
+                        self.input_tokens, self.output_tokens, self.total_tokens
+                    ),
+                ));
+            }
+            SlashCommand::Cost => {
+                self.messages.push(MessageBubble::new(
+                    MessageRole::System,
+                    format!(
+                        "Estimated cost: ${:.4} ({} total tokens)",
+                        self.estimated_cost, self.total_tokens
+                    ),
+                ));
+            }
+            SlashCommand::Context => {
+                let pct = if self.context_limit > 0 {
+                    (self.total_tokens as f64 / self.context_limit as f64) * 100.0
+                } else {
+                    0.0
+                };
+                self.messages.push(MessageBubble::new(
+                    MessageRole::System,
+                    format!(
+                        "Context: {} / {} ({:.1}%)",
+                        self.total_tokens, self.context_limit, pct
+                    ),
+                ));
+            }
+            SlashCommand::Time => {
+                let info = match self.request_elapsed {
+                    Some(d) => format!("Last request: {:.2}s", d.as_secs_f64()),
+                    None => "No request timing data yet.".to_string(),
+                };
+                self.messages
+                    .push(MessageBubble::new(MessageRole::System, info));
+            }
+            SlashCommand::Tools => {
+                let tools = [
+                    "shell",
+                    "read_file",
+                    "write_file",
+                    "list_directory",
+                    "search_files",
+                    "grep",
+                    "git_status",
+                    "git_diff",
+                    "git_log",
+                    "git_add",
+                    "git_commit",
+                ];
+                let mut lines = vec!["Available tools:".to_string()];
+                for t in &tools {
+                    lines.push(format!("  • {}", t));
+                }
+                self.messages
+                    .push(MessageBubble::new(MessageRole::System, lines.join("\n")));
             }
         }
         vec![]

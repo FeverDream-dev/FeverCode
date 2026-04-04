@@ -37,6 +37,14 @@ pub fn render_frame(f: &mut Frame, state: &mut AppState) {
         sb.workspace = state.workspace.clone();
         sb.streaming = state.streaming;
         sb.message_count = state.messages.len();
+        sb.input_tokens = state.input_tokens;
+        sb.output_tokens = state.output_tokens;
+        sb.total_tokens = state.total_tokens;
+        sb.estimated_cost = state.estimated_cost;
+        sb.request_elapsed = state.request_elapsed;
+        sb.show_tokens = state.show_tokens_in_status;
+        sb.show_cost = state.show_cost_in_status;
+        sb.show_elapsed = state.show_elapsed_in_status;
         sb.render(f, inner_chunks[1], &state.theme);
     } else {
         let chunks = Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(size);
@@ -50,6 +58,14 @@ pub fn render_frame(f: &mut Frame, state: &mut AppState) {
         sb.workspace = state.workspace.clone();
         sb.streaming = state.streaming;
         sb.message_count = state.messages.len();
+        sb.input_tokens = state.input_tokens;
+        sb.output_tokens = state.output_tokens;
+        sb.total_tokens = state.total_tokens;
+        sb.estimated_cost = state.estimated_cost;
+        sb.request_elapsed = state.request_elapsed;
+        sb.show_tokens = state.show_tokens_in_status;
+        sb.show_cost = state.show_cost_in_status;
+        sb.show_elapsed = state.show_elapsed_in_status;
         sb.render(f, chunks[1], &state.theme);
     }
 
@@ -154,6 +170,41 @@ fn render_sidebar(f: &mut Frame, area: Rect, state: &AppState) {
         Style::default().fg(theme.fg_dimmed()),
     )));
     lines.push(Line::from(""));
+
+    if state.show_tokens_in_status || state.show_cost_in_status || state.show_elapsed_in_status {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            glyphs::DIVIDER.repeat(inner.width as usize),
+            Style::default().fg(theme.fg_dimmed()),
+        )));
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            " Telemetry",
+            Style::default()
+                .fg(theme.fg_dimmed())
+                .add_modifier(Modifier::BOLD),
+        )));
+        if state.show_tokens_in_status {
+            lines.push(Line::from(Span::styled(
+                format!("  {} tok", state.total_tokens),
+                Style::default().fg(theme.fg()),
+            )));
+        }
+        if state.show_cost_in_status {
+            lines.push(Line::from(Span::styled(
+                format!("  ${:.4}", state.estimated_cost),
+                Style::default().fg(theme.fg()),
+            )));
+        }
+        if state.show_elapsed_in_status {
+            if let Some(d) = state.request_elapsed {
+                lines.push(Line::from(Span::styled(
+                    format!("  {:.1}s", d.as_secs_f64()),
+                    Style::default().fg(theme.fg()),
+                )));
+            }
+        }
+    }
 
     lines.push(Line::from(Span::styled(
         " Provider",
@@ -368,6 +419,13 @@ fn render_help_overlay(f: &mut Frame, area: Rect, state: &AppState) {
         ("/", "Start slash command"),
         ("S (home)", "Open settings"),
         ("Tab (settings)", "Next settings tab"),
+        ("Up/Down (slash)", "Navigate slash menu"),
+        ("Enter (slash)", "Execute slash command"),
+        ("/tokens", "Show token usage"),
+        ("/cost", "Show estimated cost"),
+        ("/mcp", "Manage MCP servers"),
+        ("/status", "Show full status"),
+        ("/time", "Show request timing"),
     ];
 
     for (i, (key, desc)) in shortcuts.iter().enumerate() {
