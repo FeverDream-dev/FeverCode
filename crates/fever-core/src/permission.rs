@@ -120,6 +120,8 @@ pub struct PermissionGuard {
     path_allowlist: Vec<PathBuf>,
     require_confirmation_risk: CommandRisk,
     denied_commands: HashSet<String>,
+    allowed_tools: HashSet<String>,
+    denied_tools: HashSet<String>,
 }
 
 impl Default for PermissionGuard {
@@ -136,6 +138,8 @@ impl PermissionGuard {
             path_allowlist: Vec::new(),
             require_confirmation_risk: CommandRisk::High,
             denied_commands: HashSet::new(),
+            allowed_tools: HashSet::new(),
+            denied_tools: HashSet::new(),
         }
     }
 
@@ -164,12 +168,52 @@ impl PermissionGuard {
         self.denied_commands.insert(command.to_lowercase());
     }
 
+    pub fn allow_tool(&mut self, tool_name: &str) {
+        self.allowed_tools.insert(tool_name.to_lowercase());
+    }
+
+    pub fn deny_tool(&mut self, tool_name: &str) {
+        self.denied_tools.insert(tool_name.to_lowercase());
+    }
+
     /// Set the risk threshold above which confirmation is required.
     pub fn set_confirmation_threshold(&mut self, risk: CommandRisk) {
         self.require_confirmation_risk = risk;
     }
 
     /// Check if a given scope is permitted.
+    pub fn check_tool(&self, tool_name: &str) -> PermissionVerdict {
+        let name = tool_name.to_lowercase();
+
+        if self.denied_tools.contains(&name) {
+            return PermissionVerdict {
+                allowed: false,
+                scope: PermissionScope::ShellExec,
+                reason: format!("Tool '{}' is explicitly denied", tool_name),
+                risk: Some(CommandRisk::High),
+            };
+        }
+
+        if !self.allowed_tools.is_empty() && !self.allowed_tools.contains(&name) {
+            return PermissionVerdict {
+                allowed: false,
+                scope: PermissionScope::ShellExec,
+                reason: format!(
+                    "Tool '{}' not in allowlist ({:?})",
+                    tool_name, self.allowed_tools
+                ),
+                risk: Some(CommandRisk::Medium),
+            };
+        }
+
+        PermissionVerdict {
+            allowed: true,
+            scope: PermissionScope::ShellExec,
+            reason: format!("Tool '{}' is permitted", tool_name),
+            risk: None,
+        }
+    }
+
     pub fn check_scope(&self, scope: PermissionScope) -> PermissionVerdict {
         let allowed = self.granted_scopes.contains(&scope);
         PermissionVerdict {
@@ -637,5 +681,47 @@ mod tests {
         assert_eq!(cmd_verdict.risk, Some(CommandRisk::Low));
 
         assert!(!guard.is_granted(PermissionScope::NetworkAccess));
+    }
+
+    #[test]
+    fn test_tool_deny_overrides_allow() {
+        let mut guard = PermissionGuard::new();
+        guard.allow_tool("shell");
+        guard.deny_tool("shell");
+        let verdict = guard.check_tool("shell");
+        assert!(!verdict.allowed);
+        assert!(verdict.reason.contains("explicitly denied"));
+    }
+
+    #[test]
+    fn test_tool_allowlist_blocks_unlisted() {
+        let mut guard = PermissionGuard::new();
+        guard.allow_tool("read_file");
+        guard.allow_tool("list_dir");
+        let verdict = guard.check_tool("shell");
+        assert!(!verdict.allowed);
+        assert!(verdict.reason.contains("allowlist"));
+    }
+
+    #[test]
+    fn test_tool_allowlist_permits_listed() {
+        let mut guard = PermissionGuard::new();
+        guard.allow_tool("read_file");
+        let verdict = guard.check_tool("read_file");
+        assert!(verdict.allowed);
+    }
+
+    #[test]
+    fn test_tool_no_allowlist_permits_all() {
+        let guard = PermissionGuard::new();
+        assert!(guard.check_tool("anything").allowed);
+    }
+
+    #[test]
+    fn test_tool_case_insensitive() {
+        let mut guard = PermissionGuard::new();
+        guard.deny_tool("Shell");
+        assert!(!guard.check_tool("SHELL").allowed);
+        assert!(!guard.check_tool("shell").allowed);
     }
 }

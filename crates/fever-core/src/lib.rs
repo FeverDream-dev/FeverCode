@@ -12,10 +12,12 @@ mod agent;
 mod error;
 mod event;
 mod execution;
+mod instructions;
 mod memory;
 mod permission;
 mod retry;
 mod task;
+mod telemetry;
 mod tool;
 mod understand;
 
@@ -23,6 +25,7 @@ pub use agent::{Agent, AgentContext, AgentResponse, Message};
 pub use error::{Error, Result, TaskStatus, ToolCall, ToolResult, ToolResultData};
 pub use event::{Event, EventBus};
 pub use execution::{ExecutionContext, ExecutionEngine, ExecutionEvent};
+pub use instructions::discover_instructions;
 pub use memory::{MemoryStore, StoredMessage};
 pub use permission::{
     CommandRisk, PermissionGuard, PermissionMode, PermissionScope, PermissionVerdict,
@@ -30,5 +33,6 @@ pub use permission::{
 };
 pub use retry::{BackoffType, RetryPolicy, retry_with_policy};
 pub use task::{Plan, Task, Todo};
+pub use telemetry::{JsonlSink, MemorySink, Telemetry, TelemetryEvent, TelemetryEventType, TelemetrySink};
 pub use tool::{Tool, ToolRegistry, ToolSchema, generate_call_id};
 pub use understand::{BuildSystem, LanguageInfo, ProjectSummary, ProjectUnderstanding};
