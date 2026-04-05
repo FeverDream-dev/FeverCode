@@ -1,165 +1,57 @@
-# Fever Code
+<div align="center">
 
-An open-source terminal coding agent for Linux.
+<pre>
+    ╔══════════════════════════════════════════════════════════════╗
+    ║                                                              ║
+    ║   ░▒▓█ F E V E R   C O D E █▓▒░                           ║
+    ║                                                              ║
+    ║         ◢◣  The Eye of Horus watches your commits  ◢◣      ║
+    ║                                                              ║
+    ╚══════════════════════════════════════════════════════════════╝
+</pre>
 
-**Fever Code** is a CLI/TUI-first coding agent that runs in your terminal, understands your local repository, reads and edits files, runs shell commands and tests, and and monitors progress from Telegram on your phone.
+<i>The terminal coding agent forged in the temples of productivity</i>
 
-## Features
+[![CI](https://github.com/FeverDream-dev/FeverCode/actions/workflows/ci.yml/badge.svg)](https://github.com/FeverDream-dev/FeverCode/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Rust 1.85+](https://img.shields.io/badge/Rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS-blue.svg)]()
 
-### Agent Core
-- **CLI Commands**: `fever` (TUI), `fever chat`, `fever run`, `fever doctor`, `fever config`, `fever models`, `fever providers`, `fever session`, `fever version`, `fever init`, `fever --re-onboard`
-- **Core Tools**: Shell execution, filesystem operations (read/write/list), git operations, code search (grep)
-- **TUI**: Terminal UI with chat, settings, command palette (Ctrl+K), help overlay (?), input history, session auto-save, 11 themes with live switching, mouse support
-- **Slash Commands**: `/help`, `/model`, `/role`, `/provider`, `/theme`, `/new`, `/doctor`, `/save`, `/clear`, `/settings`, `/status`, `/version`, `/quit`
-- **Configuration**: TOML-based config in `~/.config/fevercode/`, validated on startup
-- **Diagnostics**: `fever doctor` health check, `fever config --validate`
-- **Role System**: 10+ specialist roles for different tasks
-- **Logging**: Structured tracing with `-v`/`-vv`/`-vvv` verbosity levels
+[Website](https://feverdream-dev.github.io/FeverCode/) &nbsp;·&nbsp; [Install](#quick-start) &nbsp;·&nbsp; [Features](#feature-showcase) &nbsp;·&nbsp; [Config](#configuration) &nbsp;·&nbsp; [Docs](#cli-reference)
 
-### Project Onboarding (`--init`)
-First-time setup via a21 targeted questions across 5 blocks:
-- **Block A — Identity**: project name, description, end user, current state
-- **Block B — Tech Stack**: language, framework, database, frontend, external APIs
-- **Block C — Deployment**: hosting platform (Railway/Render/Fly.io/AWS/etc.), CI/CD, env vars, custom domain
-- **Block D — Quality**: quality level, testing, style guide, documentation
-- **Block E — Delivery**: definition of done, off-limits, urgency level
+</div>
 
-Auto-generates deployment scaffolds per platform:
-- `railway.toml`, `render.yaml`, `fly.toml`, `Dockerfile`, `.github/workflows/ci.yml`, `.env.example`
+---
 
-Profile stored in `.fevercode/project.json` (git-ignored).
+> **Fever Code** is a full-stack terminal coding agent that lives in your shell. It reads your repo, edits files, runs tests, and ships features — all while you watch from your phone via Telegram. Built in Rust, zero bloat, maximum speed.
 
-### Telegram Integration (Loop Monitor)
-Monitor your agent from Telegram on your phone while it runs:
-- **Outbound events**: agent started, thinking, file read/modified, command run, errors, task complete, agent idle
-- **Inbound commands**: `/status`, `/pause`, `/resume`, `/stop`, `/summary`, `/files`, `/log`, `/help`
-- **Rate limiting**: configurable minimum interval between non-critical messages
-- **Auto-activation**: enabled when `TELEGRAM_BOT_TOKEN` is set in `.env`
+## Why Fever Code?
 
-### LLM Providers
-12 provider adapters with OpenAI-compatible API support:
-- OpenAI, OpenRouter, Anthropic, Gemini, Groq, Together
-- DeepSeek, Mistral, Fireworks, Perplexity, Minimax
-- Local Ollama (automatic detection)
+- **Cursor-based workflows are slow.** Fever Code automates repetitive tasks and ships features at your command — no IDE required.
+- **Security is not an afterthought.** 3-tier permission modes, per-tool allow/deny lists, path sandboxing, and secret redaction keep your codebase safe.
+- **It works where you work.** Lives in the terminal, monitors from Telegram, persists sessions in JSONL, and discovers project instructions automatically.
 
-## Usage
+## Quick Start
 
 ```bash
-# Start the TUI
-fever
-
-# One-shot chat message
-fever chat "explain the auth module" --model gpt-4o
-
-# Run a prompt non-interactively (with timing)
-fever run "fix the build error in src/main.rs"
-
-# List configured providers (with --fetch to load models, --test to verify)
-fever providers
-fever providers --test openai
-
-# List available models
-fever models
-fever models --provider openai
-
-# Check system health and configuration
-fever doctor
-
-# Show or manage configuration
-fever config --show
-fever config --validate
-fever config --path
-fever config --edit
-
-# Manage chat sessions
-fever session list
-fever session clear
-
-# Show version
-fever version
-
-# Project onboarding (first time)
-fever init
-
-# Re-run onboarding with existing profile
-fever --re-onboard
-
-# Verbose logging (-v info, -vv debug, -vvv trace)
-fever -vv run "debug this"
-```
-
-## Configuration
-
-Configuration is stored in `~/.config/fevercode/config.toml`:
-
-```toml
-[defaults]
-provider = "openai"
-model = "gpt-4o"
-temperature = 0.7
-max_tokens = 4096
-```
-
-Environment variables (see `.env.example`):
-
-| Variable | Purpose |
-|----------|---------|
-| `OPENAI_API_KEY` | OpenAI provider |
-| `OPENROUTER_API_KEY` | OpenRouter provider |
-| `ANTHROPIC_API_KEY` | Anthropic/Claude provider |
-| `GEMINI_API_KEY` | Google Gemini provider |
-| `GROQ_API_KEY` | Groq provider |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token (via @BotFather) |
-| `TELEGRAM_CHAT_ID` | Your Telegram chat ID (via @userinfobot) |
-| `TELEGRAM_NOTIFY_INTERVAL` | Min seconds between messages (default: 5) |
-| `TELEGRAM_LOOP_MODE` | Step-by-step updates (default: true) |
-
-## Architecture
-
-Fever Code is built with Rust and organized into focused crates:
-
-| Crate | Purpose |
-|-------|---------|
-| **fever-cli** | Command-line interface (10 subcommands) |
-| **fever-tui** | Terminal user interface (Elm-style) ratatui) |
-| **fever-core** | Core abstractions (Task, Plan, Tool, EventBus) |
-| **fever-agent** | Coding agent with role system |
-| **fever-providers** | LLM provider abstraction (12 adapters) |
-| **fever-tools** | Local tools (shell, filesystem, git, grep) |
-| **fever-config** | Configuration management |
-| **fever-search** | Web search (DuckDuckGo) |
-| **fever-telegram** | Telegram bot integration with rate limiting |
-| **fever-onboard** | Project onboarding with scaffold generation |
-| **fever-browser** | Browser integration (Chrome MCP) |
-| **fever-release** | Release notes generation |
-
-## Development
-
-```bash
-# Run tests (209 tests, full suite)
-cargo test
-
-# Format code
-cargo fmt
-
-# Run linter
-cargo clippy
-
-# Build release
-cargo build --release
-```
-
-## Installation
-
-### Quick Install (Linux & macOS)
-
-```bash
+# Install (one line)
 curl -sL https://raw.githubusercontent.com/FeverDream-dev/FeverCode/main/install.sh | bash
+
+# Set your API key
+export OPENAI_API_KEY="sk-..."
+
+# Launch
+fever
 ```
+
+That's it. Fever Code boots the TUI, connects to your provider, and starts collaborating on your project.
+
+<details>
+<summary>📦 Alternative install methods</summary>
 
 ### From Source
 
-Requires **Rust 1.85 or newer**.
+Requires **Rust 1.85+**.
 
 ```bash
 git clone https://github.com/FeverDream-dev/FeverCode.git
@@ -168,10 +60,251 @@ cargo build --release
 cp target/release/fever ~/.local/bin/
 ```
 
-## License
+### Mock Mode (no API key needed)
 
-Dual licensed under MIT OR Apache-2.0.
+```bash
+fever --mock
+```
+
+</details>
 
 ---
 
-**Fever Code** - Code like fever, ship like dream.
+## Feature Showcase
+
+### 🧠 AI-Powered Coding
+12 LLM providers with streaming responses and a robust tool-execution loop. OpenAI, Anthropic, Gemini, Groq, DeepSeek, Mistral, Ollama, and more — switch instantly with `/model`.
+
+### 🖥️ Premium TUI
+11 hand-crafted themes (including the signature **anubis** Egyptian theme), mouse support, slash commands with fuzzy search, command palette (`Ctrl+K`), tool activity panel (`Ctrl+T`), diff viewer (`Ctrl+D`), and a segmented status bar.
+
+### 🔒 Security-First Permissions
+Three-tier permission mode (read → write → full), per-tool allow/deny lists, path sandboxing, command risk classification (low/medium/high/critical), and automatic secret redaction in tool output.
+
+### 📁 Project Intelligence
+Config cascade merges project-level `.fevercode/config.toml` over user config. Instruction files discovered by walking upward from your workspace root. Sessions persisted in append-only JSONL format.
+
+### 🧪 Mock Mode
+`fever --mock` for zero-config testing and experimentation. Deterministic streaming responses, no API key required. Perfect for CI, development, and demos.
+
+### 📊 Diagnostics
+19-check `/doctor` command across 5 categories: Environment, Provider, Workspace, Tools, and System. Includes live `cargo check` integration and git state detection.
+
+### 📱 Telegram Monitor
+Watch your agent work from your phone. Receive real-time events (file edits, command output, errors) and send commands back (`/status`, `/pause`, `/resume`, `/stop`).
+
+### 🚀 Project Onboarding
+21-question guided setup across 5 blocks (Identity, Tech Stack, Deployment, Quality, Delivery). Auto-generates deployment scaffolds for Railway, Render, Fly.io, Docker, and GitHub Actions.
+
+---
+
+## Slash Commands
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/clear` | Clear chat messages | `/clear` |
+| `/diff` | Toggle git diff panel | `/diff` |
+| `/doctor` | Run 19-check diagnostics | `/doctor` |
+| `/help` | Show help overlay | `/help` |
+| `/mock` | Toggle mock mode | `/mock` |
+| `/model` | Switch AI model | `/model gpt-4o` |
+| `/new` | Start new session | `/new` |
+| `/permissions` | Cycle permission mode | `/permissions` |
+| `/provider` | Switch provider | `/provider openai` |
+| `/quit` | Exit Fever Code | `/quit` |
+| `/readonly` | Enter read-only mode | `/readonly` |
+| `/role` | Set agent role | `/role architect` |
+| `/save` | Save session | `/save` |
+| `/session` | Manage sessions | `/session list` |
+| `/settings` | Open settings | `/settings` |
+| `/status` | Show status | `/status` |
+| `/theme` | Change UI theme | `/theme anubis` |
+| `/tools` | Show tool panel | `/tools` |
+| `/version` | Show version | `/version` |
+
+Navigate commands with `Tab`, `↑`/`↓`, and `Enter`.
+
+---
+
+## Configuration
+
+### User Config
+
+`~/.config/fevercode/config.toml`:
+
+```toml
+[defaults]
+provider = "openai"
+model = "gpt-4o"
+temperature = 0.7
+max_tokens = 4096
+
+[ui]
+theme = "dark"  # dark, light, dracula, nord, gruvbox, solarized, tokyo, catppuccin, rose-pine, monokai, anubis
+auto_scroll = true
+show_thinking = true
+
+[permissions]
+mode = "write"  # read, write, full
+allow = ["read_file", "list_dir"]
+deny = ["shell"]
+
+[tools]
+shell_enabled = true
+git_enabled = true
+search_enabled = true
+```
+
+### Project Config
+
+`.fevercode/config.toml` — merged on top of user config:
+
+```toml
+[defaults]
+model = "claude-sonnet-4-20250514"  # project-specific model
+temperature = 0.3
+
+[permissions]
+mode = "read"  # restrict to read-only for this project
+```
+
+### Environment Variables
+
+| Variable | Purpose |
+|----------|---------|
+| `OPENAI_API_KEY` | OpenAI provider |
+| `OPENROUTER_API_KEY` | OpenRouter provider |
+| `ANTHROPIC_API_KEY` | Anthropic/Claude provider |
+| `GEMINI_API_KEY` | Google Gemini provider |
+| `GROQ_API_KEY` | Groq provider |
+| `DEEPSEEK_API_KEY` | DeepSeek provider |
+| `MISTRAL_API_KEY` | Mistral provider |
+| `TELEGRAM_BOT_TOKEN` | Telegram loop monitor |
+| `TELEGRAM_CHAT_ID` | Telegram recipient |
+| `TELEGRAM_NOTIFY_INTERVAL` | Min seconds between messages (default: 5) |
+| `TELEGRAM_LOOP_MODE` | Step-by-step updates (default: true) |
+
+---
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                     fever (binary)                        │
+├────────────┬────────────┬────────────┬────────────────────┤
+│ fever-cli  │ fever-tui  │fever-core  │   fever-agent      │
+│ (commands) │   (TUI)    │  (traits)  │  (loop + roles)   │
+├────────────┴────────────┴────────────┴────────────────────┤
+│ fever-providers    │ fever-tools    │ fever-config       │
+│  (12 adapters)     │  (shell/fs)    │  (TOML cascade)    │
+├────────────────────┴────────────────┴────────────────────┤
+│ fever-search  │ fever-telegram  │ fever-onboard          │
+│ (DuckDuckGo) │  (bot monitor)  │ (project setup)       │
+└──────────────────────────────────────────────────────────┘
+```
+
+| Crate | Purpose |
+|-------|---------|
+| `fever-cli` | CLI interface — 10 subcommands, mock mode flag |
+| `fever-tui` | Terminal UI — Elm-style architecture, ratatui, 11 themes |
+| `fever-core` | Core traits — Task, Plan, Tool, EventBus, Permissions, Telemetry |
+| `fever-agent` | Coding agent — role system, tool execution loop, prepare_request |
+| `fever-providers` | LLM abstraction — 12 adapters, MockProvider, streaming |
+| `fever-tools` | Local tools — shell, filesystem, git, grep |
+| `fever-config` | Configuration — TOML, cascade merge, PermissionsConfig |
+| `fever-search` | Web search — DuckDuckGo integration |
+| `fever-telegram` | Telegram bot — loop monitor, rate limiting, remote commands |
+| `fever-onboard` | Onboarding — 21-question setup, deployment scaffolds |
+| `fever-browser` | Browser — Chrome MCP integration |
+| `fever-release` | Release notes — changelog generation |
+
+---
+
+## CLI Reference
+
+```bash
+# Launch the TUI
+fever
+
+# One-shot chat
+fever chat "explain the auth module" --model gpt-4o
+
+# Non-interactive execution (with timing)
+fever run "fix the build error in src/main.rs"
+
+# System diagnostics (19 checks)
+fever doctor
+
+# Configuration
+fever config --show
+fever config --validate
+fever config --edit
+
+# Provider management
+fever providers              # list all
+fever providers --test openai  # verify connectivity
+
+# Model listing
+fever models
+fever models --provider anthropic
+
+# Session management
+fever session list
+fever session clear
+
+# Project onboarding
+fever init
+fever --re-onboard
+
+# Mock mode (no API key)
+fever --mock
+
+# Verbose logging
+fever -v              # info
+fever -vv             # debug
+fever -vvv            # trace
+
+# Version
+fever version
+```
+
+---
+
+## Development
+
+```bash
+# Build
+cargo build --release
+
+# Test (242 tests)
+cargo test
+
+# Format
+cargo fmt
+
+# Lint (0 warnings)
+cargo clippy
+
+# Check all
+cargo check --workspace
+```
+
+---
+
+## License
+
+Dual licensed under [MIT](LICENSE-MIT) OR [Apache-2.0](LICENSE-APACHE-2.0).
+
+---
+
+<div align="center">
+
+```
+══════════════════════════════════════════════════════════
+ Built with 🔥 by FeverDream
+ Code like fever, ship like dream.
+ The Eye of Horus watches your commits.
+══════════════════════════════════════════════════════════
+```
+
+</div>

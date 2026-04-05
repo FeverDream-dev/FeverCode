@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fever Code — Terminal Coding Agent Forged in Ancient Fire</title>
+<meta name="description" content="Fever Code is an open-source, AI-powered terminal coding agent. 12 providers, premium TUI, 3-tier permissions, project intelligence, and Telegram monitoring.">
+<meta property="og:title" content="Fever Code — Terminal Coding Agent">
+<meta property="og:description" content="The open-source terminal coding agent forged in the temples of productivity. AI-powered, premium TUI, zero-config testing.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://feverdream-dev.github.io/FeverCode/">
+<meta name="theme-color" content="#0a0e1a">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x1F525;</text></svg>">
+<style>
+/* ===== RESET & BASE ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0a0e1a;
+  --gold:#d4a853;
+  --gold-light:#f0d890;
+  --turquoise:#2dd4bf;
+  --sand:#e8d5b5;
+  --purple:#7b4bb3;
+  --onyx:#121212;
+  --surface:#0f1423;
+  --surface-2:#161c2e;
+  --text:#c8cad0;
+  --text-bright:#e8eaf0;
+  --mono:'Fira Code','JetBrains Mono','Cascadia Code','SF Mono','Consolas',monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --max-w:1200px;
+  --gold-grad:linear-gradient(135deg,#d4a853,#f0d890,#d4a853);
+  --gold-text:linear-gradient(90deg,#d4a853,#f0d890,#d4a853);
+  --glow-gold:0 0 30px rgba(212,168,83,0.3),0 0 60px rgba(212,168,83,0.1);
+  --glow-turquoise:0 0 20px rgba(45,212,191,0.3),0 0 40px rgba(45,212,191,0.1);
+}
+html{scroll-behavior:smooth;scroll-padding-top:80px}
+body{
+  font-family:var(--sans);
+  background:var(--navy);
+  color:var(--text);
+  line-height:1.7;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--gold);text-decoration:none;transition:color .3s}
+a:hover{color:var(--gold-light)}
+::selection{background:rgba(212,168,83,0.3);color:var(--text-bright)}
+/* Noise overlay */
+body::after{
+  content:'';position:fixed;top:0;left:0;width:100%;height:100%;
+  pointer-events:none;z-index:9999;opacity:.03;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar{width:8px}
+::-webkit-scrollbar-track{background:var(--onyx)}
+::-webkit-scrollbar-thumb{background:var(--gold);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:var(--gold-light)}
+
+/* ===== UTILITY ===== */
+.container{max-width:var(--max-w);margin:0 auto;padding:0 24px}
+.section{padding:100px 0}
+.gold-text{background:var(--gold-text);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+/* ===== NAVIGATION ===== */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:1000;
+  background:rgba(10,14,26,0.8);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(212,168,83,0.1);
+  transition:background .3s;
+}
+.nav-inner{
+  max-width:var(--max-w);margin:0 auto;padding:0 24px;
+  display:flex;align-items:center;justify-content:space-between;
+  height:64px;
+}
+.nav-logo{
+  display:flex;align-items:center;gap:10px;
+  font-weight:700;font-size:1.15rem;letter-spacing:.5px;
+}
+.nav-logo svg{width:28px;height:28px}
+.nav-logo span{color:var(--gold)}
+.nav-links{display:flex;gap:32px;list-style:none}
+.nav-links a{
+  color:var(--text);font-size:.9rem;font-weight:500;
+  transition:color .3s;position:relative;
+}
+.nav-links a::after{
+  content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;
+  background:var(--gold);transition:width .3s;
+}
+.nav-links a:hover{color:var(--gold)}
+.nav-links a:hover::after{width:100%}
+.nav-cta{
+  background:transparent;border:1px solid var(--gold);color:var(--gold);
+  padding:8px 20px;border-radius:6px;font-size:.85rem;font-weight:600;
+  cursor:pointer;transition:all .3s;font-family:var(--sans);
+}
+.nav-cta:hover{background:var(--gold);color:var(--navy)}
+.mobile-toggle{
+  display:none;background:none;border:none;cursor:pointer;
+  width:32px;height:32px;position:relative;
+}
+.mobile-toggle span,.mobile-toggle span::before,.mobile-toggle span::after{
+  display:block;width:24px;height:2px;background:var(--gold);
+  position:absolute;left:4px;transition:all .3s;
+}
+.mobile-toggle span{top:14px}
+.mobile-toggle span::before{content:'';top:-7px}
+.mobile-toggle span::after{content:'';top:7px}
+
+/* ===== HERO ===== */
+.hero{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;padding-top:64px;
+}
+.hero-bg{
+  position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 20%,rgba(123,75,179,0.15) 0%,transparent 50%),
+             radial-gradient(ellipse at 80% 80%,rgba(45,212,191,0.08) 0%,transparent 40%),
+             radial-gradient(ellipse at 20% 70%,rgba(212,168,83,0.06) 0%,transparent 40%);
+}
+/* Floating hieroglyph particles */
+.hieroglyphs{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.hieroglyph{
+  position:absolute;font-size:1.2rem;opacity:0;
+  color:var(--gold);
+  animation:floatUp linear infinite;
+}
+@keyframes floatUp{
+  0%{transform:translateY(100vh) rotate(0deg);opacity:0}
+  10%{opacity:.15}
+  90%{opacity:.15}
+  100%{transform:translateY(-10vh) rotate(360deg);opacity:0}
+}
+.hero-content{
+  position:relative;z-index:2;text-align:center;
+  max-width:900px;padding:0 24px;
+}
+.eye-container{
+  margin:0 auto 40px;width:180px;height:120px;
+  animation:fadeInSlideDown 1s ease-out,fadeInSlideDown 1s ease-out;
+}
+.eye-container svg{
+  width:100%;height:100%;
+  filter:drop-shadow(0 0 20px rgba(212,168,83,0.4));
+  animation:eyePulse 4s ease-in-out infinite;
+}
+@keyframes eyePulse{
+  0%,100%{filter:drop-shadow(0 0 20px rgba(212,168,83,0.4))}
+  50%{filter:drop-shadow(0 0 40px rgba(212,168,83,0.7)) drop-shadow(0 0 80px rgba(212,168,83,0.3))}
+}
+.hero-title{
+  font-size:clamp(2.2rem,5vw,3.8rem);font-weight:800;
+  line-height:1.15;margin-bottom:20px;
+  animation:fadeInSlideUp .8s ease-out .2s both;
+}
+.hero-subtitle{
+  font-size:clamp(1rem,2vw,1.25rem);color:var(--text);
+  max-width:700px;margin:0 auto 40px;line-height:1.6;
+  animation:fadeInSlideUp .8s ease-out .4s both;
+}
+.hero-buttons{
+  display:flex;gap:16px;justify-content:center;flex-wrap:wrap;
+  animation:fadeInSlideUp .8s ease-out .6s both;
+}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:14px 32px;border-radius:8px;font-size:1rem;
+  font-weight:600;font-family:var(--sans);cursor:pointer;
+  transition:all .3s;text-decoration:none;border:none;
+}
+.btn-primary{
+  background:var(--gold-grad);color:var(--onyx);
+  box-shadow:0 4px 20px rgba(212,168,83,0.3);
+}
+.btn-primary:hover{
+  transform:translateY(-2px);
+  box-shadow:0 6px 30px rgba(212,168,83,0.5);
+  color:var(--onyx);
+}
+.btn-secondary{
+  background:transparent;border:1px solid rgba(212,168,83,0.4);
+  color:var(--gold);
+}
+.btn-secondary:hover{
+  background:rgba(212,168,83,0.1);
+  border-color:var(--gold);
+  transform:translateY(-2px);color:var(--gold);
+}
+@keyframes fadeInSlideUp{
+  from{opacity:0;transform:translateY(30px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@keyframes fadeInSlideDown{
+  from{opacity:0;transform:translateY(-30px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+/* ===== DECORATIVE DIVIDERS ===== */
+.egyptian-divider{
+  display:flex;align-items:center;justify-content:center;
+  gap:16px;padding:40px 0;
+}
+.egyptian-divider .line{
+  height:1px;width:120px;
+  background:linear-gradient(90deg,transparent,rgba(212,168,83,0.4),transparent);
+}
+.egyptian-divider .symbol{
+  color:var(--gold);font-size:1.4rem;opacity:.6;
+}
+
+/* ===== FEATURES ===== */
+.features-header{text-align:center;margin-bottom:60px}
+.features-header h2{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:700;margin-bottom:16px}
+.features-header p{color:var(--text);max-width:600px;margin:0 auto;font-size:1.05rem}
+.features-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+  gap:24px;
+}
+.feature-card{
+  background:var(--surface);
+  border:1px solid rgba(212,168,83,0.1);
+  border-radius:12px;padding:32px;
+  position:relative;overflow:hidden;
+  transition:all .4s ease;
+  opacity:0;transform:translateY(30px);
+}
+.feature-card.visible{opacity:1;transform:translateY(0);transition:opacity .6s ease,transform .6s ease}
+.feature-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:var(--gold-grad);opacity:0;transition:opacity .3s;
+}
+.feature-card:hover{
+  border-color:rgba(212,168,83,0.3);
+  transform:translateY(-4px);
+  box-shadow:var(--glow-gold);
+}
+.feature-card:hover::before{opacity:1}
+/* Hieroglyphic corner decorations */
+.feature-card::after{
+  content:'';position:absolute;bottom:0;right:0;
+  width:50px;height:50px;
+  border-bottom:2px solid rgba(212,168,83,0.08);
+  border-right:2px solid rgba(212,168,83,0.08);
+  border-radius:0 0 12px 0;
+}
+.feature-icon{
+  width:48px;height:48px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.5rem;margin-bottom:20px;
+  background:rgba(212,168,83,0.1);
+  border:1px solid rgba(212,168,83,0.15);
+}
+.feature-card h3{
+  font-size:1.15rem;font-weight:600;margin-bottom:10px;
+  color:var(--text-bright);
+}
+.feature-card p{font-size:.92rem;color:var(--text);line-height:1.65}
+.feature-tag{
+  display:inline-block;margin-top:12px;
+  font-size:.75rem;color:var(--turquoise);
+  background:rgba(45,212,191,0.1);
+  padding:3px 10px;border-radius:20px;
+  font-family:var(--mono);
+}
+
+/* ===== INSTALL ===== */
+.install{background:var(--surface)}
+.install-header{text-align:center;margin-bottom:48px}
+.install-header h2{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:700;margin-bottom:16px}
+.install-header p{color:var(--text);max-width:550px;margin:0 auto}
+.install-tabs{
+  display:flex;justify-content:center;gap:8px;margin-bottom:24px;
+}
+.install-tab{
+  background:var(--surface-2);border:1px solid rgba(212,168,83,0.15);
+  color:var(--text);padding:8px 20px;border-radius:8px 8px 0 0;
+  cursor:pointer;font-family:var(--mono);font-size:.85rem;
+  transition:all .3s;
+}
+.install-tab.active{background:var(--onyx);color:var(--gold);border-bottom-color:var(--onyx)}
+.install-terminal{
+  background:var(--onyx);border:1px solid rgba(212,168,83,0.15);
+  border-radius:0 12px 12px 12px;overflow:hidden;max-width:700px;margin:0 auto;
+}
+.terminal-bar{
+  display:flex;align-items:center;gap:8px;padding:12px 16px;
+  background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(255,255,255,0.05);
+}
+.terminal-dot{width:12px;height:12px;border-radius:50%}
+.terminal-dot.red{background:#ff5f57}
+.terminal-dot.yellow{background:#ffbd2e}
+.terminal-dot.green{background:#28c840}
+.terminal-bar span{color:var(--text);font-size:.8rem;margin-left:8px;font-family:var(--mono)}
+.terminal-body{padding:24px;font-family:var(--mono);font-size:.9rem;line-height:1.8}
+.terminal-body .prompt{color:var(--turquoise)}
+.terminal-body .cmd{color:var(--gold-light)}
+.terminal-body .comment{color:#6b7280}
+.terminal-body .output{color:var(--text)}
+.terminal-line{opacity:0;animation:typeIn .5s ease forwards}
+@keyframes typeIn{to{opacity:1}}
+.cursor-blink{
+  display:inline-block;width:8px;height:18px;
+  background:var(--gold);margin-left:2px;
+  animation:blink 1s step-end infinite;
+  vertical-align:text-bottom;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* ===== ARCHITECTURE ===== */
+.arch-header{text-align:center;margin-bottom:48px}
+.arch-header h2{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:700;margin-bottom:16px}
+.arch-header p{color:var(--text);max-width:600px;margin:0 auto}
+.arch-container{
+  background:var(--onyx);border:1px solid rgba(212,168,83,0.12);
+  border-radius:12px;overflow:hidden;position:relative;
+}
+.arch-container::before{
+  content:'';position:absolute;inset:-1px;
+  background:linear-gradient(135deg,rgba(212,168,83,0.2),transparent,rgba(45,212,191,0.1));
+  border-radius:12px;z-index:-1;
+}
+.arch-code{
+  padding:28px 32px;font-family:var(--mono);font-size:clamp(.7rem,1.5vw,.88rem);
+  line-height:1.6;overflow-x:auto;color:var(--text);
+}
+.arch-code .a-gold{color:var(--gold)}
+.arch-code .a-turq{color:var(--turquoise)}
+.arch-code .a-purple{color:var(--purple)}
+.arch-code .a-sand{color:var(--sand)}
+.arch-code .a-dim{color:#4a5568}
+.arch-code .a-bright{color:var(--text-bright)}
+
+/* ===== DEMO TERMINAL ===== */
+.demo{background:var(--surface)}
+.demo-header{text-align:center;margin-bottom:48px}
+.demo-header h2{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:700;margin-bottom:16px}
+.demo-header p{color:var(--text);max-width:550px;margin:0 auto}
+.demo-terminal{
+  background:var(--onyx);border:1px solid rgba(212,168,83,0.15);
+  border-radius:12px;overflow:hidden;max-width:800px;margin:0 auto;
+  box-shadow:0 8px 40px rgba(0,0,0,0.4);
+}
+.demo-body{padding:24px;font-family:var(--mono);font-size:clamp(.75rem,1.5vw,.88rem);line-height:1.75;min-height:350px}
+.demo-line{overflow:hidden;white-space:nowrap}
+.demo-line .typing{
+  display:inline-block;overflow:hidden;white-space:nowrap;
+  border-right:2px solid var(--gold);
+  animation:typing 2s steps(40) forwards,blink .8s step-end infinite;
+  width:0;
+}
+.demo-line.done .typing{border-right:none;width:100%}
+@keyframes typing{from{width:0}to{width:100%}}
+
+/* ===== FOOTER ===== */
+.footer{
+  padding:60px 0 30px;
+  border-top:1px solid rgba(212,168,83,0.1);
+  background:linear-gradient(to top,rgba(10,14,26,1),transparent);
+}
+.footer-border{
+  height:3px;margin-bottom:40px;
+  background:linear-gradient(90deg,transparent,rgba(212,168,83,0.3),var(--gold),rgba(212,168,83,0.3),transparent);
+}
+.footer-inner{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:20px;
+}
+.footer-brand{display:flex;align-items:center;gap:12px}
+.footer-brand svg{width:24px;height:24px}
+.footer-brand span{font-weight:600;color:var(--text-bright)}
+.footer-links{display:flex;gap:24px}
+.footer-links a{color:var(--text);font-size:.9rem;transition:color .3s}
+.footer-links a:hover{color:var(--gold)}
+.footer-copy{
+  width:100%;text-align:center;margin-top:20px;
+  font-size:.85rem;color:#6b7280;
+}
+.footer-copy a{color:var(--gold)}
+
+/* ===== SCROLL REVEAL ===== */
+.reveal{opacity:0;transform:translateY(30px);transition:opacity .7s ease,transform .7s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+
+/* ===== PYRAMID DECORATION ===== */
+.pyramids{
+  position:absolute;bottom:0;left:0;right:0;
+  height:200px;pointer-events:none;overflow:hidden;opacity:.04;
+}
+.pyramid{
+  position:absolute;bottom:0;
+  width:0;height:0;
+  border-left:solid transparent;border-right:solid transparent;
+  border-bottom:solid var(--gold);
+}
+.pyramid-1{left:5%;border-left-width:80px;border-right-width:80px;border-bottom-width:140px}
+.pyramid-2{left:12%;border-left-width:50px;border-right-width:50px;border-bottom-width:90px}
+.pyramid-3{right:8%;border-left-width:100px;border-right-width:100px;border-bottom-width:160px}
+.pyramid-4{right:20%;border-left-width:40px;border-right-width:40px;border-bottom-width:70px}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:768px){
+  .nav-links,.nav-cta{display:none}
+  .mobile-toggle{display:block}
+  .nav-links.open{
+    display:flex;flex-direction:column;
+    position:absolute;top:64px;left:0;right:0;
+    background:rgba(10,14,26,0.95);backdrop-filter:blur(20px);
+    padding:20px 24px;gap:16px;
+    border-bottom:1px solid rgba(212,168,83,0.1);
+  }
+  .features-grid{grid-template-columns:1fr}
+  .hero-title{font-size:clamp(1.8rem,6vw,2.5rem)}
+  .hero-buttons{flex-direction:column;align-items:center}
+  .btn{width:100%;max-width:300px;justify-content:center}
+  .footer-inner{flex-direction:column;text-align:center}
+  .section{padding:60px 0}
+  .eye-container{width:140px;height:90px}
+  .install-tabs{flex-wrap:wrap}
+}
+@media(max-width:480px){
+  .container{padding:0 16px}
+  .terminal-body{padding:16px;font-size:.8rem}
+  .arch-code{padding:16px;font-size:.72rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ===== NAVIGATION ===== -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">
+      <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M14 2L2 8v12l12 6 12-6V8L14 2z" stroke="#d4a853" stroke-width="1.5" fill="none"/>
+        <path d="M14 6l-8 4v8l8 4 8-4v-8l-8-4z" stroke="#d4a853" stroke-width="1" opacity=".4"/>
+        <path d="M14 10l-4 2v4l4 2 4-2v-4l-4-2z" fill="#d4a853" opacity=".6"/>
+      </svg>
+      <span>Fever Code</span>
+    </a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#demo">Demo</a></li>
+    </ul>
+    <a href="https://github.com/FeverDream-dev/FeverCode" target="_blank" rel="noopener" class="nav-cta">GitHub</a>
+    <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle menu">
+      <span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero" id="hero">
+  <div class="hero-bg"></div>
+  <div class="hieroglyphs" id="hieroglyphs"></div>
+  <div class="pyramids">
+    <div class="pyramid pyramid-1"></div>
+    <div class="pyramid pyramid-2"></div>
+    <div class="pyramid pyramid-3"></div>
+    <div class="pyramid pyramid-4"></div>
+  </div>
+  <div class="hero-content">
+    <div class="eye-container">
+      <!-- Eye of Horus (Wedjat) SVG -->
+      <svg viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Outer eye shape -->
+        <path d="M10 60 Q50 15, 100 15 Q150 15, 190 60 Q150 105, 100 105 Q50 105, 10 60Z"
+              stroke="#d4a853" stroke-width="2.5" fill="rgba(212,168,83,0.05)"/>
+        <!-- Iris -->
+        <circle cx="100" cy="60" r="22" stroke="#d4a853" stroke-width="2" fill="rgba(212,168,83,0.1)"/>
+        <!-- Pupil -->
+        <circle cx="100" cy="60" r="10" fill="#d4a853" opacity=".7"/>
+        <circle cx="100" cy="60" r="5" fill="#0a0e1a"/>
+        <!-- Pupil highlight -->
+        <circle cx="103" cy="56" r="2.5" fill="#f0d890" opacity=".8"/>
+        <!-- Brow line / top curve -->
+        <path d="M8 55 Q50 5, 100 8 Q150 5, 192 55" stroke="#d4a853" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <!-- Teardrop / Horus extension -->
+        <path d="M100 105 L100 95 Q100 105, 92 112 Q82 118, 78 112 L82 108"
+              stroke="#d4a853" stroke-width="2" fill="rgba(212,168,83,0.15)" stroke-linecap="round"/>
+        <!-- Spiral curl below -->
+        <path d="M78 112 Q72 116, 68 110 Q64 102, 70 98 Q76 94, 80 100"
+              stroke="#d4a853" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+        <!-- Lower decorative line -->
+        <path d="M20 65 Q50 100, 100 100 Q150 100, 180 65" stroke="#d4a853" stroke-width="1" opacity=".3" fill="none"/>
+        <!-- Corner accents -->
+        <path d="M14 55 L22 58 M14 65 L22 62" stroke="#d4a853" stroke-width="1.2" opacity=".5"/>
+        <path d="M186 55 L178 58 M186 65 L178 62" stroke="#d4a853" stroke-width="1.2" opacity=".5"/>
+        <!-- Top decorative rays -->
+        <line x1="100" y1="2" x2="100" y2="12" stroke="#d4a853" stroke-width="1" opacity=".4"/>
+        <line x1="75" y1="5" x2="80" y2="15" stroke="#d4a853" stroke-width="1" opacity=".3"/>
+        <line x1="125" y1="5" x2="120" y2="15" stroke="#d4a853" stroke-width="1" opacity=".3"/>
+      </svg>
+    </div>
+    <h1 class="hero-title">
+      <span class="gold-text">The Terminal Coding Agent</span><br>
+      Forged in the Temples of Productivity
+    </h1>
+    <p class="hero-subtitle">
+      Open-source. AI-powered. Built for developers who demand speed, security, and beauty in their terminal workflow. Twelve providers. One agent.
+    </p>
+    <div class="hero-buttons">
+      <a href="#install" class="btn btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Install Now
+      </a>
+      <a href="https://github.com/FeverDream-dev/FeverCode" target="_blank" rel="noopener" class="btn btn-secondary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FEATURES ===== -->
+<section class="section" id="features">
+  <div class="container">
+    <div class="egyptian-divider">
+      <div class="line"></div>
+      <div class="symbol">&#9758;</div>
+      <div class="line"></div>
+    </div>
+    <div class="features-header reveal">
+      <h2 class="gold-text">Sacred Features of the Temple</h2>
+      <p>Every pillar of Fever Code is engineered for the modern scribe. Six domains. Zero compromise.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F9E0;</div>
+        <h3>AI-Powered Intelligence</h3>
+        <p>Twelve AI providers at your command. From OpenAI to Anthropic, Gemini to local models — your agent speaks every language of the gods.</p>
+        <span class="feature-tag">12 providers</span>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F5A5;</div>
+        <h3>Premium Terminal UI</h3>
+        <p>Eleven handcrafted themes with full mouse support, split panels, and syntax highlighting. The Anubis theme was forged for this moment.</p>
+        <span class="feature-tag">11 themes + mouse</span>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F512;</div>
+        <h3>Three-Tier Permissions</h3>
+        <p>Sandboxed execution with configurable trust levels. Allow with caution, deny with certainty. Your system stays sacred.</p>
+        <span class="feature-tag">sandboxed</span>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F4C1;</div>
+        <h3>Project Intelligence</h3>
+        <p>Config cascade, instruction files, and project-aware context. Fever Code understands your codebase like a scholar reads hieroglyphs.</p>
+        <span class="feature-tag">config cascade</span>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F9EA;</div>
+        <h3>Mock Mode</h3>
+        <p>Test your agent configurations with zero API cost. Zero-config, zero-risk. Perfect your rituals before the real invocation.</p>
+        <span class="feature-tag">zero-config</span>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F4F1;</div>
+        <h3>Telegram Monitor</h3>
+        <p>Remote control and monitoring via Telegram. Your agent works while you walk the earth. Notifications, commands, total oversight.</p>
+        <span class="feature-tag">remote control</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== INSTALL ===== -->
+<section class="section install" id="install">
+  <div class="container">
+    <div class="install-header reveal">
+      <h2 class="gold-text">Begin the Ritual</h2>
+      <p>One command to awaken the agent. Choose your path.</p>
+    </div>
+    <div class="install-tabs reveal">
+      <button class="install-tab active" data-tab="cargo" onclick="switchTab(this)">Cargo</button>
+      <button class="install-tab" data-tab="source" onclick="switchTab(this)">Source</button>
+      <button class="install-tab" data-tab="docker" onclick="switchTab(this)">Docker</button>
+    </div>
+    <div class="install-terminal reveal">
+      <div class="terminal-bar">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span>fever-code — install</span>
+      </div>
+      <div class="terminal-body" id="installBody">
+        <div class="terminal-line" style="animation-delay:0s"><span class="comment"># Install Fever Code via Cargo</span></div>
+        <div class="terminal-line" style="animation-delay:.3s"><span class="prompt">$ </span><span class="cmd">cargo install fever-code</span></div>
+        <div class="terminal-line" style="animation-delay:.8s"><span class="output">  Downloading fever-code v0.1.0...</span></div>
+        <div class="terminal-line" style="animation-delay:1.3s"><span class="output">  Compiling fever-code v0.1.0</span></div>
+        <div class="terminal-line" style="animation-delay:2s"><span class="output">    Finished release [optimized] target(s)</span></div>
+        <div class="terminal-line" style="animation-delay:2.5s"><span class="prompt">$ </span><span class="cmd">fever-code --version</span></div>
+        <div class="terminal-line" style="animation-delay:3s"><span class="output">fever-code 0.1.0 — The Terminal Coding Agent</span><span class="cursor-blink"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ARCHITECTURE ===== -->
+<section class="section" id="architecture">
+  <div class="container">
+    <div class="egyptian-divider">
+      <div class="line"></div>
+      <div class="symbol">&#9733;</div>
+      <div class="line"></div>
+    </div>
+    <div class="arch-header reveal">
+      <h2 class="gold-text">Architecture of the Temple</h2>
+      <p>A layered design inspired by the precision of the ancient builders. Each stone placed with intent.</p>
+    </div>
+    <div class="arch-container reveal">
+      <div class="arch-code">
+<pre>
+<span class="a-dim">  ┌──────────────────────────────────────────────────────────────┐</span>
+<span class="a-dim">  │</span>                    <span class="a-gold">F E V E R   C O D E</span>                    <span class="a-dim">│</span>
+<span class="a-dim">  │</span>                 <span class="a-sand">Terminal Coding Agent v0.1</span>                 <span class="a-dim">│</span>
+<span class="a-dim">  ├──────────────────────────────────────────────────────────────┤</span>
+<span class="a-dim">  │</span>                                                              <span class="a-dim">│</span>
+<span class="a-dim">  │</span>   <span class="a-gold">&#9758;</span> <span class="a-gold">TUI Layer</span>  <span class="a-dim">────────────────────────────────</span>   <span class="a-dim">│</span>
+<span class="a-dim">  │</span>     <span class="a-sand">&#9500;&#9472;&#9472;</span> <span class="a-bright">Ratatui Framework</span> <span class="a-dim">(11 themes, mouse, panels)</span>   <span class="a-dim">│</span>
+<span class="a-dim">  │</span>     <span class="a-sand">&#9500;&#9472;&#9472;</span> <span class="a-bright">Syntax Highlighting</span> <span class="a-dim">+ Markdown Rendering</span>   <span class="a-dim">│</span>
+<span class="a-dim">  │</span>     <span class="a-sand">&#9492;&#9472;&#9472;</span> <span class="a-bright">Input / Editor</span> <span class="a-dim">+ File Previewer</span>            <span class="a-dim">│</span>
+<span class="a-dim">  │</span>                                                              <span class="a-dim">│</span>
+<span class="a-dim">  │</span>   <span class="a-turq">&#9670;</span> <span class="a-turq">Agent Core</span>  <span class="a-dim">────────────────────────────────</span>   <span class="a-dim">│</span>
+<span class="a-dim">  │</span>     <span class="a-sand">&#9500;&#9472;&#9472;</span> <span class="a-bright">Tool Execution Engine</span> <span class="a-dim">(bash, file, search)</span>   <span class="a-dim">│</span>
+<span class="a-dim">  │</span>     <span class="a-sand">&#9500;&#9472;&#9472;</span> <span class="a-bright">Permission Manager</span> <span class="a-dim">(3-tier: allow/ask/deny)</span>   <span class="a-dim">│</span>
+<span class="a-dim">  │</span>     <span class="a-sand">&#9500;&#9472;&#9472;</span> <span class="a-bright">Config Cascade</span> <span class="a-dim">(global → project → session)</span>  <span class="a-dim">│</span>
+<span class="a-dim">  │</span>     <span class="a-sand">&#9492;&#9472;&#9472;</span> <span class="a-bright">Session / History</span> <span class="a-dim">Management</span>               <span class="a-dim">│</span>
+<span class="a-dim">  │</span>                                                              <span class="a-dim">│</span>
+<span class="a-dim">  │</span>   <span class="a-purple">&#9670;</span> <span class="a-purple">Provider Layer</span>  <span class="a-dim">───────────────────────────────</span>   <span class="a-dim">│</span>
+<span class="a-dim">  │</span>     <span class="a-sand">&#9500;&#9472;&#9472;</span> <span class="a-bright">OpenAI / Anthropic / Google Gemini</span>           <span class="a-dim">│</span>
+<span class="a-dim">  │</span>     <span class="a-sand">&#9500;&#9472;&#9472;</span> <span class="a-bright">Groq / Mistral / Ollama (local)</span>             <span class="a-dim">│</span>
+<span class="a-dim">  │</span>     <span class="a-sand">&#9492;&#9472;&#9472;</span> <span class="a-bright">DeepSeek / xAI / Cohere + more</span>              <span class="a-dim">│</span>
+<span class="a-dim">  │</span>                                                              <span class="a-dim">│</span>
+<span class="a-dim">  │</span>   <span class="a-gold">&#9670;</span> <span class="a-gold">Integrations</span>  <span class="a-dim">────────────────────────────────</span>   <span class="a-dim">│</span>
+<span class="a-dim">  │</span>     <span class="a-sand">&#9500;&#9472;&#9472;</span> <span class="a-bright">Telegram Bot</span> <span class="a-dim">(remote monitor + control)</span>     <span class="a-dim">│</span>
+<span class="a-dim">  │</span>     <span class="a-sand">&#9500;&#9472;&#9472;</span> <span class="a-bright">Mock Mode</span> <span class="a-dim">(zero-cost testing)</span>               <span class="a-dim">│</span>
+<span class="a-dim">  │</span>     <span class="a-sand">&#9492;&#9472;&#9472;</span> <span class="a-bright">Project Instructions</span> <span class="a-dim">(.fever/)</span>              <span class="a-dim">│</span>
+<span class="a-dim">  │</span>                                                              <span class="a-dim">│</span>
+<span class="a-dim">  ├──────────────────────────────────────────────────────────────┤</span>
+<span class="a-dim">  │</span>  <span class="a-sand">Built with Rust</span> <span class="a-dim">&#x2502;</span> <span class="a-turq">MIT License</span> <span class="a-dim">&#x2502;</span> <span class="a-gold">github.com/FeverDream-dev/FeverCode</span>  <span class="a-dim">│</span>
+<span class="a-dim">  └──────────────────────────────────────────────────────────────┘</span>
+</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DEMO TERMINAL ===== -->
+<section class="section demo" id="demo">
+  <div class="container">
+    <div class="demo-header reveal">
+      <h2 class="gold-text">Witness the Agent</h2>
+      <p>See Fever Code in action. From invocation to completion.</p>
+    </div>
+    <div class="demo-terminal reveal">
+      <div class="terminal-bar">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span>fever-code — demo</span>
+      </div>
+      <div class="demo-body" id="demoBody">
+        <!-- Lines injected by JS -->
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+  <div class="footer-border"></div>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14 2L2 8v12l12 6 12-6V8L14 2z" stroke="#d4a853" stroke-width="1.5" fill="none"/>
+          <path d="M14 10l-4 2v4l4 2 4-2v-4l-4-2z" fill="#d4a853" opacity=".6"/>
+        </svg>
+        <span>Fever Code</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/FeverDream-dev/FeverCode" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/FeverDream-dev/FeverCode/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+        <a href="https://github.com/FeverDream-dev/FeverCode/issues" target="_blank" rel="noopener">Issues</a>
+      </div>
+    </div>
+    <p class="footer-copy">
+      Built with &#x1F525; by <a href="https://github.com/FeverDream-dev" target="_blank" rel="noopener">FeverDream</a>
+      &nbsp;&#x2022;&nbsp; Open source under MIT License
+      &nbsp;&#x2022;&nbsp; &#9758; The ancient scrolls are open to all.
+    </p>
+  </div>
+</footer>
+
+<script>
+/* ===== Floating Hieroglyph Particles ===== */
+(function(){
+  var symbols = ['&#9758;','&#9733;','&#9650;','&#9670;','&#9790;','&#9788;','&#9830;','&#10038;','&#10048;','&#9752;'];
+  var container = document.getElementById('hieroglyphs');
+  for(var i = 0; i < 20; i++){
+    var span = document.createElement('span');
+    span.className = 'hieroglyph';
+    span.innerHTML = symbols[Math.floor(Math.random()*symbols.length)];
+    span.style.left = Math.random()*100 + '%';
+    span.style.fontSize = (0.8 + Math.random()*0.8) + 'rem';
+    span.style.animationDuration = (12 + Math.random()*20) + 's';
+    span.style.animationDelay = (Math.random()*15) + 's';
+    container.appendChild(span);
+  }
+})();
+
+/* ===== Mobile Nav Toggle ===== */
+(function(){
+  var toggle = document.getElementById('mobileToggle');
+  var links = document.getElementById('navLinks');
+  toggle.addEventListener('click', function(){
+    links.classList.toggle('open');
+  });
+  // Close on link click
+  var allLinks = links.querySelectorAll('a');
+  allLinks.forEach(function(link){
+    link.addEventListener('click', function(){ links.classList.remove('open'); });
+  });
+})();
+
+/* ===== Scroll Reveal (IntersectionObserver) ===== */
+(function(){
+  var reveals = document.querySelectorAll('.reveal, .feature-card');
+  if('IntersectionObserver' in window){
+    var observer = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(entry.isIntersecting){
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    },{threshold:0.1, rootMargin:'0px 0px -40px 0px'});
+    reveals.forEach(function(el){ observer.observe(el); });
+  } else {
+    reveals.forEach(function(el){ el.classList.add('visible'); });
+  }
+})();
+
+/* ===== Install Tab Switching ===== */
+function switchTab(btn){
+  var tabs = document.querySelectorAll('.install-tab');
+  tabs.forEach(function(t){ t.classList.remove('active'); });
+  btn.classList.add('active');
+  var tab = btn.getAttribute('data-tab');
+  var body = document.getElementById('installBody');
+  var content = {
+    cargo: '<div class="terminal-line" style="animation-delay:0s"><span class="comment"># Install Fever Code via Cargo</span></div>'
+      +'<div class="terminal-line" style="animation-delay:.3s"><span class="prompt">$ </span><span class="cmd">cargo install fever-code</span></div>'
+      +'<div class="terminal-line" style="animation-delay:.8s"><span class="output">  Downloading fever-code v0.1.0...</span></div>'
+      +'<div class="terminal-line" style="animation-delay:1.3s"><span class="output">  Compiling fever-code v0.1.0</span></div>'
+      +'<div class="terminal-line" style="animation-delay:2s"><span class="output">    Finished release [optimized] target(s)</span></div>'
+      +'<div class="terminal-line" style="animation-delay:2.5s"><span class="prompt">$ </span><span class="cmd">fever-code --version</span></div>'
+      +'<div class="terminal-line" style="animation-delay:3s"><span class="output">fever-code 0.1.0 — The Terminal Coding Agent</span><span class="cursor-blink"></span></div>',
+    source: '<div class="terminal-line" style="animation-delay:0s"><span class="comment"># Build from source</span></div>'
+      +'<div class="terminal-line" style="animation-delay:.3s"><span class="prompt">$ </span><span class="cmd">git clone https://github.com/FeverDream-dev/FeverCode.git</span></div>'
+      +'<div class="terminal-line" style="animation-delay:.8s"><span class="prompt">$ </span><span class="cmd">cd FeverCode</span></div>'
+      +'<div class="terminal-line" style="animation-delay:1.2s"><span class="prompt">$ </span><span class="cmd">cargo build --release</span></div>'
+      +'<div class="terminal-line" style="animation-delay:2s"><span class="output">  Compiling fever-code v0.1.0</span></div>'
+      +'<div class="terminal-line" style="animation-delay:2.5s"><span class="output">    Finished release [optimized] target(s)</span></div>'
+      +'<div class="terminal-line" style="animation-delay:3s"><span class="prompt">$ </span><span class="cmd">./target/release/fever-code</span><span class="cursor-blink"></span></div>',
+    docker: '<div class="terminal-line" style="animation-delay:0s"><span class="comment"># Run with Docker</span></div>'
+      +'<div class="terminal-line" style="animation-delay:.3s"><span class="prompt">$ </span><span class="cmd">docker run -it --rm \\</span></div>'
+      +'<div class="terminal-line" style="animation-delay:.6s"><span class="cmd">  -v $(pwd):/workspace \\</span></div>'
+      +'<div class="terminal-line" style="animation-delay:.9s"><span class="cmd">  feverdream/fever-code:latest</span></div>'
+      +'<div class="terminal-line" style="animation-delay:1.5s"><span class="output">  Pulling image feverdream/fever-code:latest...</span></div>'
+      +'<div class="terminal-line" style="animation-delay:2.5s"><span class="output">  Fever Code v0.1.0 — Ready.</span><span class="cursor-blink"></span></div>'
+  };
+  body.innerHTML = content[tab] || content.cargo;
+}
+
+/* ===== Demo Terminal Animation ===== */
+(function(){
+  var lines = [
+    {type:'prompt', text:'$ fever-code', delay:500},
+    {type:'output', text:'  <span style="color:#d4a853">&#9758;</span> Fever Code v0.1.0 — The Terminal Coding Agent', delay:1200},
+    {type:'output', text:'  <span style="color:#2dd4bf">Ready.</span> Provider: <span style="color:#d4a853">anthropic</span> | Model: <span style="color:#d4a853">claude-sonnet-4-20250514</span>', delay:1800},
+    {type:'blank', text:'', delay:2200},
+    {type:'input', text:'<span style="color:#2dd4bf">&gt;</span> Refactor the authentication module to use JWT tokens instead of sessions', delay:2600},
+    {type:'output', text:'  <span style="color:#6b7280">Analyzing codebase...</span>', delay:3500},
+    {type:'tool', text:'  <span style="color:#d4a853">[tool:read]</span> src/auth/mod.rs', delay:4200},
+    {type:'tool', text:'  <span style="color:#d4a853">[tool:read]</span> src/auth/session.rs', delay:4800},
+    {type:'tool', text:'  <span style="color:#d4a853">[tool:search]</span> "session" in src/**/*.rs', delay:5400},
+    {type:'output', text:'  <span style="color:#2dd4bf">&#10003;</span> Plan: Replace session store with JWT generation/validation', delay:6200},
+    {type:'tool', text:'  <span style="color:#d4a853">[tool:write]</span> src/auth/jwt.rs <span style="color:#6b7280">(new file)</span>', delay:7000},
+    {type:'tool', text:'  <span style="color:#d4a853">[tool:edit]</span> src/auth/mod.rs', delay:7600},
+    {type:'tool', text:'  <span style="color:#d4a853">[tool:write]</span> src/auth/middleware.rs <span style="color:#6b7280">(new file)</span>', delay:8200},
+    {type:'tool', text:'  <span style="color:#d4a853">[tool:bash]</span> cargo check', delay:8800},
+    {type:'success', text:'  <span style="color:#28c840">&#10003;</span> Compilation successful. 3 files modified, 2 created.', delay:9800},
+    {type:'output', text:'  <span style="color:#2dd4bf">&#10003;</span> Authentication refactored. JWT tokens replace sessions.', delay:10400},
+    {type:'input', text:'<span style="color:#2dd4bf">&gt;</span> <span class="cursor-blink"></span>', delay:11000},
+  ];
+  var body = document.getElementById('demoBody');
+  var observer = new IntersectionObserver(function(entries){
+    if(entries[0].isIntersecting){
+      runDemo();
+      observer.unobserve(body);
+    }
+  },{threshold:0.2});
+  observer.observe(body);
+  var demoRan = false;
+  function runDemo(){
+    if(demoRan) return;
+    demoRan = true;
+    lines.forEach(function(line){
+      setTimeout(function(){
+        var div = document.createElement('div');
+        div.className = 'demo-line';
+        div.innerHTML = line.text;
+        if(line.type === 'input' || line.type === 'prompt'){
+          div.style.color = '#e8eaf0';
+        }
+        body.appendChild(div);
+        body.scrollTop = body.scrollHeight;
+      }, line.delay);
+    });
+  }
+})();
+
+/* ===== Smooth scroll for nav links ===== */
+(function(){
+  document.querySelectorAll('a[href^="#"]').forEach(function(a){
+    a.addEventListener('click', function(e){
+      var target = document.querySelector(this.getAttribute('href'));
+      if(target){
+        e.preventDefault();
+        target.scrollIntoView({behavior:'smooth'});
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
