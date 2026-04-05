@@ -122,7 +122,11 @@ impl FeverAgent {
         prompt
     }
 
-    pub async fn prepare_request(&self, messages: &[Message], context: &AgentContext) -> ChatRequest {
+    pub async fn prepare_request(
+        &self,
+        messages: &[Message],
+        context: &AgentContext,
+    ) -> ChatRequest {
         let role = self.get_current_role();
         let system_content = self.build_system_prompt(&context.metadata.to_string());
 

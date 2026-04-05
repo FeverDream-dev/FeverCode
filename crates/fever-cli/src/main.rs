@@ -928,7 +928,10 @@ async fn main() -> anyhow::Result<()> {
             let provider = if cli.mock {
                 let mut mock_client = fever_providers::ProviderClient::new();
                 let mock_provider = fever_providers::MockProvider::new();
-                mock_client.register(Arc::new(mock_provider), mock_client.list_providers().is_empty());
+                mock_client.register(
+                    Arc::new(mock_provider),
+                    mock_client.list_providers().is_empty(),
+                );
                 Arc::new(mock_client)
             } else {
                 Arc::new(build_provider_client(false).await)

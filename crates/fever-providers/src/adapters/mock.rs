@@ -1,7 +1,7 @@
+use async_trait::async_trait;
+use futures::Stream;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use futures::Stream;
-use async_trait::async_trait;
 
 use crate::adapter::{ProviderAdapter, ProviderCapabilities};
 use crate::error::ProviderResult;
@@ -57,7 +57,14 @@ fn generate_response(request: &ChatRequest) -> String {
     if input.contains("help") || input.contains("?") {
         return "Mock provider help".to_string();
     }
-    format!("I received your message (demo mode): {}", if input.len() > 100 { format!("{}...", &input[..100]) } else { input.to_string() })
+    format!(
+        "I received your message (demo mode): {}",
+        if input.len() > 100 {
+            format!("{}...", &input[..100])
+        } else {
+            input.to_string()
+        }
+    )
 }
 
 #[async_trait]
@@ -74,7 +81,11 @@ impl ProviderAdapter for MockProvider {
             supports_images: false,
             supports_function_calling: false,
             max_context_length: Some(128_000),
-            supported_capabilities: vec![ModelCapability::Chat, ModelCapability::Tools, ModelCapability::Streaming],
+            supported_capabilities: vec![
+                ModelCapability::Chat,
+                ModelCapability::Tools,
+                ModelCapability::Streaming,
+            ],
         }
     }
 
@@ -85,10 +96,13 @@ impl ProviderAdapter for MockProvider {
             .unwrap_or_else(|| generate_response(request));
 
         Ok(ChatResponse {
-            id: format!("mock-{}", std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis()),
+            id: format!(
+                "mock-{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis()
+            ),
             choices: vec![ChatChoice {
                 index: 0,
                 message: ChatMessage {
@@ -100,7 +114,11 @@ impl ProviderAdapter for MockProvider {
                 finish_reason: "stop".to_string(),
             }],
             usage: Some(Usage {
-                prompt_tokens: request.messages.iter().map(|m| m.content.len() as u64 / 4).sum(),
+                prompt_tokens: request
+                    .messages
+                    .iter()
+                    .map(|m| m.content.len() as u64 / 4)
+                    .sum(),
                 completion_tokens: 0,
                 total_tokens: 0,
             }),
@@ -116,10 +134,13 @@ impl ProviderAdapter for MockProvider {
             .clone()
             .unwrap_or_else(|| generate_response(request));
 
-        let id = format!("mock-{}", std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis());
+        let id = format!(
+            "mock-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        );
 
         Ok(Box::new(MockStream {
             content,
@@ -131,7 +152,11 @@ impl ProviderAdapter for MockProvider {
     }
 
     fn list_models(&self) -> Vec<String> {
-        vec!["mock/default".to_string(), "mock/fast".to_string(), "mock/reasoning".to_string()]
+        vec![
+            "mock/default".to_string(),
+            "mock/fast".to_string(),
+            "mock/reasoning".to_string(),
+        ]
     }
 
     fn get_model_info(&self, model_id: &str) -> Option<ModelInfo> {
@@ -139,7 +164,11 @@ impl ProviderAdapter for MockProvider {
             id: model_id.to_string(),
             name: model_id.to_string(),
             provider: "mock".to_string(),
-            capabilities: vec![ModelCapability::Chat, ModelCapability::Tools, ModelCapability::Streaming],
+            capabilities: vec![
+                ModelCapability::Chat,
+                ModelCapability::Tools,
+                ModelCapability::Streaming,
+            ],
             context_length: Some(128_000),
             max_output_tokens: Some(4096),
         })
@@ -175,14 +204,21 @@ impl Stream for MockStream {
 
         // Yield one word (or remaining chars) at a time
         let remaining = &this.content[this.position..];
-        let next_break = remaining.find(' ').map(|i| i + 1).unwrap_or(remaining.len());
+        let next_break = remaining
+            .find(' ')
+            .map(|i| i + 1)
+            .unwrap_or(remaining.len());
         let chunk_len = next_break.min(remaining.len());
 
         let chunk = remaining[..chunk_len].to_string();
         this.position += chunk_len;
 
         let is_finished = this.position >= this.content.len();
-        let finish_reason = if is_finished { Some("stop".to_string()) } else { None };
+        let finish_reason = if is_finished {
+            Some("stop".to_string())
+        } else {
+            None
+        };
 
         if is_finished {
             this.finished = true;

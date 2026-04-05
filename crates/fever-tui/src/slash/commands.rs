@@ -1,5 +1,5 @@
-use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
+use fuzzy_matcher::skim::SkimMatcherV2;
 
 /// Centralized, richly described slash command specs.
 pub struct SlashCommandSpec {

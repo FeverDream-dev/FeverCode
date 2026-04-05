@@ -2,11 +2,11 @@ use crate::app::AppState;
 use crate::components::status_bar::StatusBar;
 use crate::util::glyphs;
 use ratatui::{
+    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
-    Frame,
 };
 
 pub fn render_frame(f: &mut Frame, state: &mut AppState) {

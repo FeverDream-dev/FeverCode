@@ -28,11 +28,13 @@ pub use execution::{ExecutionContext, ExecutionEngine, ExecutionEvent};
 pub use instructions::discover_instructions;
 pub use memory::{MemoryStore, StoredMessage};
 pub use permission::{
-    CommandRisk, PermissionGuard, PermissionMode, PermissionScope, PermissionVerdict,
-    apply_mode, classify_command_risk, guard_for_mode, normalize_and_validate_path, redact_secrets,
+    CommandRisk, PermissionGuard, PermissionMode, PermissionScope, PermissionVerdict, apply_mode,
+    classify_command_risk, guard_for_mode, normalize_and_validate_path, redact_secrets,
 };
 pub use retry::{BackoffType, RetryPolicy, retry_with_policy};
 pub use task::{Plan, Task, Todo};
-pub use telemetry::{JsonlSink, MemorySink, Telemetry, TelemetryEvent, TelemetryEventType, TelemetrySink};
+pub use telemetry::{
+    JsonlSink, MemorySink, Telemetry, TelemetryEvent, TelemetryEventType, TelemetrySink,
+};
 pub use tool::{Tool, ToolRegistry, ToolSchema, generate_call_id};
 pub use understand::{BuildSystem, LanguageInfo, ProjectSummary, ProjectUnderstanding};

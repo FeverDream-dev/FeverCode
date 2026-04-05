@@ -1,13 +1,13 @@
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
-    Frame,
 };
 
 use crate::app::AppState;
-use crate::app::{known_models_for_provider, KNOWN_PROVIDERS};
+use crate::app::{KNOWN_PROVIDERS, known_models_for_provider};
 use crate::theme::Theme;
 use crate::util::glyphs;
 

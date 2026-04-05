@@ -22,9 +22,9 @@ use crate::components::message::{MessageBubble, MessageRole};
 use crate::components::tool_card::ToolCard;
 use crate::event::{Command, Message, Screen};
 use crate::render::render_frame;
-use fever_core::PermissionMode;
 use crate::slash::SlashCommand;
 use crate::theme::Theme;
+use fever_core::PermissionMode;
 
 // ─────────────────────────────────────────────────────────────────────
 // Known providers and models
@@ -106,8 +106,6 @@ pub fn known_models_for_provider(provider: &str) -> Vec<&'static str> {
     }
 }
 
-    
-
 #[derive(Debug, Clone)]
 pub struct McpServerEntry {
     pub name: String,
@@ -136,11 +134,11 @@ pub struct AppState {
     pub workspace: String,
 
     // Home screen navigation state
-    pub home_selection: usize,          // currently selected action (0-indexed)
-    pub home_action_count: usize,       // total number of actions (computed on render)
-    pub git_branch: Option<String>,     // detected git branch name
-    pub is_git_repo: bool,              // whether workspace is a git repo
-    pub has_provider: bool,               // provider configured (true) or not (false)
+    pub home_selection: usize,      // currently selected action (0-indexed)
+    pub home_action_count: usize,   // total number of actions (computed on render)
+    pub git_branch: Option<String>, // detected git branch name
+    pub is_git_repo: bool,          // whether workspace is a git repo
+    pub has_provider: bool,         // provider configured (true) or not (false)
 
     // Permission mode (read/write/full) — wired from fever-core
     pub permission_mode: PermissionMode,
@@ -229,7 +227,7 @@ pub struct AppState {
     pub cancel_token: Option<tokio_util::sync::CancellationToken>,
 
     // Onboarding screen
-            pub onboarding_step: usize,
+    pub onboarding_step: usize,
     pub onboarding_selection: usize,
 
     // Session persistence
@@ -359,9 +357,7 @@ impl AppState {
                     .output()
                 {
                     if output.status.success() {
-                        let branch = String::from_utf8_lossy(&output.stdout)
-                            .trim()
-                            .to_string();
+                        let branch = String::from_utf8_lossy(&output.stdout).trim().to_string();
                         state.git_branch = Some(branch);
                     }
                 }
@@ -919,8 +915,8 @@ impl AppState {
             // Navigation wrap
             KeyCode::Up => {
                 if self.home_action_count > 0 {
-                    self.home_selection = (self.home_selection + self.home_action_count - 1)
-                        % self.home_action_count;
+                    self.home_selection =
+                        (self.home_selection + self.home_action_count - 1) % self.home_action_count;
                 }
             }
             KeyCode::Down => {
@@ -976,8 +972,6 @@ impl AppState {
         }
         vec![]
     }
-
-    
 
     fn handle_chat_key(&mut self, key: KeyEvent) -> Vec<Command> {
         // Slash menu typeahead navigation and interception
@@ -1476,11 +1470,14 @@ impl AppState {
             return vec![];
         }
 
-        
         let slash_popup_height: i32 = {
             let hints = SlashCommand::find_specs(&self.input_buffer[1..]);
             let hint_rows = hints.len().min(7);
-            if hint_rows > 0 { (hint_rows as i32) + 1 } else { 0 }
+            if hint_rows > 0 {
+                (hint_rows as i32) + 1
+            } else {
+                0
+            }
         };
         let slash_popup_top_y = (term_h as i32) - 3 - slash_popup_height;
 
@@ -1500,7 +1497,6 @@ impl AppState {
             }
         }
 
-        
         let palette_width = 50.min(term_w.saturating_sub(4));
         let palette_height = 14.min(term_h.saturating_sub(4));
         let palette_x = (term_w.saturating_sub(palette_width)) / 2;
@@ -1509,7 +1505,10 @@ impl AppState {
             let inside_palette = {
                 let within_y = (event.row as i32) - palette_y as i32;
                 let within_x = (event.column as i32) - palette_x as i32;
-                within_y >= 0 && within_y < palette_height as i32 && within_x >= 0 && within_x < palette_width as i32
+                within_y >= 0
+                    && within_y < palette_height as i32
+                    && within_x >= 0
+                    && within_x < palette_width as i32
             };
             if !inside_palette {
                 self.show_command_palette = false;
@@ -1522,26 +1521,24 @@ impl AppState {
 
         match self.screen {
             Screen::Home => {
-                
                 if self.slash_menu_visible && slash_popup_height > 0 {
-                        let y = slash_popup_top_y;
-                        let end_y = slash_popup_top_y + slash_popup_height - 1;
-                        let r = event.row as i32;
-                        if r >= y && r <= end_y {
-                                
-                            let relative = r - y;
-                            if relative >= 1 {
-                                let idx = (relative - 1) as usize;
-                                let specs = SlashCommand::find_specs(&self.input_buffer[1..]);
-                                let max = specs.len().min(7);
-                                if idx < max {
-                                    let spec = specs[idx];
-                                    self.input_buffer = format!("/{0}", spec.name);
-                                    self.slash_menu_visible = false;
-                                    return vec![];
-                                }
+                    let y = slash_popup_top_y;
+                    let end_y = slash_popup_top_y + slash_popup_height - 1;
+                    let r = event.row as i32;
+                    if r >= y && r <= end_y {
+                        let relative = r - y;
+                        if relative >= 1 {
+                            let idx = (relative - 1) as usize;
+                            let specs = SlashCommand::find_specs(&self.input_buffer[1..]);
+                            let max = specs.len().min(7);
+                            if idx < max {
+                                let spec = specs[idx];
+                                self.input_buffer = format!("/{0}", spec.name);
+                                self.slash_menu_visible = false;
+                                return vec![];
                             }
                         }
+                    }
                 }
                 let actions = self.home_action_count.min(7);
                 if actions > 0 {
@@ -1784,11 +1781,16 @@ impl AppState {
             }
             SlashCommand::Role(opt) => {
                 let msg = if let Some(name) = opt {
-                    if !name.is_empty() { format!("Role set to: {}", name) } else { "Usage: /role <name>".to_string() }
+                    if !name.is_empty() {
+                        format!("Role set to: {}", name)
+                    } else {
+                        "Usage: /role <name>".to_string()
+                    }
                 } else {
                     "Usage: /role <name>".to_string()
                 };
-                self.messages.push(MessageBubble::new(MessageRole::System, msg));
+                self.messages
+                    .push(MessageBubble::new(MessageRole::System, msg));
             }
             SlashCommand::Provider(opt) => {
                 if let Some(name) = opt {
@@ -1823,7 +1825,10 @@ impl AppState {
                     PermissionMode::WorkspaceWrite => PermissionMode::DangerFullAccess,
                     PermissionMode::DangerFullAccess => PermissionMode::ReadOnly,
                 };
-                self.notify(&format!("Permission mode: {}", self.permission_mode.label()));
+                self.notify(&format!(
+                    "Permission mode: {}",
+                    self.permission_mode.label()
+                ));
                 if let Some(p) = opt {
                     if !p.is_empty() {
                         self.messages.push(MessageBubble::new(
@@ -1835,7 +1840,10 @@ impl AppState {
             }
             SlashCommand::ReadOnly => {
                 self.permission_mode = PermissionMode::ReadOnly;
-                self.notify(&format!("Permission mode: {}", self.permission_mode.label()));
+                self.notify(&format!(
+                    "Permission mode: {}",
+                    self.permission_mode.label()
+                ));
             }
             SlashCommand::Diff => {
                 self.show_diff_panel = !self.show_diff_panel;
@@ -1857,9 +1865,10 @@ impl AppState {
                             ));
                         }
                         Ok(out) => {
-                            self.diff_content = vec![
-                                format!("git diff failed: {}", String::from_utf8_lossy(&out.stderr))
-                            ];
+                            self.diff_content = vec![format!(
+                                "git diff failed: {}",
+                                String::from_utf8_lossy(&out.stderr)
+                            )];
                         }
                         Err(e) => {
                             self.diff_content = vec![format!("git not available: {e}")];
@@ -1936,19 +1945,19 @@ impl AppState {
                 if self.permission_mode == PermissionMode::ReadOnly {
                     self.notify("Blocked: read-only mode");
                 } else {
-                if !self.messages.is_empty() {
-                    self.save_session();
-                }
-                self.messages.clear();
-                self.tool_calls.clear();
-                self.streaming = false;
-                self.streaming_buffer.clear();
-                self.session_id =
-                    format!("session-{}", chrono::Local::now().format("%Y%m%d-%H%M%S"));
-                self.messages.push(MessageBubble::new(
-                    MessageRole::System,
-                    format!("New session: {}", self.session_id),
-                ));
+                    if !self.messages.is_empty() {
+                        self.save_session();
+                    }
+                    self.messages.clear();
+                    self.tool_calls.clear();
+                    self.streaming = false;
+                    self.streaming_buffer.clear();
+                    self.session_id =
+                        format!("session-{}", chrono::Local::now().format("%Y%m%d-%H%M%S"));
+                    self.messages.push(MessageBubble::new(
+                        MessageRole::System,
+                        format!("New session: {}", self.session_id),
+                    ));
                 }
             }
             SlashCommand::Doctor => {
@@ -1958,9 +1967,10 @@ impl AppState {
 
                 let run_cmd = |prog: &str, args: &[&str]| -> (String, bool) {
                     match std::process::Command::new(prog).args(args).output() {
-                        Ok(out) if out.status.success() => {
-                            (String::from_utf8_lossy(&out.stdout).trim().to_string(), true)
-                        }
+                        Ok(out) if out.status.success() => (
+                            String::from_utf8_lossy(&out.stdout).trim().to_string(),
+                            true,
+                        ),
                         Ok(out) => (
                             String::from_utf8_lossy(&out.stderr).trim().to_string(),
                             false,
@@ -1976,12 +1986,22 @@ impl AppState {
                 let (term_val, term_ok) = {
                     let is_term = std::io::stdout().is_terminal();
                     (
-                        if is_term { "interactive".to_string() } else { "piped".to_string() },
+                        if is_term {
+                            "interactive".to_string()
+                        } else {
+                            "piped".to_string()
+                        },
                         is_term,
                     )
                 };
-                lines.push(format!("  {} Terminal - {}", if term_ok { "✓" } else { "✗" }, term_val));
-                if !term_ok { fail_count += 1; }
+                lines.push(format!(
+                    "  {} Terminal - {}",
+                    if term_ok { "✓" } else { "✗" },
+                    term_val
+                ));
+                if !term_ok {
+                    fail_count += 1;
+                }
 
                 lines.push(format!("  ✓ Theme - {}", self.theme.name));
 
@@ -1989,23 +2009,61 @@ impl AppState {
                 lines.push(format!("  ✓ Glyphs - {}", glyph_tier));
 
                 let (rust_ver, rust_ok) = run_cmd("rustc", &["--version"]);
-                lines.push(format!("  {} Rust - {}", if rust_ok { "✓" } else { "✗" }, if rust_ok { rust_ver } else { "not found".to_string() }));
-                if !rust_ok { fail_count += 1; }
+                lines.push(format!(
+                    "  {} Rust - {}",
+                    if rust_ok { "✓" } else { "✗" },
+                    if rust_ok {
+                        rust_ver
+                    } else {
+                        "not found".to_string()
+                    }
+                ));
+                if !rust_ok {
+                    fail_count += 1;
+                }
 
                 let (fever_ver, fever_ok) = run_cmd("fever", &["version"]);
-                lines.push(format!("  {} Fever - {}", if fever_ok { "✓" } else { "⚠" }, if fever_ok { fever_ver } else { "not in PATH".to_string() }));
+                lines.push(format!(
+                    "  {} Fever - {}",
+                    if fever_ok { "✓" } else { "⚠" },
+                    if fever_ok {
+                        fever_ver
+                    } else {
+                        "not in PATH".to_string()
+                    }
+                ));
 
                 // ── Provider ────────────────────────────────────────
                 lines.push(String::new());
                 lines.push("── Provider ──".to_string());
 
                 let prov_ok = !self.provider_name.is_empty() && self.provider_name != "none";
-                lines.push(format!("  {} Provider - {}", if prov_ok { "✓" } else { "✗" }, if prov_ok { &self.provider_name } else { "not configured" }));
-                if !prov_ok { fail_count += 1; }
+                lines.push(format!(
+                    "  {} Provider - {}",
+                    if prov_ok { "✓" } else { "✗" },
+                    if prov_ok {
+                        &self.provider_name
+                    } else {
+                        "not configured"
+                    }
+                ));
+                if !prov_ok {
+                    fail_count += 1;
+                }
 
                 let model_ok = !self.model_name.is_empty() && self.model_name != "none";
-                lines.push(format!("  {} Model - {}", if model_ok { "✓" } else { "✗" }, if model_ok { &self.model_name } else { "not configured" }));
-                if !model_ok { fail_count += 1; }
+                lines.push(format!(
+                    "  {} Model - {}",
+                    if model_ok { "✓" } else { "✗" },
+                    if model_ok {
+                        &self.model_name
+                    } else {
+                        "not configured"
+                    }
+                ));
+                if !model_ok {
+                    fail_count += 1;
+                }
 
                 if self.is_mock_mode {
                     lines.push("  ⚠ Mock mode - active (no real provider)".to_string());
@@ -2019,18 +2077,40 @@ impl AppState {
 
                 let ws_path = PathBuf::from(&self.workspace);
                 let ws_exists = ws_path.exists();
-                lines.push(format!("  {} Path - {}", if ws_exists { "✓" } else { "✗" }, &self.workspace));
-                if !ws_exists { fail_count += 1; }
+                lines.push(format!(
+                    "  {} Path - {}",
+                    if ws_exists { "✓" } else { "✗" },
+                    &self.workspace
+                ));
+                if !ws_exists {
+                    fail_count += 1;
+                }
 
                 let (_, git_ok) = run_cmd("git", &["rev-parse", "--is-inside-work-tree"]);
-                lines.push(format!("  {} Git repo - {}", if git_ok { "✓" } else { "⚠" }, if git_ok { "yes" } else { "not a git repo" }));
+                lines.push(format!(
+                    "  {} Git repo - {}",
+                    if git_ok { "✓" } else { "⚠" },
+                    if git_ok { "yes" } else { "not a git repo" }
+                ));
 
                 let (branch, branch_ok) = run_cmd("git", &["rev-parse", "--abbrev-ref", "HEAD"]);
-                lines.push(format!("  {} Branch - {}", if branch_ok { "✓" } else { "⚠" }, if branch_ok { &branch } else { "unknown" }));
+                lines.push(format!(
+                    "  {} Branch - {}",
+                    if branch_ok { "✓" } else { "⚠" },
+                    if branch_ok { &branch } else { "unknown" }
+                ));
 
                 let (dirty_out, _) = run_cmd("git", &["status", "--porcelain"]);
                 let is_dirty = !dirty_out.is_empty();
-                lines.push(format!("  {} Dirty - {}", if is_dirty { "⚠" } else { "✓" }, if is_dirty { format!("{} files changed", dirty_out.lines().count()) } else { "clean".to_string() }));
+                lines.push(format!(
+                    "  {} Dirty - {}",
+                    if is_dirty { "⚠" } else { "✓" },
+                    if is_dirty {
+                        format!("{} files changed", dirty_out.lines().count())
+                    } else {
+                        "clean".to_string()
+                    }
+                ));
 
                 // ── Tools ───────────────────────────────────────────
                 lines.push(String::new());
@@ -2039,7 +2119,10 @@ impl AppState {
                 let tool_count = self.tool_calls.len();
                 lines.push(format!("  ✓ Tool calls - {} this session", tool_count));
 
-                lines.push(format!("  ✓ Permissions - {}", self.permission_mode.label()));
+                lines.push(format!(
+                    "  ✓ Permissions - {}",
+                    self.permission_mode.label()
+                ));
 
                 let sessions_dir = dirs::data_dir()
                     .map(|d| d.join("fevercode").join("sessions"))
@@ -2050,23 +2133,51 @@ impl AppState {
                 lines.push(format!("  ✓ Sessions - {} saved", session_count));
 
                 let sessions_writable = std::fs::create_dir_all(&sessions_dir).is_ok();
-                lines.push(format!("  {} Session dir - {}", if sessions_writable { "✓" } else { "✗" }, if sessions_writable { "writable" } else { "cannot write" }));
-                if !sessions_writable { fail_count += 1; }
+                lines.push(format!(
+                    "  {} Session dir - {}",
+                    if sessions_writable { "✓" } else { "✗" },
+                    if sessions_writable {
+                        "writable"
+                    } else {
+                        "cannot write"
+                    }
+                ));
+                if !sessions_writable {
+                    fail_count += 1;
+                }
 
                 // ── System ──────────────────────────────────────────
                 lines.push(String::new());
                 lines.push("── System ──".to_string());
 
                 let (cargo_check, check_ok) = run_cmd("cargo", &["check", "--workspace"]);
-                let check_summary = if check_ok { "compiles".to_string() } else { cargo_check.lines().next().unwrap_or("failed").to_string() };
-                lines.push(format!("  {} Cargo check - {}", if check_ok { "✓" } else { "✗" }, check_summary));
-                if !check_ok { fail_count += 1; }
+                let check_summary = if check_ok {
+                    "compiles".to_string()
+                } else {
+                    cargo_check.lines().next().unwrap_or("failed").to_string()
+                };
+                lines.push(format!(
+                    "  {} Cargo check - {}",
+                    if check_ok { "✓" } else { "✗" },
+                    check_summary
+                ));
+                if !check_ok {
+                    fail_count += 1;
+                }
 
                 let config_path = dirs::config_dir()
                     .map(|d| d.join("fevercode").join("config.toml"))
                     .unwrap_or_else(|| PathBuf::from("~/.config/fevercode/config.toml"));
                 let config_exists = config_path.exists();
-                lines.push(format!("  {} Config - {}", if config_exists { "✓" } else { "⚠" }, if config_exists { config_path.display().to_string() } else { "not found".to_string() }));
+                lines.push(format!(
+                    "  {} Config - {}",
+                    if config_exists { "✓" } else { "⚠" },
+                    if config_exists {
+                        config_path.display().to_string()
+                    } else {
+                        "not found".to_string()
+                    }
+                ));
 
                 // Check if test files exist (don't actually run them — too slow for interactive)
                 let has_tests = std::path::Path::new("tests").exists()
@@ -2074,20 +2185,29 @@ impl AppState {
                         && std::fs::read_to_string("Cargo.toml")
                             .map(|c| c.contains("[dev-dependencies]") || c.contains("[[test]]"))
                             .unwrap_or(false));
-                lines.push(format!("  {} Tests - {}", if has_tests { "✓" } else { "⚠" }, if has_tests { "test files found" } else { "no tests detected" }));
+                lines.push(format!(
+                    "  {} Tests - {}",
+                    if has_tests { "✓" } else { "⚠" },
+                    if has_tests {
+                        "test files found"
+                    } else {
+                        "no tests detected"
+                    }
+                ));
 
                 // ── Summary ─────────────────────────────────────────
                 lines.push(String::new());
                 if fail_count == 0 {
                     lines.push("✓ All checks passed.".to_string());
                 } else {
-                    lines.push(format!("✗ {} check(s) failed. Run `fever doctor` for details.", fail_count));
+                    lines.push(format!(
+                        "✗ {} check(s) failed. Run `fever doctor` for details.",
+                        fail_count
+                    ));
                 }
 
-                self.messages.push(MessageBubble::new(
-                    MessageRole::System,
-                    lines.join("\n"),
-                ));
+                self.messages
+                    .push(MessageBubble::new(MessageRole::System, lines.join("\n")));
             }
             SlashCommand::Session(opt) => {
                 let sessions_dir = dirs::data_dir()
@@ -2114,7 +2234,10 @@ impl AppState {
                                         if !is_jsonl && !is_json {
                                             return None;
                                         }
-                                        let stem = name.trim_end_matches(".jsonl").trim_end_matches(".json").to_string();
+                                        let stem = name
+                                            .trim_end_matches(".jsonl")
+                                            .trim_end_matches(".json")
+                                            .to_string();
                                         let meta = e.metadata().ok()?;
                                         let modified = meta.modified().ok()?;
                                         let time =
@@ -2178,10 +2301,8 @@ impl AppState {
                             self.notify(&msg);
                         }
                         Err(err) => {
-                            self.messages.push(MessageBubble::new(
-                                MessageRole::System,
-                                err,
-                            ));
+                            self.messages
+                                .push(MessageBubble::new(MessageRole::System, err));
                         }
                     }
                 } else {
@@ -2432,32 +2553,37 @@ impl AppState {
                             "assistant" => MessageRole::Assistant,
                             _ => MessageRole::System,
                         };
-                        self.messages.push(MessageBubble::new(role, content_str.to_string()));
+                        self.messages
+                            .push(MessageBubble::new(role, content_str.to_string()));
                         msg_count += 1;
                     }
                 }
             }
         } else if let Ok(data) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(id) = data.get("id").and_then(|v| v.as_str()) {
-                    self.session_id = id.to_string();
+            if let Some(id) = data.get("id").and_then(|v| v.as_str()) {
+                self.session_id = id.to_string();
+            }
+            if let Some(msgs) = data.get("messages").and_then(|v| v.as_array()) {
+                for msg in msgs {
+                    let role_str = msg.get("role").and_then(|v| v.as_str()).unwrap_or("user");
+                    let content_str = msg.get("content").and_then(|v| v.as_str()).unwrap_or("");
+                    let role = match role_str {
+                        "user" => MessageRole::User,
+                        "assistant" => MessageRole::Assistant,
+                        _ => MessageRole::System,
+                    };
+                    self.messages
+                        .push(MessageBubble::new(role, content_str.to_string()));
+                    msg_count += 1;
                 }
-                if let Some(msgs) = data.get("messages").and_then(|v| v.as_array()) {
-                    for msg in msgs {
-                        let role_str = msg.get("role").and_then(|v| v.as_str()).unwrap_or("user");
-                        let content_str = msg.get("content").and_then(|v| v.as_str()).unwrap_or("");
-                        let role = match role_str {
-                            "user" => MessageRole::User,
-                            "assistant" => MessageRole::Assistant,
-                            _ => MessageRole::System,
-                        };
-                        self.messages.push(MessageBubble::new(role, content_str.to_string()));
-                        msg_count += 1;
-                    }
-                }
+            }
         }
 
         self.scroll_offset = 0;
-        Ok(format!("Resumed session '{}': {} messages loaded", session_id, msg_count))
+        Ok(format!(
+            "Resumed session '{}': {} messages loaded",
+            session_id, msg_count
+        ))
     }
 
     // ── Rendering ──────────────────────────────────────────────────
@@ -2662,7 +2788,6 @@ impl AppState {
             }
         }
     }
-
 }
 
 impl Default for AppState {

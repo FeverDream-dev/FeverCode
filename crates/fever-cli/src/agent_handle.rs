@@ -86,16 +86,17 @@ async fn run_streaming_loop(
         let mut stream_request = request.clone();
         stream_request.stream = true;
 
-        let stream_result = tokio::time::timeout(request_timeout, provider.chat_stream(&stream_request))
-            .await
-            .map_err(|_| {
-                format!(
-                    "LLM request timed out after {}s on iteration {}",
-                    request_timeout.as_secs(),
-                    iteration + 1
-                )
-            })?
-            .map_err(|e| format!("LLM stream error on iteration {}: {}", iteration + 1, e))?;
+        let stream_result =
+            tokio::time::timeout(request_timeout, provider.chat_stream(&stream_request))
+                .await
+                .map_err(|_| {
+                    format!(
+                        "LLM request timed out after {}s on iteration {}",
+                        request_timeout.as_secs(),
+                        iteration + 1
+                    )
+                })?
+                .map_err(|e| format!("LLM stream error on iteration {}: {}", iteration + 1, e))?;
 
         let mut stream = stream_result;
         let mut response_content = String::new();
@@ -128,7 +129,11 @@ async fn run_streaming_loop(
         if has_tool_calls {
             let mut detect_messages = vec![ChatMessage {
                 role: "system".to_string(),
-                content: request.messages.first().map(|m| m.content.clone()).unwrap_or_default(),
+                content: request
+                    .messages
+                    .first()
+                    .map(|m| m.content.clone())
+                    .unwrap_or_default(),
                 tool_calls: None,
                 tool_call_id: None,
             }];
@@ -152,18 +157,19 @@ async fn run_streaming_loop(
             detect_request.stream = false;
             detect_request.temperature = Some(0.0);
 
-            let tool_response = tokio::time::timeout(request_timeout, provider.chat(&detect_request))
-                .await
-                .map_err(|_| {
-                    format!(
-                        "Tool-call request timed out after {}s on iteration {}",
-                        request_timeout.as_secs(),
-                        iteration + 1
-                    )
-                })?
-                .map_err(|e| {
-                    format!("Tool-call LLM error on iteration {}: {}", iteration + 1, e)
-                })?;
+            let tool_response =
+                tokio::time::timeout(request_timeout, provider.chat(&detect_request))
+                    .await
+                    .map_err(|_| {
+                        format!(
+                            "Tool-call request timed out after {}s on iteration {}",
+                            request_timeout.as_secs(),
+                            iteration + 1
+                        )
+                    })?
+                    .map_err(|e| {
+                        format!("Tool-call LLM error on iteration {}: {}", iteration + 1, e)
+                    })?;
 
             let choice = tool_response
                 .choices
