@@ -2,11 +2,11 @@ use crate::app::AppState;
 use crate::components::status_bar::StatusBar;
 use crate::util::glyphs;
 use ratatui::{
-    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
+    Frame,
 };
 
 pub fn render_frame(f: &mut Frame, state: &mut AppState) {
@@ -35,6 +35,11 @@ pub fn render_frame(f: &mut Frame, state: &mut AppState) {
         sb.model = state.model_name.clone();
         sb.theme_name = state.theme.name.to_string();
         sb.workspace = state.workspace.clone();
+
+        sb.git_branch = state.git_branch.clone();
+        sb.permission_mode = state.permission_mode.label().to_string();
+        sb.is_mock_mode = state.is_mock_mode;
+        sb.session_id = state.session_id.clone();
         sb.streaming = state.streaming;
         sb.message_count = state.messages.len();
         sb.input_tokens = state.input_tokens;
@@ -56,6 +61,11 @@ pub fn render_frame(f: &mut Frame, state: &mut AppState) {
         sb.model = state.model_name.clone();
         sb.theme_name = state.theme.name.to_string();
         sb.workspace = state.workspace.clone();
+
+        sb.git_branch = state.git_branch.clone();
+        sb.permission_mode = state.permission_mode.label().to_string();
+        sb.is_mock_mode = state.is_mock_mode;
+        sb.session_id = state.session_id.clone();
         sb.streaming = state.streaming;
         sb.message_count = state.messages.len();
         sb.input_tokens = state.input_tokens;
@@ -75,6 +85,14 @@ pub fn render_frame(f: &mut Frame, state: &mut AppState) {
 
     if state.show_help {
         render_help_overlay(f, size, state);
+    }
+
+    if state.show_tool_panel {
+        render_tool_panel(f, size, state);
+    }
+
+    if state.show_diff_panel {
+        render_diff_panel(f, size, state);
     }
 
     if let Some(ref text) = state.notification {
@@ -343,7 +361,9 @@ fn render_command_palette(f: &mut Frame, area: Rect, state: &AppState) {
     let list_start_y = inner.y + 2;
     let max_visible = (inner.height.saturating_sub(2)) as usize;
 
-    for (i, cmd) in commands.iter().take(max_visible).enumerate() {
+    for (i, spec) in commands.iter().take(max_visible).enumerate() {
+        let spec = *spec;
+        // spec is &SlashCommandSpec
         let cmd_area = Rect::new(inner.x, list_start_y + i as u16, inner.width, 1);
 
         let is_selected = i == state.palette_selection;
@@ -356,21 +376,28 @@ fn render_command_palette(f: &mut Frame, area: Rect, state: &AppState) {
             theme.style_fg()
         };
 
-        let line = Line::from(vec![
-            Span::styled(format!("  /{}", cmd.name()), style),
-            Span::styled(
-                format!(
-                    "  {}",
-                    glyphs::DIVIDER.repeat(12usize.saturating_sub(cmd.name().len()))
-                ),
-                if is_selected {
-                    Style::default().fg(theme.bg()).bg(theme.accent())
-                } else {
-                    Style::default().fg(theme.fg_dimmed())
-                },
-            ),
-            Span::styled(format!("  {}", cmd.description()), style),
-        ]);
+        // Build a single line with:
+        // [  /name] [● if requires_provider] [category badge] [summary] [hint if any]
+        let mut parts: Vec<Span> = Vec::new();
+        parts.push(Span::styled(format!("  /{}", spec.name), style));
+
+        if spec.requires_provider {
+            parts.push(Span::styled(" ●", Style::default().fg(theme.accent())));
+        }
+
+        // Category badge
+        let cat_badge = format!(" [{}]", format!("{:?}", spec.category).to_lowercase());
+        parts.push(Span::styled(cat_badge, theme.style_fg()));
+
+        // Summary (description)
+        parts.push(Span::styled(format!("  {}", spec.summary), style));
+
+        // Argument hint (dimmed)
+        if let Some(hint) = spec.argument_hint {
+            parts.push(Span::styled(format!("  {}", hint), theme.style_dimmed()));
+        }
+
+        let line = Line::from(parts);
         f.render_widget(Paragraph::new(line), cmd_area);
     }
 }
@@ -415,6 +442,8 @@ fn render_help_overlay(f: &mut Frame, area: Rect, state: &AppState) {
         ("?", "Toggle this help"),
         ("Ctrl+K", "Command palette"),
         ("Ctrl+B", "Toggle sidebar"),
+        ("Ctrl+T", "Toggle tool panel"),
+        ("Ctrl+D", "Toggle diff panel"),
         ("Ctrl+C", "Cancel / Quit"),
         ("/", "Start slash command"),
         ("S (home)", "Open settings"),
@@ -448,4 +477,133 @@ fn render_help_overlay(f: &mut Frame, area: Rect, state: &AppState) {
             Rect::new(inner.x, row_y, inner.width, 1),
         );
     }
+}
+
+fn render_tool_panel(f: &mut Frame, area: Rect, state: &AppState) {
+    let theme = &state.theme;
+    let panel_w = state.panel_width.min(area.width.saturating_sub(20));
+    let panel_h = area.height.saturating_sub(2);
+    let panel_x = area.width.saturating_sub(panel_w);
+    let panel_y = 0;
+
+    let panel_area = Rect::new(panel_x, panel_y, panel_w, panel_h);
+
+    let block = Block::default()
+        .borders(Borders::LEFT)
+        .border_style(theme.style_border(false))
+        .title(Span::styled(" Tools ", theme.style_accent_bold()))
+        .style(Style::default().bg(theme.bg_panel()));
+
+    let inner = block.inner(panel_area);
+    f.render_widget(block, panel_area);
+
+    let tools = [
+        ("shell", "Execute shell commands"),
+        ("read_file", "Read file contents"),
+        ("write_file", "Write to files"),
+        ("list_directory", "List directory contents"),
+        ("grep", "Search file contents"),
+        ("git_status", "Show git status"),
+        ("git_diff", "Show git diff"),
+        ("git_log", "Show git log"),
+    ];
+
+    let mut lines: Vec<Line> = Vec::new();
+    for (name, desc) in &tools {
+        lines.push(Line::from(vec![
+            Span::styled(format!(" {} ", name), theme.style_accent()),
+            Span::styled(*desc, Style::default().fg(theme.fg_dimmed())),
+        ]));
+    }
+
+    if state.tool_calls.is_empty() {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            glyphs::DIVIDER.repeat(inner.width as usize),
+            Style::default().fg(theme.fg_dimmed()),
+        )));
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            " No tool activity yet",
+            Style::default().fg(theme.fg_dimmed()),
+        )));
+    } else {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            glyphs::DIVIDER.repeat(inner.width as usize),
+            Style::default().fg(theme.fg_dimmed()),
+        )));
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            format!(" Activity ({})", state.tool_calls.len()),
+            theme.style_accent_bold(),
+        )));
+        for tc in &state.tool_calls {
+            let icon = match tc.status {
+                crate::components::tool_card::ToolStatus::Running => glyphs::ACTIVE,
+                crate::components::tool_card::ToolStatus::Completed => glyphs::CHECK,
+                crate::components::tool_card::ToolStatus::Failed => glyphs::CROSS,
+            };
+            let label = if tc.tool_name.len() > 18 {
+                format!("{}..", &tc.tool_name[..18])
+            } else {
+                tc.tool_name.clone()
+            };
+            lines.push(Line::from(vec![
+                Span::styled(format!(" {} ", icon), theme.style_fg()),
+                Span::styled(label, Style::default().fg(theme.fg())),
+            ]));
+        }
+    }
+
+    let panel = Paragraph::new(lines)
+        .wrap(Wrap { trim: false })
+        .style(Style::default().bg(theme.bg_panel()));
+    f.render_widget(panel, inner);
+}
+
+fn render_diff_panel(f: &mut Frame, area: Rect, state: &AppState) {
+    let theme = &state.theme;
+    let panel_w = state.panel_width.min(area.width.saturating_sub(20));
+    let panel_h = area.height.saturating_sub(2);
+    let panel_x = area.width.saturating_sub(panel_w);
+    let panel_y = 0;
+
+    let panel_area = Rect::new(panel_x, panel_y, panel_w, panel_h);
+
+    let block = Block::default()
+        .borders(Borders::LEFT)
+        .border_style(theme.style_border(false))
+        .title(Span::styled(" Diff ", theme.style_accent_bold()))
+        .style(Style::default().bg(theme.bg_panel()));
+
+    let inner = block.inner(panel_area);
+    f.render_widget(block, panel_area);
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    if state.diff_content.is_empty() {
+        lines.push(Line::from(Span::styled(
+            " Loading...",
+            Style::default().fg(theme.fg_dimmed()),
+        )));
+    } else {
+        for line in &state.diff_content {
+            if line.starts_with(" ") {
+                lines.push(Line::from(Span::styled(
+                    line.clone(),
+                    Style::default().fg(theme.fg()),
+                )));
+            } else if line.contains("failed") || line.contains("not available") {
+                lines.push(Line::from(Span::styled(line.clone(), theme.style_error())));
+            } else {
+                lines.push(Line::from(Span::styled(line.clone(), theme.style_accent())));
+            }
+        }
+    }
+
+    let panel = Paragraph::new(lines)
+        .wrap(Wrap { trim: false })
+        .style(Style::default().bg(theme.bg_panel()));
+    f.render_widget(panel, inner);
 }

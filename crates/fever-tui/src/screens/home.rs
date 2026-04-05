@@ -1,9 +1,9 @@
 use ratatui::{
-    Frame,
     layout::Rect,
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
+    Frame,
 };
 
 use crate::app::AppState;
@@ -119,11 +119,17 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
 
     let val_w = w.saturating_sub(14);
 
+    // Provider status with color-coding
+    let provider_color = if state.has_provider {
+        theme.success()
+    } else {
+        theme.warning()
+    };
     lines.push(Line::from(vec![
         Span::styled("  Provider: ", Style::default().fg(theme.fg_dimmed())),
         Span::styled(
             text::truncate_str(&format!("{} ", state.provider_name), val_w),
-            Style::default().fg(theme.fg()),
+            provider_color,
         ),
         Span::styled("\u{00b7} ", Style::default().fg(theme.fg_dimmed())),
         Span::styled(
@@ -131,6 +137,14 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
             Style::default().fg(theme.fg_secondary()),
         ),
     ]));
+
+    // Show a provider-config notice when none configured
+    if !state.has_provider {
+        lines.push(Line::from(Span::styled(
+            "⚠  No provider configured — use /provider, /model, or run in demo mode",
+            theme.warning(),
+        )));
+    }
 
     lines.push(Line::from(vec![
         Span::styled("  Workspace: ", Style::default().fg(theme.fg_dimmed())),

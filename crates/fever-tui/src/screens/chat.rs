@@ -1,30 +1,64 @@
 use ratatui::{
-    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Wrap},
+    Frame,
 };
 
 use crate::app::AppState;
 use crate::components::message::MessageRole;
 use crate::components::tool_card::ToolStatus;
-use crate::slash::SlashCommand;
 use crate::util::{glyphs, text};
 
+fn category_label_for_name(name: &str) -> &'static str {
+    use crate::slash::commands::{CommandCategory, SLASH_COMMAND_SPECS};
+    for spec in SLASH_COMMAND_SPECS.iter() {
+        if spec.name == name || spec.aliases.iter().any(|a| *a == name) {
+            return match spec.category {
+                CommandCategory::Session => "Session",
+                CommandCategory::Config => "Config",
+                CommandCategory::Model => "Model",
+                CommandCategory::Permissions => "Permissions",
+                CommandCategory::Workspace => "Workspace",
+                CommandCategory::Tools => "Tools",
+                CommandCategory::Diagnostics => "Diagnostics",
+                CommandCategory::Help => "Help",
+                CommandCategory::Appearance => "Appearance",
+                CommandCategory::Agent => "Agent",
+                CommandCategory::Export => "Export",
+            };
+        }
+    }
+    ""
+}
+
+fn arg_hint_for_name(name: &str) -> Option<&'static str> {
+    use crate::slash::commands::SLASH_COMMAND_SPECS;
+    for spec in SLASH_COMMAND_SPECS.iter() {
+        if spec.name == name || spec.aliases.iter().any(|a| *a == name) {
+            return spec.argument_hint;
+        }
+    }
+    None
+}
+
 fn matching_commands(input: &str) -> Vec<(&'static str, &'static str)> {
+    use crate::slash::commands::SlashCommand;
     if !input.starts_with('/') {
         return Vec::new();
     }
     let query = input.trim_start_matches('/').to_lowercase();
     if query.is_empty() {
-        return SlashCommand::all_descriptions().to_vec();
+        use crate::slash::commands::SLASH_COMMAND_SPECS;
+        return SLASH_COMMAND_SPECS
+            .iter()
+            .map(|s| (s.name, s.summary))
+            .collect();
     }
-    SlashCommand::all_descriptions()
-        .iter()
-        .filter(|(name, _)| name.starts_with(&query))
-        .copied()
-        .collect()
+    // Use fuzzy search against the registry for better matching
+    let specs = SlashCommand::find_specs(&query);
+    specs.iter().map(|s| (s.name, s.summary)).collect()
 }
 
 pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
@@ -42,7 +76,7 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
         Vec::new()
     };
 
-    let hint_rows = autocomplete_hints.len().min(5) as u16;
+    let hint_rows = autocomplete_hints.len().min(7) as u16;
     let hint_height = if hint_rows > 0 { hint_rows + 1 } else { 0 };
 
     let chunks = Layout::vertical([
@@ -217,16 +251,26 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
 
     if hint_height > 0 {
         let mut hint_lines: Vec<Line> = Vec::new();
-        for (name, desc) in autocomplete_hints.iter().take(5) {
+        for (idx, (name, desc)) in autocomplete_hints.iter().take(7).enumerate() {
+            // Derive a category label from the registry for display purposes
+            let category = category_label_for_name(name);
+            let mut summary_text = desc.to_string();
+            if let Some(hint) = arg_hint_for_name(name) {
+                summary_text.push(' ');
+                summary_text.push_str(hint);
+            }
+            // Highlight the currently selected item
+            let mut name_style = Style::default()
+                .fg(theme.accent())
+                .add_modifier(Modifier::BOLD);
+            if idx == state.slash_menu_selection {
+                name_style = name_style.bg(theme.accent());
+            }
+            let display_text = format!("{} ({})", summary_text, category);
             hint_lines.push(Line::from(vec![
+                Span::styled(format!(" /{}", name), name_style),
                 Span::styled(
-                    format!(" /{}", name),
-                    Style::default()
-                        .fg(theme.accent())
-                        .add_modifier(Modifier::BOLD),
-                ),
-                Span::styled(
-                    format!("  {}", desc),
+                    format!("  {}", display_text),
                     Style::default().fg(theme.fg_dimmed()),
                 ),
             ]));
@@ -255,7 +299,8 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
             Style::default().fg(theme.accent()),
         ));
     let display = if state.input_buffer.is_empty() {
-        "Type a message... (/? for help)".to_string()
+        // Updated placeholder text
+        "Type a message, /command, or Ctrl+K for actions".to_string()
     } else {
         state.input_buffer.clone()
     };
