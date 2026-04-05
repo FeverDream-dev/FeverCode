@@ -201,6 +201,18 @@ impl OpenAiAdapter {
         )
     }
 
+    pub fn zai(api_key: impl Into<String>) -> Self {
+        Self::new(
+            "zai".to_string(),
+            OpenAiConfig {
+                api_key: api_key.into(),
+                base_url: "https://api.z.ai/api/paas/v4".to_string(),
+                default_model: None,
+                organization: None,
+            },
+        )
+    }
+
     pub fn custom(name: String, api_key: impl Into<String>, base_url: impl Into<String>) -> Self {
         Self::new(
             name,
@@ -458,6 +470,7 @@ impl ProviderAdapter for OpenAiAdapter {
                                         delta: None,
                                         content: None,
                                         finish_reason: Some("stop".to_string()),
+                                        tool_calls: None,
                                     }))
                                     .await;
                                 break;
@@ -481,6 +494,7 @@ impl ProviderAdapter for OpenAiAdapter {
                                             delta: None,
                                             content,
                                             finish_reason,
+                                            tool_calls: None,
                                         }))
                                         .await;
                                 }

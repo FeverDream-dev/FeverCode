@@ -1,241 +1,169 @@
-# FeverCode Reality Audit
+# FeverCode Reality Audit v2
 
-**Date**: 2026-03-31 (Updated)
-**Auditor**: Automated codebase audit + implementation session
-**Commit**: 84bb3fd (Refactor: Align Fever Code with terminal coding agent vision)
+**Date**: 2026-04-05
+**Scope**: Full repo-wide truth audit — providers, features, tests, docs
+**Commit**: 6adfcc9 (fix(ci): resolve clippy strict errors in config tests)
 
 ---
 
 ## Executive Summary
 
-FeverCode is a **Rust workspace with 10 crates (~6,400 LOC)** that has progressed from pure scaffold to **partially operational**. Provider adapters work (4 adapters, 348 models fetchable via OpenRouter), security is production-quality (PermissionGuard with 16 tests), and the CLI has real subcommands. However, **the agent loop is still single-shot** — there's no iterative plan→execute→verify→iterate cycle. The system can call an LLM once and dispatch tools, but cannot observe results and decide next actions autonomously.
+FeverCode has **5 adapter implementations** (openai, anthropic, gemini, ollama, mock) but README claims "12 provider adapters" — **MISLEADING**. The OpenAI adapter has factory methods for 9 providers (openai, openrouter, together, groq, fireworks, mistral, deepseek, minimax, perplexity), all sharing the same `OpenAiAdapter` struct. Z.ai is registered with the **wrong base URL** (openrouter.ai instead of api.z.ai). Ollama streaming is **BROKEN** (returns InvalidRequest). Anthropic tools are **NOT WIRED** (request body has no tools field).
 
-**Honesty assessment**: Strong foundation. Provider layer and security are real. Agent loop is the #1 blocker. Everything else builds on that loop.
-
----
-
-## 1. What Actually Works (Verified in Code + Runtime)
-
-### Provider Layer (VERIFIED WITH REAL API CALLS)
-- **4 provider adapters**: OpenAI-compatible (431 lines, covers 10+ providers), Anthropic (294 lines), Gemini (341 lines), Ollama (408 lines)
-- **ProviderClient**: HashMap-based dispatch, auto-discovery from 13 env vars
-- **`fever providers --fetch`**: Fetches model catalogs — verified 348 models from OpenRouter
-- **`fever chat --model <model> <message>`**: Single-shot chat to any discovered model
-- **3 integration tests**: OpenRouter fetch_models, model_info, chat (require FEVER_ZAI_KEY env var)
-- **RetryPolicy**: exponential/linear/fixed backoff (exists, NOT yet wired to providers)
-
-### Security / Permissions (PRODUCTION QUALITY)
-- **PermissionGuard** (542 lines): deny-by-default, grant/revoke scopes
-- **Path allowlisting**: restrict filesystem operations to repo root + configured paths
-- **Command risk classification**: Low/Medium/High/Critical levels
-- **Secret redaction**: OpenAI keys, GitHub PATs, key=value pairs — all scrubbed from output
-- **Path normalization**: traversal protection (../, symlinks)
-- **16 unit tests**: All passing, comprehensive coverage
-
-### CLI (VERIFIED WORKING)
-- `fever` / `fever code` — launches TUI (ratatui-based)
-- `fever version` — prints version
-- `fever version --local` — reads `.fever/local/version.json`
-- `fever version --bump` — increments local version (major/minor/patch)
-- `fever roles` — lists 10 builtin roles from RoleRegistry
-- `fever config` — reads/prints config
-- `fever providers [--fetch]` — lists/fetches provider models
-- `fever chat --model <model> <message>` — single-shot LLM chat
-
-### Agent Layer (REAL BUT SINGLE-SHOT)
-- **FeverAgent** (180 lines): Implements Agent trait with `chat()` (calls provider) and `call_tools()` (dispatches to ToolRegistry)
-- **10 builtin roles** (154 lines): coder, architect, debugger, planner, reviewer, researcher, tester, default, refactorer, doc_writer
-- **Role-aware system prompts**: Each role has system_prompt, capabilities, tools list, optional temperature
-- **Tool call parsing**: Extracts tool_calls from LLM responses and maps to ToolCall structs
-- **NO iterative loop**: chat() is single-shot, no observe→decide→act cycle
-
-### Tool System (4 REAL + 1 PLACEHOLDER)
-- **ShellTool**: Executes bash commands (WORKS, no sandboxing beyond PermissionGuard)
-- **FilesystemTool**: read/write/list/exists/delete (WORKS)
-- **GrepTool**: regex search using `ignore` crate (WORKS)
-- **GitTool**: status/log/diff/commit/branch via git CLI (WORKS)
-- **BrowserTool**: ALL PLACEHOLDER — returns "requires Chrome MCP" for every action
-
-### Search (SCAFFOLD, NOT INTEGRATED)
-- `SearchClient` with DuckDuckGo HTML parsing (functional scaffold)
-- `SearchCache` — SQLite-backed cache with TTL
-- **NOT integrated into agent loop or TUI** — standalone only
-
-### Configuration (WORKS)
-- TOML-based config in `~/.config/fevercode/config.toml`
-- `ConfigManager` reads/writes config
-- Provider config structure with api_key, base_url, model, extra
-
-### Data Models (COMPREHENSIVE)
-- `Task`, `Plan`, `Todo` — UUIDs, timestamps, status tracking, dependency graphs
-- `Message`, `AgentResponse`, `AgentContext` — agent message types
-- `ChatRequest`, `ChatResponse`, `StreamChunk`, `Usage` — provider types
-- `ToolCall`, `ToolResult`, `ToolResultData` — tool execution types
-- `Event`, `EventBus` — pub/sub event system
-
-### Memory Store (REAL, NOT INTEGRATED)
-- SQLite-backed `MemoryStore` with context key-value and message history
-- Session-scoped storage
-- **NOT wired into agent loop** — standalone only
-
-### TUI (DISPLAY ONLY)
-- Renders 5-panel layout: Chat, Plan, Tasks, Tool Log, Browser
-- Basic keyboard navigation (1-5 for focus, arrows, Enter, q/Esc)
-- Chat input buffer works
-- **No LLM backend connected** — messages go nowhere
-- **No agent loop running** — on_tick() is empty
-
-### Local Versioning (WORKS)
-- `.fever/local/version.json` — `{"major":1,"minor":1,"patch":0}`
-- CLI commands: `--local` to read, `--bump` to increment
-- `.fever/` in `.git/info/exclude`
+Of 190 tests, most are in fever-core/permission (21), fever-providers (36), fever-agent (loop_driver tests), and fever-telegram (7). fever-browser and fever-search have **ZERO tests**. Browser tool is a **PLACEHOLDER** (all methods return hardcoded JSON). Search/DuckDuckGo exists as a standalone client but is **NOT WIRED** as a tool. Telegram is a standalone service — **NOT WIRED** into the agent loop.
 
 ---
 
-## 2. What's Broken or Incomplete
+## 1. Provider Architecture Truth Matrix
 
-### Critical: No Iterative Agent Loop
-- `ExecutionEngine::run()` contains `simulate_task()` which is `tokio::time::sleep(100ms)` — **it does nothing**
-- `FeverAgent::chat()` is single-shot: call LLM, return response, done
-- No loop that: calls LLM → gets tool_calls → executes tools → feeds results back → calls LLM again → repeats until done
-- No termination conditions (max iterations, finish_reason detection)
-- No message history accumulation across loop iterations
-- The TUI `on_tick()` is empty — no background processing
+| Provider | Adapter | Streaming | Tools | Model Listing | Config Discovery | Status |
+|----------|---------|-----------|-------|---------------|-----------------|--------|
+| OpenAI | OpenAiAdapter | ✅ SSE | ✅ | ✅ Real API | `OPENAI_API_KEY` | **REAL** |
+| Anthropic | AnthropicAdapter | ✅ SSE | ❌ Not wired | ❌ Hardcoded | `ANTHROPIC_API_KEY` | **PARTIAL** |
+| Gemini | GeminiAdapter | ✅ | ✅ | ✅ Real API | `GEMINI_API_KEY` | **REAL** |
+| Ollama | OllamaAdapter | ❌ Returns InvalidRequest | ⚠️ Partial | ❌ Hardcoded/cache | Always registered | **BROKEN** (streaming) |
+| Mock | MockProvider | ✅ Word-by-word | ❌ Claimed | ❌ Hardcoded | `--mock` flag | **REAL** |
+| OpenRouter | OpenAiAdapter | ✅ (via OpenAI) | ✅ (via OpenAI) | ✅ Real API | `OPENROUTER_API_KEY` | **REAL** (profile) |
+| Groq | OpenAiAdapter | ✅ (via OpenAI) | ✅ (via OpenAI) | ✅ Real API | `GROQ_API_KEY` | **REAL** (profile) |
+| Together | OpenAiAdapter | ✅ (via OpenAI) | ✅ (via OpenAI) | ✅ Real API | `TOGETHER_API_KEY` | **REAL** (profile) |
+| DeepSeek | OpenAiAdapter | ✅ (via OpenAI) | ✅ (via OpenAI) | ✅ Real API | `DEEPSEEK_API_KEY` | **REAL** (profile) |
+| Mistral | OpenAiAdapter | ✅ (via OpenAI) | ✅ (via OpenAI) | ✅ Real API | `MISTRAL_API_KEY` | **REAL** (profile) |
+| Fireworks | OpenAiAdapter | ✅ (via OpenAI) | ✅ (via OpenAI) | ✅ Real API | `FIREWORKS_API_KEY` | **REAL** (profile) |
+| Perplexity | OpenAiAdapter | ✅ (via OpenAI) | ✅ (via OpenAI) | ✅ Real API | `PERPLEXITY_API_KEY` | **REAL** (profile) |
+| MiniMax | OpenAiAdapter | ✅ (via OpenAI) | ✅ (via OpenAI) | ✅ Real API | `MINIMAX_API_KEY` | **REAL** (profile) |
+| Z.ai | OpenAiAdapter | ❌ Wrong base URL | ❌ Wrong base URL | ❌ Wrong base URL | `FEVER_ZAI_KEY` | **BROKEN** |
 
-### Critical: No Requirements Interrogation
-- No confidence scoring of user requests
-- No clarification question generation
-- No structured engineering brief generation from vague requests
-
-### Critical: No Verification Layer
-- No build/test/lint verification after code changes
-- No "did this work?" step in the agent loop
-- No diff review or self-check
-
-### High: No Multi-Agent Orchestration
-- No fighting agents (multiple solutions compared)
-- No solution arbiter/judge
-- No comparative scoring
-
-### High: Misleading Documentation (fever-release)
-- `fever-release/src/lib.rs` claims "50+ specialist roles" — actually 10
-- Claims "30+ LLM providers" — actually 4 adapters with 13 env var auto-discovery
-- Claims capabilities not in code
-
-### Medium: Integration Gaps
-- MemoryStore not wired into agent loop
-- RetryPolicy not wired to providers
-- SearchClient not integrated
-- EventBus not used by any component
-- Tools lack PermissionGuard integration (tools work, but don't go through permission checks)
-
-### Medium: Security Integration
-- PermissionGuard exists and is tested but **tools don't use it yet**
-- ShellTool executes commands without going through PermissionGuard
-- FilesystemTool doesn't validate paths through PermissionGuard
-- Tools trust their callers completely
-
-### Low: Code Quality
-- Cargo.toml duplicate targets warning (fever + fever-code both point to main.rs)
-- BrowserTool is entirely placeholder
-- No cargo-fmt or cargo-clippy on this system
+### Key Issues
+- **5 adapter implementations**, not 12. The other 8 "providers" are factory methods on OpenAiAdapter.
+- **README claims "12 LLM providers with streaming"** — only 10 have working streaming (Ollama broken, Z.ai broken)
+- **README claims "12 provider adapters"** — should say "5 adapters, 14 provider profiles"
+- **Z.ai uses `OpenAiAdapter::openrouter()`** which points to `openrouter.ai` — completely wrong
+- **Ollama uses OpenAI-compat endpoint** (`/v1/chat/completions`) instead of native (`/api/chat`) — streaming not implemented because it would need NDJSON parsing
+- **Ollama uses `/v1/chat/completions`** for chat but the native endpoint is `/api/chat` with different response format
+- **Anthropic `AnthropicRequestBody` struct has NO tools field** — capabilities claim `supports_tools: true` but tools are silently dropped
 
 ---
 
-## 3. Architecture Inconsistencies
+## 2. Feature Truth Matrix
 
-| Doc Claims | Code Reality | Gap |
-|---|---|---|
-| "50+ specialist roles" | 10 hardcoded roles | fever-release inflates by 5x |
-| "30+ LLM providers" | 4 adapters, 13 env vars | Closer to truth but overstated |
-| "Core orchestration engine" | `simulate_task()` sleeps 100ms | No real execution loop |
-| "Chrome MCP integration" | All browser actions return placeholders | Not functional |
-| "Full-featured TUI" | Renders but does nothing functional | Shell only |
-| "Search caching with TTL" | Cache code exists, not wired | Isolated module |
-| "Provider health monitoring" | No health check code exists | Roadmap item only |
-
----
-
-## 4. Crate-by-Crate Status
-
-| Crate | Lines of Rust | Status | Functional? |
-|---|---|---|---|
-| fever-core | ~1,000 | Good abstractions, permission system excellent, execution engine is stub | Partial |
-| fever-agent | ~334 | Agent wrapper + roles, NO loop driver | Partial (single-shot only) |
-| fever-providers | ~1,760 | 4 real adapters, model fetching, auto-discovery | **Yes** |
-| fever-tools | ~550 | 4 working tools, 1 placeholder | Mostly (standalone) |
-| fever-config | ~240 | Config read/write works | **Yes** |
-| fever-search | ~400 | DuckDuckGo + cache scaffold | Partial (not integrated) |
-| fever-browser | ~250 | Data models + placeholder tool | No |
-| fever-tui | ~538 | Renders UI, accepts input | Partial (display only) |
-| fever-cli | ~392 | 8 subcommands, provider/chat/version | **Yes** |
-| fever-release | ~60 | Release note template (inaccurate) | Yes but misleading |
-| **Total** | **~6,400** | | |
+| Feature | Claimed | Status | Evidence |
+|---------|---------|--------|----------|
+| PermissionGuard | ✅ | **REAL** | Defined in `fever-core/src/permission.rs` (725 lines, 21 tests). Wired in `fever-cli/main.rs:946-955` (grants all scopes). Wired in `fever-agent/src/agent.rs:267-292` (checks commands and paths). |
+| EventBus | ✅ | **STUB** | Defined in `fever-core/src/event.rs` (90 lines, 3 tests). Exported from `fever-core/src/lib.rs`. **NEVER used outside tests** — not wired into TUI, agent, or any runtime path. |
+| MemoryStore (SQLite) | ✅ | **STUB** | Defined in `fever-core/src/memory.rs` (15 lines). Exported from lib.rs. **NEVER instantiated** anywhere — no runtime usage, no tests. |
+| ExecutionEngine | ✅ | **STUB** | Defined in `fever-core/src/execution.rs` (50 lines). One test in `core_tests.rs:332` just creates it. **Never used in runtime**. |
+| LoopDriver | ✅ | **PARTIAL** | Defined in `fever-agent/src/loop_driver.rs`. Has tests (loop_driver_tests.rs, loop_driver_edge_cases.rs). `agent.rs:87` creates one, but `agent_handle.rs` **bypasses it entirely** with its own `run_streaming_loop()`. |
+| Browser tool | ✅ | **PLACEHOLDER** | `fever-browser/src/tool.rs` (144 lines). Implements `Tool` trait but **all methods return hardcoded JSON** with "placeholder - requires Chrome MCP". Not registered in `build_tool_registry()`. |
+| Search (DuckDuckGo) | ✅ | **PARTIAL** | `fever-search/src/` has real HTTP client, DuckDuckGo parser, Searxng parser, cache. But `SearchClient` is **NOT registered as a tool** in `build_tool_registry()`. |
+| Telegram | ✅ | **PARTIAL** | `fever-telegram/src/service.rs` has full `TelegramService` with start/stop/send_event/poll_commands. 7 test files. But **not wired into agent loop** — standalone service only. |
+| Config cascade | ✅ | **REAL** | `fever-config/src/config.rs:239` `load_with_workspace()` exists. Called in `main.rs`? No — `main.rs:759-763` uses `cm.load()` (single config, no cascade). **`load_with_workspace` is never called in production code.** |
+| Instruction discovery | ✅ | **PARTIAL** | `fever-core/src/instructions.rs` `discover_instructions()` works (4 tests). But **never called in runtime** — not wired into agent prepare_request or TUI. |
+| Telemetry | ✅ | **STUB** | `fever-core/src/telemetry.rs` has TelemetryEvent, MemorySink, JsonlSink, Telemetry struct (5 tests). **Never instantiated in runtime** — only in test functions. |
+| Session persistence | ✅ | **REAL** | JSONL save/load implemented in TUI `app.rs`. `fever session list/clear` works in CLI. |
+| Slash commands | ✅ | **REAL** | 19 commands in `fever-tui/src/slash/commands.rs` (13 tests). All implemented in app.rs handlers. |
+| Doctor diagnostics | ✅ | **REAL** | `run_doctor()` in main.rs checks config, env vars, git, TTY. TUI `/doctor` has 19 checks. |
+| Command palette | ✅ | **REAL** | Ctrl+K fuzzy search implemented in app.rs. |
+| Mock provider | ✅ | **REAL** | `--mock` flag works end-to-end. MockProvider with deterministic streaming (1 test). |
+| Provider switching | ✅ | **REAL** | `/provider` and `/model` commands work in TUI. |
+| Theme system | ✅ | **REAL** | 11 themes including anubis. |
+| Mouse support | ✅ | **REAL** | Enabled in TUI. |
+| Config file providers | ✅ | **REAL** | `config.toml` `[providers]` section parsed in main.rs:236-273. Custom adapters created via `OpenAiAdapter::custom()`. |
 
 ---
 
-## 5. Test Coverage
+## 3. Test Landscape
 
-| Crate | Unit Tests | Integration Tests | Status |
-|---|---|---|---|
-| fever-core | 16 (permission module) | 0 | Permission well-tested, rest untested |
-| fever-providers | 0 | 3 (OpenRouter, requires env var) | Integration tests exist |
-| fever-agent | 0 | 0 | No tests |
-| fever-tools | 0 | 0 | No tests |
-| fever-config | 0 | 0 | No tests |
-| fever-search | 0 | 0 | No tests |
-| fever-cli | 1 (local_version) | 0 | Minimal |
-| **Total** | **17** | **3** | |
+**Total: 190 test functions across 22 files**
 
----
+| Crate | Test Files | Test Count | Quality |
+|-------|-----------|------------|---------|
+| fever-providers | 2 (provider_unit_tests, openrouter_integration) | 36 | Unit + mock |
+| fever-core | 1 (core_tests) | 29 | Unit (EventBus, ExecutionEngine, permissions) |
+| fever-core/permission.rs | inline | 21 | Thorough unit tests |
+| fever-agent | 2 (loop_driver_tests, loop_driver_edge_cases) | ~25 | Unit with mock |
+| fever-agent/src/requirements_interrogator.rs | inline | 15 | Unit |
+| fever-agent/src/fighting_mode.rs | inline | 10 | Unit |
+| fever-tui | 2 (commands, glyphs) | 18 | Unit |
+| fever-telegram | 7 test files | ~10 | Unit with mocks |
+| fever-config | 1 (config.rs inline) | 5 | Unit |
+| fever-onboard | 2 (fever_onboard_tests, scaffold inline) | 20 | Unit |
+| fever-cli | 1 (cli_integration) | 6 | Integration (basic) |
+| fever-tools | 1 (filesystem_tests) | ~3 | Unit |
+| **fever-browser** | **NONE** | **0** | **NO TESTS** |
+| **fever-search** | **NONE** | **0** | **NO TESTS** |
 
-## 6. Highest-Leverage Next Steps (Priority Order)
-
-### P0: Agent Loop — The One Blocker
-1. **Implement iterative agent loop**: LLM call → parse response → if tool_calls, execute tools → feed results as tool messages → call LLM again → repeat until no tool_calls or finish_reason="stop"
-2. **Add termination conditions**: max iterations (default 20), finish_reason detection, token budget
-3. **Wire message history accumulation**: Each iteration appends to conversation history
-4. **Connect PermissionGuard to tools**: Every tool execution goes through permission check first
-
-### P1: Requirements Intelligence
-5. **Requirements interrogator**: Confidence scoring (0-100), clarification questions, structured brief generation
-6. **Prompt improver**: Rewrite vague requests into engineering briefs before agent loop starts
-
-### P2: Verification Layer
-7. **Operational verifier**: Build/test/lint check after code changes, diff review, self-check
-8. **Wire verification into agent loop**: After tool execution, verify results
-
-### P3: Multi-Agent
-9. **Fighting agents**: 2-3 independent solution agents
-10. **Solution arbiter**: Judge comparing correctness, security, speed, maintainability
-
-### P4: Integration & Transport
-11. **Wire MemoryStore** into agent loop for session persistence
-12. **Wire RetryPolicy** to provider calls
-13. **Wire SearchClient** as a tool
-14. **Telegram transport** for remote control
-15. **Fix fever-release** claims to match reality
+### Test Gaps
+- No streaming tests for OpenAI adapter
+- No streaming tests for Anthropic adapter
+- No tests for Gemini adapter at all
+- No conformance tests (same ChatRequest → verify response shape per adapter)
+- No tests for `build_provider_client()` registration logic
+- No tests for Z.ai, Ollama streaming, Anthropic tools
 
 ---
 
-## 7. What the Codebase Does Well
+## 4. CLI Wiring Analysis
 
-- **Crate structure** is clean and modular
-- **Type system** is well-used (traits, enums, strong typing)
-- **Error types** are thorough with thiserror
-- **Provider layer** is genuinely functional (4 adapters, 348 models)
-- **Security/PermissionGuard** is production-quality (16 tests, deny-by-default)
-- **Role system** is well-designed (10 roles with proper system prompts)
-- **Tool trait** is extensible and clean
-- **EventBus** provides good decoupling potential
-- **Config system** is functional
-- **Retry logic** is generic and reusable
-- **CLI** has real subcommands that do real work
+### Provider Registration Flow (main.rs:112-276)
+```
+build_provider_client(fetch_models) →
+  for each env var:
+    create adapter → optionally fetch_models → register(Arc<adapter>, is_first)
+  then:
+    load config.toml → for each enabled provider with api_key:
+      create OpenAiAdapter::custom(name, key, base_url) → register
+    set default provider from config
+```
 
-## 8. What Needs Immediate Attention
+### Issues
+1. **Z.ai registered as `OpenAiAdapter::openrouter(key)`** — wrong factory, wrong URL
+2. **Ollama always registered** even when not running — no health check
+3. **Model routing is fragile** — `model.split('/')` prefix match. "openai/gpt-4o" → resolves to "openai". But "gpt-4o" (no prefix) falls to default provider
+4. **Default model hardcoded** — `openai/gpt-4o` in multiple places (main.rs:601, 787, 959)
+5. **Config cascade not used** — `load_with_workspace()` exists but `main.rs` calls `cm.load()`
 
-- **Agent loop is single-shot** — this is the #1 blocker, everything depends on it
-- **Tools lack PermissionGuard integration** — security exists but isn't enforced
-- **Memory/Retry/Search/EventBus** all exist but aren't wired to anything
-- **Zero tests outside fever-core** — no confidence in changes
-- **fever-release** makes wildly inaccurate claims
+### TUI Provider Wiring
+- `main.rs:928-983`: Creates ProviderClient → FeverAgentHandle → AppState
+- `app.provider_name` and `app.model_name` set from handle.default_model()
+- `/provider` and `/model` commands in app.rs modify `app.provider_name`/`app.model_name`
+- But switching provider/model in TUI **does NOT actually change the ProviderClient** — it only changes display strings
+
+---
+
+## 5. Doc Claims vs Reality
+
+| Claim | Reality | Fix |
+|-------|---------|-----|
+| "12 LLM providers" | 5 adapters, 14 profiles (2 broken) | Fix count or fix Z.ai/Ollama |
+| "12 provider adapters" | 5 adapter implementations | Say "5 adapters, 14 profiles" |
+| "streaming responses" | Ollama streaming broken, Z.ai broken | Fix implementations |
+| "robust tool-execution loop" | Loop exists but bypasses LoopDriver, tool detection via separate non-streaming call | Document accurately |
+| "Browser — Chrome MCP integration" | Placeholder returning hardcoded JSON | Mark as TODO or implement |
+| "DuckDuckGo search" | Client exists but not wired as tool | Wire or mark TODO |
+| "Telegram loop monitor" | Standalone service, not wired into agent | Wire or document standalone |
+| "Project Intelligence — config cascade" | `load_with_workspace()` never called | Wire or remove claim |
+| "instruction files discovered" | `discover_instructions()` never called in runtime | Wire or remove claim |
+
+---
+
+## 6. Critical Fixes (Priority Order)
+
+### P0 — Broken Functionality
+1. **Fix Z.ai**: Change from `OpenAiAdapter::openrouter()` to `OpenAiAdapter::custom("zai", key, "https://api.z.ai/api/paas/v4")` with env var `ZAI_API_KEY`
+2. **Fix Ollama streaming**: Implement NDJSON streaming using native `/api/chat` endpoint
+3. **Wire Anthropic tools**: Add `tools` field to `AnthropicRequestBody` and handle tool_use response blocks
+
+### P1 — Architecture
+4. **ProviderProfile struct**: Separate configuration/metadata from adapter implementation
+5. **ProviderRegistry**: Central discovery, validation, health checks, capability queries
+6. **Fix TUI provider switching**: Actually change the active adapter, not just display strings
+
+### P2 — Honesty
+7. **Fix README**: "5 adapters, 14 profiles" not "12 providers"
+8. **Mark stubs**: Browser, MemoryStore, EventBus, ExecutionEngine, Telemetry
+9. **Wire or remove**: Config cascade, instruction discovery, search tool
+
+### P3 — Testing
+10. **Adapter conformance tests**: Same request → verify response shape
+11. **Streaming tests**: OpenAI, Anthropic, Ollama
+12. **Registration tests**: Verify all env vars produce correct adapters

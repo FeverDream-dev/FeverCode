@@ -2,17 +2,17 @@ use crate::adapter::{ProviderAdapter, ProviderCapabilities};
 use crate::error::{ProviderError, ProviderResult};
 use crate::models::{
     ChatChoice, ChatMessage, ChatRequest, ChatResponse, ModelCapability, ModelInfo, StreamChunk,
-    Usage,
+    ToolCall, Usage,
 };
 use async_trait::async_trait;
 use futures::Stream;
 use reqwest::Client;
 use serde::Deserialize;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::debug;
 
-/// Configuration for the Ollama adapter.
 #[derive(Debug, Clone, Deserialize)]
 pub struct OllamaConfig {
     pub base_url: String,
@@ -29,7 +29,8 @@ impl Default for OllamaConfig {
     }
 }
 
-/// Adapter for Ollama local/remote instances using OpenAI-compatible API.
+static TOOL_CALL_COUNTER: AtomicU64 = AtomicU64::new(0);
+
 pub struct OllamaAdapter {
     provider_name: String,
     config: OllamaConfig,
@@ -38,12 +39,10 @@ pub struct OllamaAdapter {
 }
 
 impl OllamaAdapter {
-    /// Create an adapter for a local Ollama instance (localhost:11434).
     pub fn local() -> Self {
         Self::with_url("http://localhost:11434".to_string())
     }
 
-    /// Create an adapter with a custom base URL.
     pub fn with_url(base_url: String) -> Self {
         let config = OllamaConfig {
             base_url,
@@ -57,7 +56,6 @@ impl OllamaAdapter {
         )
     }
 
-    /// Create a named adapter with a custom base URL.
     pub fn custom(name: String, base_url: String) -> Self {
         let config = OllamaConfig {
             base_url,
@@ -85,9 +83,15 @@ impl OllamaAdapter {
         }
     }
 
-    /// Fetch available models from Ollama and cache them.
-    #[allow(dead_code)]
-    async fn fetch_models(&self) -> Result<Vec<ModelInfo>, ProviderError> {
+    fn strip_model_prefix(&self, model: &str) -> String {
+        let prefix = format!("{}/", self.provider_name);
+        model
+            .strip_prefix(&prefix)
+            .unwrap_or(model)
+            .to_string()
+    }
+
+    pub async fn fetch_models(&self) -> Result<Vec<ModelInfo>, ProviderError> {
         let url = format!("{}/api/tags", self.config.base_url.trim_end_matches('/'));
         debug!("Fetching Ollama models from: {}", url);
 
@@ -115,7 +119,7 @@ impl OllamaAdapter {
             .models
             .into_iter()
             .map(|m| {
-                let id = format!("ollama/{}", m.name);
+                let id = format!("{}/{}", self.provider_name, m.name);
                 ModelInfo {
                     id: id.clone(),
                     name: m.name,
@@ -132,6 +136,14 @@ impl OllamaAdapter {
         }
 
         Ok(models)
+    }
+
+    pub async fn health_check(&self) -> ProviderResult<bool> {
+        let url = format!("{}/", self.config.base_url.trim_end_matches('/'));
+        match self.client.get(&url).send().await {
+            Ok(resp) => Ok(resp.status().is_success()),
+            Err(_) => Ok(false),
+        }
     }
 }
 
@@ -159,13 +171,13 @@ impl ProviderAdapter for OllamaAdapter {
     }
 
     async fn chat(&self, request: &ChatRequest) -> ProviderResult<ChatResponse> {
+        let model_name = self.strip_model_prefix(&request.model);
         let url = format!(
             "{}/v1/chat/completions",
             self.config.base_url.trim_end_matches('/')
         );
         debug!("Sending chat request to Ollama: {}", url);
 
-        // Build messages array
         let messages: Vec<serde_json::Value> = request
             .messages
             .iter()
@@ -174,7 +186,6 @@ impl ProviderAdapter for OllamaAdapter {
                     "role": m.role,
                     "content": m.content,
                 });
-                // Include tool_calls if present
                 if let Some(ref tool_calls) = m.tool_calls {
                     msg["tool_calls"] =
                         serde_json::to_value(tool_calls).unwrap_or(serde_json::json!(null));
@@ -183,9 +194,8 @@ impl ProviderAdapter for OllamaAdapter {
             })
             .collect();
 
-        // Build the request payload
         let mut payload = serde_json::json!({
-            "model": request.model,
+            "model": model_name,
             "messages": messages,
         });
 
@@ -300,11 +310,177 @@ impl ProviderAdapter for OllamaAdapter {
 
     async fn chat_stream(
         &self,
-        _request: &ChatRequest,
+        request: &ChatRequest,
     ) -> ProviderResult<Box<dyn Stream<Item = ProviderResult<StreamChunk>> + Send + Unpin>> {
-        Err(ProviderError::InvalidRequest(
-            "Streaming not yet implemented for Ollama".to_string(),
-        ))
+        let model_name = self.strip_model_prefix(&request.model);
+        let url = format!(
+            "{}/api/chat",
+            self.config.base_url.trim_end_matches('/')
+        );
+
+        let messages: Vec<serde_json::Value> = request
+            .messages
+            .iter()
+            .map(|m| {
+                let mut msg = serde_json::json!({
+                    "role": m.role,
+                    "content": m.content,
+                });
+                if let Some(ref tool_calls) = m.tool_calls {
+                    msg["tool_calls"] =
+                        serde_json::to_value(tool_calls).unwrap_or(serde_json::json!(null));
+                }
+                if let Some(ref id) = m.tool_call_id {
+                    msg["tool_call_id"] = serde_json::json!(id);
+                }
+                msg
+            })
+            .collect();
+
+        let mut payload = serde_json::json!({
+            "model": model_name,
+            "messages": messages,
+            "stream": true,
+        });
+
+        if let Some(temp) = request.temperature {
+            payload["temperature"] = serde_json::json!(temp);
+        }
+        if let Some(tools) = &request.tools {
+            let tools_json: Vec<serde_json::Value> = tools
+                .iter()
+                .map(|t| {
+                    serde_json::json!({
+                        "type": "function",
+                        "function": {
+                            "name": t.name,
+                            "description": t.description,
+                            "parameters": t.parameters,
+                        }
+                    })
+                })
+                .collect();
+            payload["tools"] = serde_json::json!(tools_json);
+        }
+
+        let resp = self.client.post(&url).json(&payload).send().await.map_err(|e| {
+            if e.is_connect() {
+                ProviderError::Unavailable(format!("Failed to connect to Ollama: {}", e))
+            } else if e.is_timeout() {
+                ProviderError::Timeout(format!("Ollama stream timed out: {}", e))
+            } else {
+                ProviderError::RequestFailed(format!("Ollama stream failed: {}", e))
+            }
+        })?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(ProviderError::Http(format!(
+                "Ollama stream returned {}: {}",
+                status, body
+            )));
+        }
+
+        let (tx, rx) = tokio::sync::mpsc::channel::<ProviderResult<StreamChunk>>(64);
+
+        tokio::spawn(async move {
+            let mut buffer = String::new();
+            let mut resp = resp;
+
+            loop {
+                match resp.chunk().await {
+                    Ok(Some(bytes)) => {
+                        buffer.push_str(&String::from_utf8_lossy(&bytes));
+
+                        while let Some(newline_pos) = buffer.find('\n') {
+                            let line = buffer[..newline_pos].trim().to_string();
+                            buffer = buffer[newline_pos + 1..].to_string();
+
+                            if line.is_empty() {
+                                continue;
+                            }
+
+                            let parsed = match serde_json::from_str::<serde_json::Value>(&line) {
+                                Ok(v) => v,
+                                Err(_) => continue,
+                            };
+
+                            let done = parsed.get("done").and_then(|d| d.as_bool()).unwrap_or(false);
+
+                            if let Some(message) = parsed.get("message") {
+                                if let Some(content) = message.get("content").and_then(|c| c.as_str()) {
+                                    if !content.is_empty() {
+                                        let _ = tx
+                                            .send(Ok(StreamChunk {
+                                                id: None,
+                                                delta: Some(content.to_string()),
+                                                content: Some(content.to_string()),
+                                                finish_reason: None,
+                                                tool_calls: None,
+                                            }))
+                                            .await;
+                                    }
+                                }
+
+                                if let Some(tool_calls) = message.get("tool_calls").and_then(|tc| tc.as_array()) {
+                                    let converted: Vec<ToolCall> = tool_calls
+                                        .iter()
+                                        .filter_map(|tc| {
+                                            let func = tc.get("function")?;
+                                            let name = func.get("name")?.as_str()?.to_string();
+                                            let arguments = func
+                                                .get("arguments")
+                                                .cloned()
+                                                .unwrap_or(serde_json::Value::Null);
+                                            let counter = TOOL_CALL_COUNTER.fetch_add(1, Ordering::Relaxed);
+                                            Some(ToolCall {
+                                                id: format!("tool_{}", counter),
+                                                name,
+                                                arguments,
+                                            })
+                                        })
+                                        .collect();
+
+                                    if !converted.is_empty() {
+                                        let _ = tx
+                                            .send(Ok(StreamChunk {
+                                                id: None,
+                                                delta: None,
+                                                content: None,
+                                                finish_reason: Some("tool_calls".to_string()),
+                                                tool_calls: Some(converted),
+                                            }))
+                                            .await;
+                                    }
+                                }
+                            }
+
+                            if done {
+                                let _ = tx
+                                    .send(Ok(StreamChunk {
+                                        id: None,
+                                        delta: None,
+                                        content: None,
+                                        finish_reason: Some("stop".to_string()),
+                                        tool_calls: None,
+                                    }))
+                                    .await;
+                                break;
+                            }
+                        }
+                    }
+                    Ok(None) => break,
+                    Err(e) => {
+                        let _ = tx.send(Err(ProviderError::Http(e.to_string()))).await;
+                        break;
+                    }
+                }
+            }
+        });
+
+        let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
+        Ok(Box::new(stream))
     }
 
     fn list_models(&self) -> Vec<String> {
@@ -362,14 +538,11 @@ impl ProviderAdapter for OllamaAdapter {
 // Internal types for Ollama API responses
 // ============================================================================
 
-/// Response from GET /api/tags
-#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct TagsResponse {
     models: Vec<TagsModel>,
 }
 
-#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct TagsModel {
     name: String,

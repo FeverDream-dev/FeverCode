@@ -385,6 +385,7 @@ impl ProviderAdapter for GeminiAdapter {
                                         delta: None,
                                         content: None,
                                         finish_reason: Some("stop".to_string()),
+                                        tool_calls: None,
                                     }))
                                     .await;
                                 break;
@@ -408,6 +409,7 @@ impl ProviderAdapter for GeminiAdapter {
                                             delta: None,
                                             content,
                                             finish_reason,
+                                            tool_calls: None,
                                         }))
                                         .await;
                                 }

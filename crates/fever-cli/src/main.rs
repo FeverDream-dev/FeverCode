@@ -223,13 +223,10 @@ async fn build_provider_client(fetch_models: bool) -> ProviderClient {
     }
     tracing::info!("Registered provider: ollama");
 
-    if let Ok(key) = env::var("FEVER_ZAI_KEY") {
-        let adapter = OpenAiAdapter::openrouter(key);
-        if fetch_models {
-            let _ = adapter.fetch_models().await;
-        }
+    if let Ok(key) = env::var("ZAI_API_KEY") {
+        let adapter = OpenAiAdapter::zai(key);
         client.register(Arc::new(adapter), client.list_providers().is_empty());
-        tracing::info!("Registered provider: fever_zai");
+        tracing::info!("Registered provider: zai");
     }
 
     // Register providers from config.toml

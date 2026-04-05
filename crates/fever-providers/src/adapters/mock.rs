@@ -230,6 +230,7 @@ impl Stream for MockStream {
             delta: Some(chunk.clone()),
             content: Some(chunk),
             finish_reason,
+            tool_calls: None,
         })))
     }
 }

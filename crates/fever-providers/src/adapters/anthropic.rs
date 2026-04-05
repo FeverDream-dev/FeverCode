@@ -2,14 +2,13 @@ use crate::adapter::{ProviderAdapter, ProviderCapabilities};
 use crate::error::{ProviderError, ProviderResult};
 use crate::models::{
     ChatChoice, ChatMessage, ChatRequest, ChatResponse, ModelCapability, ModelInfo, StreamChunk,
-    Usage,
+    ToolCall, Usage,
 };
 use async_trait::async_trait;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tracing::debug;
 
-// Anthropic-specific configuration
 #[derive(Debug, Clone, Deserialize)]
 pub struct AnthropicConfig {
     pub api_key: String,
@@ -35,22 +34,6 @@ pub struct AnthropicAdapter {
     client: Client,
 }
 
-// Internal request/response shapes for Anthropic's Messages API
-#[derive(Serialize)]
-struct AnthropicRequestBody {
-    model: String,
-    max_tokens: u32,
-    messages: Vec<AnthropicMessage>,
-    system: Option<String>,
-    temperature: f32,
-}
-
-#[derive(Serialize)]
-struct AnthropicMessage {
-    role: String,
-    content: String,
-}
-
 #[derive(Deserialize)]
 struct AnthropicResponse {
     id: Option<String>,
@@ -60,13 +43,17 @@ struct AnthropicResponse {
     stop_reason: Option<String>,
     usage: Option<AnthropicUsage>,
 }
-#[derive(Deserialize)]
+
+#[derive(Deserialize, Debug)]
 struct AnthropicContent {
-    text: Option<String>,
     #[serde(rename = "type")]
-    #[allow(dead_code)]
     content_type: Option<String>,
+    text: Option<String>,
+    id: Option<String>,
+    name: Option<String>,
+    input: Option<serde_json::Value>,
 }
+
 #[derive(Deserialize)]
 struct AnthropicUsage {
     input_tokens: Option<u64>,
@@ -79,19 +66,17 @@ impl AnthropicAdapter {
     }
 
     pub fn custom(name: &str, api_key: &str, base_url: &str) -> Self {
-        let cfg = AnthropicConfig {
-            api_key: api_key.to_string(),
-            base_url: base_url.trim_end_matches('/').to_string(),
-            default_model: None,
-        };
         AnthropicAdapter {
             provider_name: name.to_string(),
-            config: cfg,
+            config: AnthropicConfig {
+                api_key: api_key.to_string(),
+                base_url: base_url.trim_end_matches('/').to_string(),
+                default_model: None,
+            },
             client: Client::new(),
         }
     }
 
-    // Choose effective model: request model if non-empty, otherwise default_model or hard-coded default
     fn effective_model(&self, request_model: &str) -> String {
         if !request_model.is_empty() {
             request_model.to_string()
@@ -101,6 +86,127 @@ impl AnthropicAdapter {
                 .clone()
                 .unwrap_or_else(|| "claude-sonnet-4-20250514".to_string())
         }
+    }
+
+    fn build_messages(&self, request: &ChatRequest) -> (Option<String>, Vec<serde_json::Value>) {
+        let mut system_prompt: Option<String> = None;
+        let mut messages: Vec<serde_json::Value> = Vec::new();
+
+        for m in &request.messages {
+            if m.role == "system" {
+                if system_prompt.is_none() {
+                    system_prompt = Some(m.content.clone());
+                }
+            } else if m.role == "tool" {
+                let mut block = serde_json::json!({
+                    "type": "tool_result",
+                    "content": m.content,
+                });
+                if let Some(ref id) = m.tool_call_id {
+                    block["tool_use_id"] = serde_json::json!(id);
+                }
+                messages.push(serde_json::json!({
+                    "role": "user",
+                    "content": vec![block],
+                }));
+            } else if let Some(ref tool_calls) = m.tool_calls {
+                let mut blocks: Vec<serde_json::Value> = Vec::new();
+                if !m.content.is_empty() {
+                    blocks.push(serde_json::json!({
+                        "type": "text",
+                        "text": m.content,
+                    }));
+                }
+                for tc in tool_calls {
+                    blocks.push(serde_json::json!({
+                        "type": "tool_use",
+                        "id": tc.id,
+                        "name": tc.name,
+                        "input": tc.arguments,
+                    }));
+                }
+                messages.push(serde_json::json!({
+                    "role": m.role,
+                    "content": blocks,
+                }));
+            } else {
+                messages.push(serde_json::json!({
+                    "role": m.role,
+                    "content": m.content,
+                }));
+            }
+        }
+
+        (system_prompt, messages)
+    }
+
+    fn parse_tool_calls(content: &[AnthropicContent]) -> Option<Vec<ToolCall>> {
+        let tool_calls: Vec<ToolCall> = content
+            .iter()
+            .filter(|c| c.content_type.as_deref() == Some("tool_use"))
+            .filter_map(|c| {
+                let id = c.id.clone()?;
+                let name = c.name.clone()?;
+                let arguments = c.input.clone().unwrap_or(serde_json::Value::Null);
+                Some(ToolCall {
+                    id,
+                    name,
+                    arguments,
+                })
+            })
+            .collect();
+
+        if tool_calls.is_empty() {
+            None
+        } else {
+            Some(tool_calls)
+        }
+    }
+
+    fn headers(&self) -> reqwest::header::HeaderMap {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            "x-api-key",
+            reqwest::header::HeaderValue::from_str(&self.config.api_key).unwrap(),
+        );
+        headers.insert(
+            "anthropic-version",
+            reqwest::header::HeaderValue::from_static("2023-06-01"),
+        );
+        headers.insert(
+            "Content-Type",
+            reqwest::header::HeaderValue::from_static("application/json"),
+        );
+        headers
+    }
+
+    fn handle_response_status(
+        &self,
+        status: reqwest::StatusCode,
+        body: String,
+    ) -> ProviderResult<()> {
+        if status.as_u16() == 401 {
+            return Err(ProviderError::Auth(
+                "Unauthorized: invalid API key".to_string(),
+            ));
+        }
+        if status.as_u16() == 429 {
+            return Err(ProviderError::RateLimit {
+                provider: self.name().to_string(),
+            });
+        }
+        if status.as_u16() == 400 {
+            return Err(ProviderError::InvalidRequest(
+                "Bad request to Anthropic API".to_string(),
+            ));
+        }
+        if !status.is_success() {
+            return Err(ProviderError::Api {
+                code: status.as_u16().to_string(),
+                message: body,
+            });
+        }
+        Ok(())
     }
 }
 
@@ -128,56 +234,43 @@ impl ProviderAdapter for AnthropicAdapter {
     }
 
     async fn chat(&self, request: &ChatRequest) -> ProviderResult<ChatResponse> {
-        // Build Anthropic request payload
         let model = self.effective_model(&request.model);
-        // Extract system message (first system) and non-system messages for Anthropic API
-        let mut system_prompt: Option<String> = None;
-        let mut messages: Vec<AnthropicMessage> = Vec::new();
-        for m in &request.messages {
-            if m.role == "system" {
-                if system_prompt.is_none() {
-                    system_prompt = Some(m.content.clone());
-                }
-            } else {
-                messages.push(AnthropicMessage {
-                    role: m.role.clone(),
-                    content: m.content.clone(),
-                });
-            }
-        }
+        let (system_prompt, messages) = self.build_messages(request);
 
         let max_tokens = request.max_tokens.unwrap_or(4096);
         let temperature = request.temperature.unwrap_or(0.7);
 
-        let body = AnthropicRequestBody {
-            model,
-            max_tokens,
-            messages,
-            system: system_prompt,
-            temperature,
-        };
+        let mut body = serde_json::json!({
+            "model": model,
+            "max_tokens": max_tokens,
+            "messages": messages,
+            "temperature": temperature,
+        });
 
-        // Endpoint and headers
+        if let Some(sys) = system_prompt {
+            body["system"] = serde_json::json!(sys);
+        }
+
+        if let Some(ref tools) = request.tools {
+            let anthropic_tools: Vec<serde_json::Value> = tools
+                .iter()
+                .map(|t| {
+                    serde_json::json!({
+                        "name": t.name,
+                        "description": t.description,
+                        "input_schema": t.parameters,
+                    })
+                })
+                .collect();
+            body["tools"] = serde_json::json!(anthropic_tools);
+        }
+
         let url = format!("{}/v1/messages", self.config.base_url.trim_end_matches('/'));
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert(
-            "x-api-key",
-            reqwest::header::HeaderValue::from_str(&self.config.api_key).unwrap(),
-        );
-        headers.insert(
-            "anthropic-version",
-            reqwest::header::HeaderValue::from_static("2023-06-01"),
-        );
-        headers.insert(
-            "Content-Type",
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
 
-        // Send request
         let resp = self
             .client
             .post(&url)
-            .headers(headers)
+            .headers(self.headers())
             .json(&body)
             .send()
             .await
@@ -191,48 +284,38 @@ impl ProviderAdapter for AnthropicAdapter {
 
         let status = resp.status();
         let text = resp.text().await.unwrap_or_default();
-        if !status.is_success() {
-            if status.as_u16() == 401 {
-                return Err(ProviderError::Auth(
-                    "Unauthorized: invalid API key".to_string(),
-                ));
-            } else if status.as_u16() == 429 {
-                return Err(ProviderError::RateLimit {
-                    provider: self.name().to_string(),
-                });
-            } else if status.as_u16() == 400 {
-                return Err(ProviderError::InvalidRequest(
-                    "Bad request to Anthropic API".to_string(),
-                ));
-            } else {
-                return Err(ProviderError::Api {
-                    code: status.as_u16().to_string(),
-                    message: text,
-                });
-            }
-        }
+        self.handle_response_status(status, text.clone())?;
 
         let anthro: AnthropicResponse = serde_json::from_str(&text).map_err(|e| {
             ProviderError::Parse(format!("Failed to parse Anthropic response: {}", e))
         })?;
 
-        // Map response to Fever's ChatResponse
-        let mut content_text = String::new();
-        if let Some(first) = anthro.content.first() {
-            if let Some(t) = &first.text {
-                content_text = t.clone();
-            }
-        }
+        let content_text: String = anthro
+            .content
+            .iter()
+            .filter(|c| c.content_type.as_deref() == Some("text"))
+            .filter_map(|c| c.text.as_ref())
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("");
+
+        let tool_calls = Self::parse_tool_calls(&anthro.content);
+
+        let finish_reason = match anthro.stop_reason.as_deref() {
+            Some("tool_use") => "tool_calls".to_string(),
+            Some(reason) => reason.to_string(),
+            None => "stop".to_string(),
+        };
 
         let choice = ChatChoice {
             index: 0,
             message: ChatMessage {
                 role: "assistant".to_string(),
                 content: content_text,
-                tool_calls: None,
+                tool_calls,
                 tool_call_id: None,
             },
-            finish_reason: anthro.stop_reason.unwrap_or_default(),
+            finish_reason,
         };
 
         let usage = anthro.usage.map(|u| Usage {
@@ -254,20 +337,7 @@ impl ProviderAdapter for AnthropicAdapter {
     ) -> ProviderResult<Box<dyn futures::Stream<Item = ProviderResult<StreamChunk>> + Send + Unpin>>
     {
         let model = self.effective_model(&request.model);
-        let mut system_prompt: Option<String> = None;
-        let mut messages: Vec<AnthropicMessage> = Vec::new();
-        for m in &request.messages {
-            if m.role == "system" {
-                if system_prompt.is_none() {
-                    system_prompt = Some(m.content.clone());
-                }
-            } else {
-                messages.push(AnthropicMessage {
-                    role: m.role.clone(),
-                    content: m.content.clone(),
-                });
-            }
-        }
+        let (system_prompt, messages) = self.build_messages(request);
 
         let max_tokens = request.max_tokens.unwrap_or(4096);
         let temperature = request.temperature.unwrap_or(0.7);
@@ -279,49 +349,40 @@ impl ProviderAdapter for AnthropicAdapter {
             "temperature": temperature,
             "stream": true,
         });
+
         if let Some(sys) = system_prompt {
             body["system"] = serde_json::json!(sys);
         }
 
+        if let Some(ref tools) = request.tools {
+            let anthropic_tools: Vec<serde_json::Value> = tools
+                .iter()
+                .map(|t| {
+                    serde_json::json!({
+                        "name": t.name,
+                        "description": t.description,
+                        "input_schema": t.parameters,
+                    })
+                })
+                .collect();
+            body["tools"] = serde_json::json!(anthropic_tools);
+        }
+
         let url = format!("{}/v1/messages", self.config.base_url.trim_end_matches('/'));
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert(
-            "x-api-key",
-            reqwest::header::HeaderValue::from_str(&self.config.api_key).unwrap(),
-        );
-        headers.insert(
-            "anthropic-version",
-            reqwest::header::HeaderValue::from_static("2023-06-01"),
-        );
-        headers.insert(
-            "Content-Type",
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
 
         let resp = self
             .client
             .post(&url)
-            .headers(headers)
+            .headers(self.headers())
             .json(&body)
             .send()
             .await
             .map_err(|e| ProviderError::Http(e.to_string()))?;
 
         let status = resp.status();
-        if status.as_u16() == 401 {
-            return Err(ProviderError::Auth("Invalid API key".to_string()));
-        }
-        if status.as_u16() == 429 {
-            return Err(ProviderError::RateLimit {
-                provider: self.name().to_string(),
-            });
-        }
         if !status.is_success() {
             let text = resp.text().await.unwrap_or_default();
-            return Err(ProviderError::Api {
-                code: status.as_u16().to_string(),
-                message: text,
-            });
+            return Err(self.handle_response_status(status, text).err().unwrap());
         }
 
         let (tx, rx) = tokio::sync::mpsc::channel::<ProviderResult<StreamChunk>>(32);
@@ -356,6 +417,7 @@ impl ProviderAdapter for AnthropicAdapter {
                                 delta: None,
                                 content: None,
                                 finish_reason: Some("stop".to_string()),
+                                tool_calls: None,
                             }))
                             .await;
                         break;
@@ -363,19 +425,26 @@ impl ProviderAdapter for AnthropicAdapter {
 
                     if event_type == "content_block_delta" && !data.is_empty() {
                         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&data) {
-                            let content = json
-                                .pointer("/delta/text")
+                            let delta_type = json
+                                .pointer("/delta/type")
                                 .and_then(|v| v.as_str())
-                                .map(String::from);
-                            if let Some(text) = content {
-                                let _ = tx
-                                    .send(Ok(StreamChunk {
-                                        id: None,
-                                        delta: None,
-                                        content: Some(text),
-                                        finish_reason: None,
-                                    }))
-                                    .await;
+                                .unwrap_or("");
+                            if delta_type == "text_delta" {
+                                let content = json
+                                    .pointer("/delta/text")
+                                    .and_then(|v| v.as_str())
+                                    .map(String::from);
+                                if let Some(text) = content {
+                                    let _ = tx
+                                        .send(Ok(StreamChunk {
+                                            id: None,
+                                            delta: None,
+                                            content: Some(text),
+                                            finish_reason: None,
+                                            tool_calls: None,
+                                        }))
+                                        .await;
+                                }
                             }
                         }
                     }

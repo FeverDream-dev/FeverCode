@@ -72,6 +72,7 @@ pub struct StreamChunk {
     pub delta: Option<String>,
     pub content: Option<String>,
     pub finish_reason: Option<String>,
+    pub tool_calls: Option<Vec<ToolCall>>,
 }
 
 #[derive(Debug, Clone)]
