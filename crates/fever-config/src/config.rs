@@ -107,171 +107,6 @@ impl Default for Config {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::collections::HashMap;
-
-    #[test]
-    fn test_default_config() {
-        let cfg = Config::default();
-        assert!(cfg.permissions.mode.is_none());
-        assert!(cfg.permissions.allow.is_none());
-        assert!(cfg.permissions.deny.is_none());
-        assert!(cfg.instructions.is_none());
-        assert_eq!(cfg.defaults.temperature, Some(0.7));
-        assert_eq!(cfg.ui.theme, Some("dark".to_string()));
-    }
-
-    #[test]
-    fn test_deep_merge_none_values() {
-        let mut base = Config::default();
-        base.defaults = DefaultConfig {
-            provider: Some("base".to_string()),
-            model: Some("m1".to_string()),
-            temperature: Some(0.5),
-            max_tokens: Some(2048),
-        };
-        base.ui = UiConfig {
-            theme: Some("light".to_string()),
-            auto_scroll: Some(true),
-            show_thinking: Some(true),
-        };
-
-        let overlay = Config {
-            providers: HashMap::new(),
-            defaults: DefaultConfig {
-                provider: None,
-                model: None,
-                temperature: None,
-                max_tokens: None,
-            },
-            ui: UiConfig {
-                theme: None,
-                auto_scroll: None,
-                show_thinking: None,
-            },
-            tools: ToolsConfig {
-                browser_enabled: None,
-                search_enabled: None,
-                shell_enabled: None,
-                git_enabled: None,
-            },
-            search: SearchConfig {
-                engine: None,
-                searxng_url: None,
-                max_results: None,
-                cache_enabled: None,
-            },
-            permissions: PermissionsConfig::default(),
-            instructions: None,
-        };
-
-        base.deep_merge(&overlay);
-
-        assert_eq!(base.defaults.provider, Some("base".to_string()));
-        assert_eq!(base.defaults.model, Some("m1".to_string()));
-        assert_eq!(base.defaults.temperature, Some(0.5));
-        assert_eq!(base.ui.theme, Some("light".to_string()));
-    }
-
-    #[test]
-    fn test_deep_merge_some_values() {
-        let mut base = Config::default();
-        base.defaults = DefaultConfig {
-            provider: Some("base".to_string()),
-            model: None,
-            temperature: None,
-            max_tokens: None,
-        };
-
-        let overlay = Config {
-            providers: HashMap::new(),
-            defaults: DefaultConfig {
-                provider: Some("overlay".to_string()),
-                model: Some("model2".to_string()),
-                temperature: Some(0.9),
-                max_tokens: Some(8192),
-            },
-            ui: UiConfig {
-                theme: None,
-                auto_scroll: None,
-                show_thinking: None,
-            },
-            tools: ToolsConfig {
-                browser_enabled: None,
-                search_enabled: None,
-                shell_enabled: None,
-                git_enabled: None,
-            },
-            search: SearchConfig {
-                engine: None,
-                searxng_url: None,
-                max_results: None,
-                cache_enabled: None,
-            },
-            permissions: PermissionsConfig::default(),
-            instructions: None,
-        };
-
-        base.deep_merge(&overlay);
-        assert_eq!(base.defaults.provider, Some("overlay".to_string()));
-        assert_eq!(base.defaults.model, Some("model2".to_string()));
-        assert_eq!(base.defaults.temperature, Some(0.9));
-        assert_eq!(base.defaults.max_tokens, Some(8192));
-    }
-
-    #[test]
-    fn test_deep_merge_providers() {
-        let mut base = Config::default();
-        let p = ProviderConfig {
-            enabled: true,
-            api_key: Some("base-key".to_string()),
-            base_url: Some("https://base".to_string()),
-            model: Some("gpt-3".to_string()),
-            extra: HashMap::new(),
-        };
-        base.providers.insert("openai".to_string(), p);
-
-        let overlay = Config {
-            providers: {
-                let mut m = HashMap::new();
-                m.insert(
-                    "openai".to_string(),
-                    ProviderConfig {
-                        enabled: false,
-                        api_key: None,
-                        base_url: Some("https://new".to_string()),
-                        model: None,
-                        extra: {
-                            let mut e = HashMap::new();
-                            e.insert("timeout".to_string(), "30s".to_string());
-                            e
-                        },
-                    },
-                );
-                m
-            },
-            ..Config::default()
-        };
-
-        base.deep_merge(&overlay);
-        let ov = base.providers.get("openai").unwrap();
-        assert_eq!(ov.enabled, false);
-        assert_eq!(ov.base_url.as_ref().unwrap(), "https://new");
-        assert_eq!(ov.api_key.as_ref().unwrap(), "base-key");
-        assert_eq!(ov.extra.get("timeout").unwrap(), &"30s".to_string());
-    }
-
-    #[test]
-    fn test_permissions_config_default() {
-        let cfg = Config::default();
-        assert!(cfg.permissions.mode.is_none());
-        assert!(cfg.permissions.allow.is_none());
-        assert!(cfg.permissions.deny.is_none());
-    }
-}
-
 impl DefaultConfig {
     fn merge(&self, overlay: &DefaultConfig) -> Self {
         Self {
@@ -468,5 +303,174 @@ impl ConfigManager {
 
         std::fs::create_dir_all(&cache_dir).ok();
         cache_dir
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_default_config() {
+        let cfg = Config::default();
+        assert!(cfg.permissions.mode.is_none());
+        assert!(cfg.permissions.allow.is_none());
+        assert!(cfg.permissions.deny.is_none());
+        assert!(cfg.instructions.is_none());
+        assert_eq!(cfg.defaults.temperature, Some(0.7));
+        assert_eq!(cfg.ui.theme, Some("dark".to_string()));
+    }
+
+    #[test]
+    fn test_deep_merge_none_values() {
+        let mut base = Config {
+            defaults: DefaultConfig {
+                provider: Some("base".to_string()),
+                model: Some("m1".to_string()),
+                temperature: Some(0.5),
+                max_tokens: Some(2048),
+            },
+            ui: UiConfig {
+                theme: Some("light".to_string()),
+                auto_scroll: Some(true),
+                show_thinking: Some(true),
+            },
+            ..Config::default()
+        };
+
+        let overlay = Config {
+            providers: HashMap::new(),
+            defaults: DefaultConfig {
+                provider: None,
+                model: None,
+                temperature: None,
+                max_tokens: None,
+            },
+            ui: UiConfig {
+                theme: None,
+                auto_scroll: None,
+                show_thinking: None,
+            },
+            tools: ToolsConfig {
+                browser_enabled: None,
+                search_enabled: None,
+                shell_enabled: None,
+                git_enabled: None,
+            },
+            search: SearchConfig {
+                engine: None,
+                searxng_url: None,
+                max_results: None,
+                cache_enabled: None,
+            },
+            permissions: PermissionsConfig::default(),
+            instructions: None,
+        };
+
+        base.deep_merge(&overlay);
+
+        assert_eq!(base.defaults.provider, Some("base".to_string()));
+        assert_eq!(base.defaults.model, Some("m1".to_string()));
+        assert_eq!(base.defaults.temperature, Some(0.5));
+        assert_eq!(base.ui.theme, Some("light".to_string()));
+    }
+
+    #[test]
+    fn test_deep_merge_some_values() {
+        let mut base = Config {
+            defaults: DefaultConfig {
+                provider: Some("base".to_string()),
+                model: None,
+                temperature: None,
+                max_tokens: None,
+            },
+            ..Config::default()
+        };
+
+        let overlay = Config {
+            providers: HashMap::new(),
+            defaults: DefaultConfig {
+                provider: Some("overlay".to_string()),
+                model: Some("model2".to_string()),
+                temperature: Some(0.9),
+                max_tokens: Some(8192),
+            },
+            ui: UiConfig {
+                theme: None,
+                auto_scroll: None,
+                show_thinking: None,
+            },
+            tools: ToolsConfig {
+                browser_enabled: None,
+                search_enabled: None,
+                shell_enabled: None,
+                git_enabled: None,
+            },
+            search: SearchConfig {
+                engine: None,
+                searxng_url: None,
+                max_results: None,
+                cache_enabled: None,
+            },
+            permissions: PermissionsConfig::default(),
+            instructions: None,
+        };
+
+        base.deep_merge(&overlay);
+        assert_eq!(base.defaults.provider, Some("overlay".to_string()));
+        assert_eq!(base.defaults.model, Some("model2".to_string()));
+        assert_eq!(base.defaults.temperature, Some(0.9));
+        assert_eq!(base.defaults.max_tokens, Some(8192));
+    }
+
+    #[test]
+    fn test_deep_merge_providers() {
+        let mut base = Config::default();
+        let p = ProviderConfig {
+            enabled: true,
+            api_key: Some("base-key".to_string()),
+            base_url: Some("https://base".to_string()),
+            model: Some("gpt-3".to_string()),
+            extra: HashMap::new(),
+        };
+        base.providers.insert("openai".to_string(), p);
+
+        let overlay = Config {
+            providers: {
+                let mut m = HashMap::new();
+                m.insert(
+                    "openai".to_string(),
+                    ProviderConfig {
+                        enabled: false,
+                        api_key: None,
+                        base_url: Some("https://new".to_string()),
+                        model: None,
+                        extra: {
+                            let mut e = HashMap::new();
+                            e.insert("timeout".to_string(), "30s".to_string());
+                            e
+                        },
+                    },
+                );
+                m
+            },
+            ..Config::default()
+        };
+
+        base.deep_merge(&overlay);
+        let ov = base.providers.get("openai").unwrap();
+        assert!(!ov.enabled);
+        assert_eq!(ov.base_url.as_ref().unwrap(), "https://new");
+        assert_eq!(ov.api_key.as_ref().unwrap(), "base-key");
+        assert_eq!(ov.extra.get("timeout").unwrap(), &"30s".to_string());
+    }
+
+    #[test]
+    fn test_permissions_config_default() {
+        let cfg = Config::default();
+        assert!(cfg.permissions.mode.is_none());
+        assert!(cfg.permissions.allow.is_none());
+        assert!(cfg.permissions.deny.is_none());
     }
 }
