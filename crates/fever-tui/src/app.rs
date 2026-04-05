@@ -22,6 +22,7 @@ use crate::components::message::{MessageBubble, MessageRole};
 use crate::components::tool_card::ToolCard;
 use crate::event::{Command, Message, Screen};
 use crate::render::render_frame;
+use fever_core::PermissionMode;
 use crate::slash::SlashCommand;
 use crate::theme::Theme;
 
@@ -41,6 +42,7 @@ pub const KNOWN_PROVIDERS: &[&str] = &[
     "fireworks",
     "perplexity",
     "ollama",
+    "mock",
 ];
 
 pub fn known_models_for_provider(provider: &str) -> Vec<&'static str> {
@@ -55,6 +57,7 @@ pub fn known_models_for_provider(provider: &str) -> Vec<&'static str> {
             "o1-mini",
             "o3-mini",
         ],
+        "mock" => vec!["mock/default"],
         "anthropic" => vec![
             "claude-sonnet-4-20250514",
             "claude-3-5-sonnet-20241022",
@@ -103,6 +106,8 @@ pub fn known_models_for_provider(provider: &str) -> Vec<&'static str> {
     }
 }
 
+    
+
 #[derive(Debug, Clone)]
 pub struct McpServerEntry {
     pub name: String,
@@ -130,6 +135,16 @@ pub struct AppState {
     pub model_name: String,
     pub workspace: String,
 
+    // Home screen navigation state
+    pub home_selection: usize,          // currently selected action (0-indexed)
+    pub home_action_count: usize,       // total number of actions (computed on render)
+    pub git_branch: Option<String>,     // detected git branch name
+    pub is_git_repo: bool,              // whether workspace is a git repo
+    pub has_provider: bool,               // provider configured (true) or not (false)
+
+    // Permission mode (read/write/full) — wired from fever-core
+    pub permission_mode: PermissionMode,
+
     // Chat screen state
     pub streaming: bool,
     pub loading: bool,
@@ -154,6 +169,12 @@ pub struct AppState {
     // Sidebar (Ctrl+B)
     pub show_sidebar: bool,
     pub sidebar_selection: usize,
+
+    // Panels (Ctrl+T for tools, Ctrl+D for diff)
+    pub show_tool_panel: bool,
+    pub show_diff_panel: bool,
+    pub panel_width: u16,
+    pub diff_content: Vec<String>,
 
     // Settings screen
     pub settings_tab: usize,
@@ -201,13 +222,14 @@ pub struct AppState {
     pub verbosity: u8,
     pub glyph_mode: String,
     pub mouse_enabled: bool,
+    pub is_mock_mode: bool,
 
     // Agent bridge (optional — set by CLI when provider is configured)
     pub agent: Option<Arc<dyn AgentHandle>>,
     pub cancel_token: Option<tokio_util::sync::CancellationToken>,
 
     // Onboarding screen
-    pub onboarding_step: usize,
+            pub onboarding_step: usize,
     pub onboarding_selection: usize,
 
     // Session persistence
@@ -237,6 +259,13 @@ impl AppState {
             provider_name: "none".to_string(),
             model_name: "none".to_string(),
             workspace,
+            permission_mode: PermissionMode::default(),
+            // Home screen defaults; will be adjusted below
+            home_selection: 0,
+            home_action_count: 7, // 7 quick actions defined in home screen
+            git_branch: None,
+            is_git_repo: false,
+            has_provider: false,
             streaming: false,
             loading: false,
             streaming_buffer: String::new(),
@@ -252,6 +281,10 @@ impl AppState {
             history_index: None,
             show_sidebar: false,
             sidebar_selection: 0,
+            show_tool_panel: false,
+            show_diff_panel: false,
+            panel_width: 30,
+            diff_content: Vec::new(),
             settings_tab: 0,
             settings_provider_cursor: 0,
             settings_model_cursor: 0,
@@ -302,6 +335,7 @@ impl AppState {
             verbosity: 0,
             glyph_mode: "auto".to_string(),
             mouse_enabled: true,
+            is_mock_mode: false,
             onboarding_step: 0,
             onboarding_selection: 0,
             agent: None,
@@ -312,6 +346,27 @@ impl AppState {
             terminal_size: (80, 24),
         };
         state.load_config();
+        // After loading config, recompute provider-based state
+        state.has_provider = state.provider_name != "none";
+        // Detect git repo state for the initial workspace
+        let ws_path = std::path::Path::new(&state.workspace);
+        if ws_path.exists() {
+            let git_path = ws_path.join(".git");
+            state.is_git_repo = git_path.exists();
+            if state.is_git_repo {
+                if let Ok(output) = std::process::Command::new("git")
+                    .args(["rev-parse", "--abbrev-ref", "HEAD"])
+                    .output()
+                {
+                    if output.status.success() {
+                        let branch = String::from_utf8_lossy(&output.stdout)
+                            .trim()
+                            .to_string();
+                        state.git_branch = Some(branch);
+                    }
+                }
+            }
+        }
         state
     }
 
@@ -731,6 +786,14 @@ impl AppState {
                     self.show_sidebar = !self.show_sidebar;
                     return vec![];
                 }
+                KeyCode::Char('t') => {
+                    self.show_tool_panel = !self.show_tool_panel;
+                    return vec![];
+                }
+                KeyCode::Char('d') => {
+                    self.show_diff_panel = !self.show_diff_panel;
+                    return vec![];
+                }
                 _ => {}
             }
         }
@@ -762,10 +825,16 @@ impl AppState {
                 self.show_command_palette = false;
             }
             KeyCode::Enter => {
-                let commands = self.palette_commands();
-                if let Some(cmd) = commands.get(self.palette_selection).cloned() {
-                    self.show_command_palette = false;
-                    return self.handle_slash_command(cmd);
+                let specs = self.palette_commands();
+                if let Some(spec) = specs.get(self.palette_selection) {
+                    // Build a SlashCommand from the selected spec's name
+                    let full_cmd = format!("/{0}", spec.name);
+                    if let Some(cmd) = SlashCommand::parse(&full_cmd) {
+                        self.show_command_palette = false;
+                        self.palette_query.clear();
+                        self.palette_selection = 0;
+                        return self.handle_slash_command(cmd);
+                    }
                 }
                 self.show_command_palette = false;
             }
@@ -793,46 +862,108 @@ impl AppState {
         vec![]
     }
 
-    /// Returns all slash commands matching the palette query.
-    pub fn palette_commands(&self) -> Vec<SlashCommand> {
-        let all = vec![
-            SlashCommand::Help,
-            SlashCommand::Clear,
-            SlashCommand::Save,
-            SlashCommand::Settings,
-            SlashCommand::Status,
-            SlashCommand::Version,
-            SlashCommand::Model(String::new()),
-            SlashCommand::Role(String::new()),
-            SlashCommand::Provider(String::new()),
-            SlashCommand::Quit,
-            SlashCommand::Theme(String::new()),
-            SlashCommand::New,
-            SlashCommand::Doctor,
-            SlashCommand::Session(String::new()),
-            SlashCommand::Mcp(String::new()),
-            SlashCommand::Preprompt(String::new()),
-            SlashCommand::Tokens,
-            SlashCommand::Cost,
-            SlashCommand::Context,
-            SlashCommand::Time,
-            SlashCommand::Tools,
-        ];
-        if self.palette_query.is_empty() {
-            return all;
+    fn execute_home_action(&mut self, index: usize) -> Vec<Command> {
+        match index {
+            0 => {
+                self.screen = Screen::Chat;
+                self.input_buffer.clear();
+                vec![]
+            }
+            1 => {
+                if let Some(cmd) = SlashCommand::parse("/session list") {
+                    return self.handle_slash_command(cmd);
+                }
+                vec![]
+            }
+            2 => {
+                self.screen = Screen::Settings;
+                vec![]
+            }
+            3 => {
+                if let Some(cmd) = SlashCommand::parse("/doctor") {
+                    return self.handle_slash_command(cmd);
+                }
+                vec![]
+            }
+            4 => {
+                self.show_command_palette = true;
+                vec![]
+            }
+            5 => {
+                if let Some(cmd) = SlashCommand::parse("/help") {
+                    return self.handle_slash_command(cmd);
+                }
+                vec![]
+            }
+            6 => {
+                self.screen = Screen::Settings;
+                vec![]
+            }
+            _ => vec![],
         }
-        let q = self.palette_query.to_lowercase();
-        all.into_iter()
-            .filter(|cmd| cmd.name().contains(&q))
-            .collect()
+    }
+
+    /// Returns all slash commands matching the palette query.
+    pub fn palette_commands(&self) -> Vec<&'static crate::slash::commands::SlashCommandSpec> {
+        // Use the new SlashCommandSpec registry with fuzzy search
+        SlashCommand::find_specs(&self.palette_query)
     }
 
     // ── Screen key handlers ─────────────────────────────────────────
 
     fn handle_home_key(&mut self, key: KeyEvent) -> Vec<Command> {
+        // Ensure action count reflects current UI (7 quick actions)
+        self.home_action_count = 7usize;
+
         match key.code {
+            // Navigation wrap
+            KeyCode::Up => {
+                if self.home_action_count > 0 {
+                    self.home_selection = (self.home_selection + self.home_action_count - 1)
+                        % self.home_action_count;
+                }
+            }
+            KeyCode::Down => {
+                if self.home_action_count > 0 {
+                    self.home_selection = (self.home_selection + 1) % self.home_action_count;
+                }
+            }
+            // Direct selection via number keys 1-7
+            KeyCode::Char('1') => {
+                self.home_selection = 0;
+                return self.execute_home_action(self.home_selection);
+            }
+            KeyCode::Char('2') => {
+                self.home_selection = 1;
+                return self.execute_home_action(self.home_selection);
+            }
+            KeyCode::Char('3') => {
+                self.home_selection = 2;
+                return self.execute_home_action(self.home_selection);
+            }
+            KeyCode::Char('4') => {
+                self.home_selection = 3;
+                return self.execute_home_action(self.home_selection);
+            }
+            KeyCode::Char('5') => {
+                self.home_selection = 4;
+                return self.execute_home_action(self.home_selection);
+            }
+            KeyCode::Char('6') => {
+                self.home_selection = 5;
+                return self.execute_home_action(self.home_selection);
+            }
+            KeyCode::Char('7') => {
+                self.home_selection = 6;
+                return self.execute_home_action(self.home_selection);
+            }
+            // Activation / Enter
             KeyCode::Enter => {
-                self.screen = Screen::Chat;
+                return self.execute_home_action(self.home_selection);
+            }
+            // Quick access shortcuts
+            KeyCode::Esc | KeyCode::Char('q') => {
+                self.should_quit = true;
             }
             KeyCode::Char('s') | KeyCode::Char('S') => {
                 self.screen = Screen::Settings;
@@ -841,22 +972,21 @@ impl AppState {
                 self.screen = Screen::Chat;
                 self.input_buffer = "/".to_string();
             }
-            KeyCode::Char('q') | KeyCode::Esc => {
-                self.should_quit = true;
-            }
             _ => {}
         }
         vec![]
     }
+
+    
 
     fn handle_chat_key(&mut self, key: KeyEvent) -> Vec<Command> {
         // Slash menu typeahead navigation and interception
         let has_slash = self.input_buffer.starts_with('/') && !self.input_buffer.contains(' ');
         if has_slash {
             let query = self.input_buffer.trim_start_matches('/').to_lowercase();
-            let matches: Vec<_> = SlashCommand::all_descriptions()
+            let matches: Vec<_> = SlashCommand::find_specs(&query)
                 .iter()
-                .filter(|(name, _)| name.starts_with(&query))
+                .map(|spec| (spec.name, spec.summary))
                 .collect();
             self.slash_menu_visible = !matches.is_empty();
             if self.slash_menu_selection >= matches.len() {
@@ -871,10 +1001,10 @@ impl AppState {
         if self.slash_menu_visible {
             match key.code {
                 KeyCode::Down => {
-                    let query = self.input_buffer.trim_start_matches('/').to_lowercase();
-                    let matches: Vec<_> = SlashCommand::all_descriptions()
+                    let query = self.input_buffer.trim_start_matches('/');
+                    let matches: Vec<_> = SlashCommand::find_specs(query)
                         .iter()
-                        .filter(|(name, _)| name.starts_with(&query))
+                        .map(|s| s.name)
                         .collect();
                     if self.slash_menu_selection < matches.len().saturating_sub(1) {
                         self.slash_menu_selection += 1;
@@ -888,12 +1018,12 @@ impl AppState {
                     return vec![];
                 }
                 KeyCode::Enter => {
-                    let query = self.input_buffer.trim_start_matches('/').to_lowercase();
-                    let matches: Vec<_> = SlashCommand::all_descriptions()
+                    let query = self.input_buffer.trim_start_matches('/');
+                    let matches: Vec<_> = SlashCommand::find_specs(query)
                         .iter()
-                        .filter(|(name, _)| name.starts_with(&query))
+                        .map(|s| s.name)
                         .collect();
-                    if let Some((name, _)) = matches.get(self.slash_menu_selection) {
+                    if let Some(&name) = matches.get(self.slash_menu_selection) {
                         let full_cmd = format!("/{0}", name);
                         if let Some(cmd) = SlashCommand::parse(&full_cmd) {
                             self.slash_menu_visible = false;
@@ -911,6 +1041,17 @@ impl AppState {
                     self.slash_menu_visible = false;
                     self.slash_menu_selection = 0;
                     self.input_buffer.clear();
+                    return vec![];
+                }
+                KeyCode::Tab => {
+                    let query = self.input_buffer.trim_start_matches('/').to_lowercase();
+                    let specs = SlashCommand::find_specs(&query);
+                    if let Some(name) = specs.get(self.slash_menu_selection).map(|s| s.name) {
+                        self.input_buffer = format!("/{0} ", name);
+                        self.slash_menu_visible = false;
+                        self.slash_menu_selection = 0;
+                        self.history_index = None;
+                    }
                     return vec![];
                 }
                 _ => {}
@@ -1335,10 +1476,90 @@ impl AppState {
             return vec![];
         }
 
+        
+        let slash_popup_height: i32 = {
+            let hints = SlashCommand::find_specs(&self.input_buffer[1..]);
+            let hint_rows = hints.len().min(7);
+            if hint_rows > 0 { (hint_rows as i32) + 1 } else { 0 }
+        };
+        let slash_popup_top_y = (term_h as i32) - 3 - slash_popup_height;
+
+        let mut dismissed = false;
+        if self.slash_menu_visible {
+            let inside_slash = if slash_popup_height > 0 {
+                let y = slash_popup_top_y;
+                let end_y = slash_popup_top_y + slash_popup_height - 1;
+                let row = event.row as i32;
+                row >= y && row <= end_y
+            } else {
+                false
+            };
+            if !inside_slash {
+                self.slash_menu_visible = false;
+                dismissed = true;
+            }
+        }
+
+        
+        let palette_width = 50.min(term_w.saturating_sub(4));
+        let palette_height = 14.min(term_h.saturating_sub(4));
+        let palette_x = (term_w.saturating_sub(palette_width)) / 2;
+        let palette_y = term_h / 4;
+        if self.show_command_palette {
+            let inside_palette = {
+                let within_y = (event.row as i32) - palette_y as i32;
+                let within_x = (event.column as i32) - palette_x as i32;
+                within_y >= 0 && within_y < palette_height as i32 && within_x >= 0 && within_x < palette_width as i32
+            };
+            if !inside_palette {
+                self.show_command_palette = false;
+                dismissed = true;
+            }
+        }
+        if dismissed {
+            return vec![];
+        }
+
         match self.screen {
             Screen::Home => {
-                self.screen = Screen::Chat;
-                self.input_buffer.clear();
+                
+                if self.slash_menu_visible {
+                    if slash_popup_height > 0 {
+                        let y = slash_popup_top_y;
+                        let end_y = slash_popup_top_y + slash_popup_height - 1;
+                        let r = event.row as i32;
+                        if r >= y && r <= end_y {
+                                
+                            let relative = r - y;
+                            if relative >= 1 {
+                                let idx = (relative - 1) as usize;
+                                let specs = SlashCommand::find_specs(&self.input_buffer[1..]);
+                                let max = specs.len().min(7);
+                                if idx < max {
+                                    let spec = specs[idx];
+                                    self.input_buffer = format!("/{0}", spec.name);
+                                    self.slash_menu_visible = false;
+                                    return vec![];
+                                }
+                            }
+                        }
+                    }
+                }
+                let actions = self.home_action_count.min(7);
+                if actions > 0 {
+                    let start_y: i32 = 2;
+                    if (event.row as i32) >= start_y {
+                        let per_action = if (term_h as i32 - start_y) > 0 {
+                            (term_h as i32 - start_y) / actions as i32
+                        } else {
+                            1
+                        };
+                        let idx = ((event.row as i32 - start_y) / per_action) as usize;
+                        if idx < actions {
+                            let _ = self.execute_home_action(idx);
+                        }
+                    }
+                }
             }
             Screen::Settings => {
                 let inner_y = event.row.saturating_sub(1);
@@ -1477,10 +1698,14 @@ impl AppState {
                     .push(MessageBubble::new(MessageRole::System, help));
             }
             SlashCommand::Clear => {
-                self.messages.clear();
-                self.tool_calls.clear();
-                self.streaming = false;
-                self.streaming_buffer.clear();
+                if self.permission_mode == PermissionMode::ReadOnly {
+                    self.notify("Blocked: read-only mode");
+                } else {
+                    self.messages.clear();
+                    self.tool_calls.clear();
+                    self.streaming = false;
+                    self.streaming_buffer.clear();
+                }
             }
             SlashCommand::Settings => {
                 self.screen = Screen::Settings;
@@ -1506,14 +1731,41 @@ impl AppState {
                 self.messages
                     .push(MessageBubble::new(MessageRole::System, status));
             }
-            SlashCommand::Model(name) => {
-                if !name.is_empty() {
-                    self.model_name = name.clone();
-                    self.save_config();
-                    self.messages.push(MessageBubble::new(
-                        MessageRole::System,
-                        format!("Model switched to: {}", name),
-                    ));
+            SlashCommand::Mock => {
+                // Toggle mock mode for local testing
+                self.is_mock_mode = !self.is_mock_mode;
+                self.notify(if self.is_mock_mode {
+                    "Mock mode enabled"
+                } else {
+                    "Mock mode disabled"
+                });
+            }
+            SlashCommand::Model(opt) => {
+                if let Some(name) = opt {
+                    if !name.is_empty() {
+                        self.model_name = name.clone();
+                        self.save_config();
+                        self.messages.push(MessageBubble::new(
+                            MessageRole::System,
+                            format!("Model switched to: {}", name),
+                        ));
+                    } else {
+                        let info = format!(
+                            "Current: {}/{}\n\
+                             \n\
+                             Usage: /model <name>\n\
+                             \n\
+                             Common models:\n\
+                             gpt-4o, gpt-4o-mini, gpt-4-turbo\n\
+                             claude-sonnet-4-20250514, claude-3-5-sonnet\n\
+                             gemini-2.0-flash, gemini-1.5-pro\n\
+                             deepseek-chat, deepseek-coder\n\
+                             llama-3.3-70b, mixtral-8x7b",
+                            self.provider_name, self.model_name
+                        );
+                        self.messages
+                            .push(MessageBubble::new(MessageRole::System, info));
+                    }
                 } else {
                     let info = format!(
                         "Current: {}/{}\n\
@@ -1532,38 +1784,109 @@ impl AppState {
                         .push(MessageBubble::new(MessageRole::System, info));
                 }
             }
-            SlashCommand::Role(name) => {
-                self.messages.push(MessageBubble::new(
-                    MessageRole::System,
-                    if name.is_empty() {
-                        "Usage: /role <name>".to_string()
-                    } else {
-                        format!("Role set to: {}", name)
-                    },
-                ));
+            SlashCommand::Role(opt) => {
+                let msg = if let Some(name) = opt {
+                    if !name.is_empty() { format!("Role set to: {}", name) } else { "Usage: /role <name>".to_string() }
+                } else {
+                    "Usage: /role <name>".to_string()
+                };
+                self.messages.push(MessageBubble::new(MessageRole::System, msg));
             }
-            SlashCommand::Provider(name) => {
-                if !name.is_empty() {
-                    self.provider_name = name.clone();
-                    self.save_config();
-                    self.messages.push(MessageBubble::new(
-                        MessageRole::System,
-                        format!("Provider switched to: {}", name),
-                    ));
+            SlashCommand::Provider(opt) => {
+                if let Some(name) = opt {
+                    if !name.is_empty() {
+                        self.provider_name = name.clone();
+                        self.save_config();
+                        self.messages.push(MessageBubble::new(
+                            MessageRole::System,
+                            format!("Provider switched to: {}", name),
+                        ));
+                    } else {
+                        let info = format!(
+                            "Current provider: {}\nCurrent model: {}/{}\n\nUsage: /provider <name>\n\nAvailable: openai, anthropic, gemini, groq,\ndeepseek, mistral, together, openrouter,\nfireworks, perplexity, ollama",
+                            self.provider_name, self.provider_name, self.model_name
+                        );
+                        self.messages
+                            .push(MessageBubble::new(MessageRole::System, info));
+                    }
                 } else {
                     let info = format!(
-                        "Current provider: {}\n\
-                         Current model: {}/{}\n\
-                         \n\
-                         Usage: /provider <name>\n\
-                         \n\
-                         Available: openai, anthropic, gemini, groq,\n\
-                         deepseek, mistral, together, openrouter,\n\
-                         fireworks, perplexity, ollama",
+                        "Current provider: {}\nCurrent model: {}/{}\n\nUsage: /provider <name>\n\nAvailable: openai, anthropic, gemini, groq,\ndeepseek, mistral, together, openrouter,\nfireworks, perplexity, ollama",
                         self.provider_name, self.provider_name, self.model_name
                     );
                     self.messages
                         .push(MessageBubble::new(MessageRole::System, info));
+                }
+            }
+            SlashCommand::Permissions(opt) => {
+                // Cycle through permission modes: ReadOnly -> WorkspaceWrite -> DangerFullAccess -> ReadOnly
+                self.permission_mode = match self.permission_mode {
+                    PermissionMode::ReadOnly => PermissionMode::WorkspaceWrite,
+                    PermissionMode::WorkspaceWrite => PermissionMode::DangerFullAccess,
+                    PermissionMode::DangerFullAccess => PermissionMode::ReadOnly,
+                };
+                self.notify(&format!("Permission mode: {}", self.permission_mode.label()));
+                if let Some(p) = opt {
+                    if !p.is_empty() {
+                        self.messages.push(MessageBubble::new(
+                            MessageRole::System,
+                            format!("Permissions: {}", p),
+                        ));
+                    }
+                }
+            }
+            SlashCommand::ReadOnly => {
+                self.permission_mode = PermissionMode::ReadOnly;
+                self.notify(&format!("Permission mode: {}", self.permission_mode.label()));
+            }
+            SlashCommand::Diff => {
+                self.show_diff_panel = !self.show_diff_panel;
+                if self.show_diff_panel {
+                    let output = std::process::Command::new("git")
+                        .args(["diff", "--stat"])
+                        .output();
+                    match output {
+                        Ok(out) if out.status.success() => {
+                            let text = String::from_utf8_lossy(&out.stdout).to_string();
+                            self.diff_content = if text.trim().is_empty() {
+                                vec!["No changes detected.".to_string()]
+                            } else {
+                                text.lines().map(|l| l.to_string()).collect()
+                            };
+                            self.notify(&format!(
+                                "Diff: {} files changed",
+                                self.diff_content.len().saturating_sub(1)
+                            ));
+                        }
+                        Ok(out) => {
+                            self.diff_content = vec![
+                                format!("git diff failed: {}", String::from_utf8_lossy(&out.stderr))
+                            ];
+                        }
+                        Err(e) => {
+                            self.diff_content = vec![format!("git not available: {e}")];
+                        }
+                    }
+                }
+            }
+            SlashCommand::Git(opt) => {
+                if let Some(cmd) = opt {
+                    if !cmd.is_empty() {
+                        self.messages.push(MessageBubble::new(
+                            MessageRole::System,
+                            format!("Git command: {}", cmd),
+                        ));
+                    } else {
+                        self.messages.push(MessageBubble::new(
+                            MessageRole::System,
+                            "Usage: /git <command>".to_string(),
+                        ));
+                    }
+                } else {
+                    self.messages.push(MessageBubble::new(
+                        MessageRole::System,
+                        "Usage: /git <command>".to_string(),
+                    ));
                 }
             }
             SlashCommand::Save => {
@@ -1573,55 +1896,48 @@ impl AppState {
                     format!("Session saved: {}", self.session_id),
                 ));
             }
-            SlashCommand::Theme(name) => {
-                if !name.is_empty() {
-                    if let Some(t) = crate::theme::Theme::find_by_name(&name) {
-                        self.theme = t;
-                        self.save_config();
-                        self.messages.push(MessageBubble::new(
-                            MessageRole::System,
-                            format!("Theme changed to: {}", name),
-                        ));
+            SlashCommand::Theme(opt) => {
+                if let Some(name) = opt {
+                    if !name.is_empty() {
+                        if let Some(t) = crate::theme::Theme::find_by_name(&name) {
+                            self.theme = t;
+                            self.save_config();
+                            self.messages.push(MessageBubble::new(
+                                MessageRole::System,
+                                format!("Theme changed to: {}", name),
+                            ));
+                        } else {
+                            let available: Vec<_> = crate::theme::Theme::list_all()
+                                .iter()
+                                .map(|t| t.name.to_string())
+                                .collect();
+                            let info = format!(
+                                "Current: {}\n\nAvailable themes:\n  {}",
+                                self.theme.name,
+                                available.join("\n  ")
+                            );
+                            self.messages
+                                .push(MessageBubble::new(MessageRole::System, info));
+                        }
                     } else {
                         let available: Vec<_> = crate::theme::Theme::list_all()
                             .iter()
                             .map(|t| t.name.to_string())
                             .collect();
                         let info = format!(
-                            "Current: {}
-
-Available themes:
-  {}",
+                            "Current: {}\n\nAvailable themes:\n  {}",
                             self.theme.name,
-                            available.join(
-                                "
-  "
-                            )
+                            available.join("\n  ")
                         );
                         self.messages
                             .push(MessageBubble::new(MessageRole::System, info));
                     }
-                } else {
-                    let available: Vec<_> = crate::theme::Theme::list_all()
-                        .iter()
-                        .map(|t| t.name.to_string())
-                        .collect();
-                    let info = format!(
-                        "Current: {}
-
-Available themes:
-  {}",
-                        self.theme.name,
-                        available.join(
-                            "
-  "
-                        )
-                    );
-                    self.messages
-                        .push(MessageBubble::new(MessageRole::System, info));
                 }
             }
             SlashCommand::New => {
+                if self.permission_mode == PermissionMode::ReadOnly {
+                    self.notify("Blocked: read-only mode");
+                } else {
                 if !self.messages.is_empty() {
                     self.save_session();
                 }
@@ -1635,6 +1951,7 @@ Available themes:
                     MessageRole::System,
                     format!("New session: {}", self.session_id),
                 ));
+                }
             }
             SlashCommand::Doctor => {
                 let glyph_tier = format!("{:?}", crate::util::glyphs::detect_tier());
@@ -1685,11 +2002,12 @@ Available themes:
                     ),
                 ));
             }
-            SlashCommand::Session(action) => {
+            SlashCommand::Session(opt) => {
                 let sessions_dir = dirs::data_dir()
                     .map(|d| d.join("fevercode").join("sessions"))
                     .unwrap_or_else(|| std::path::PathBuf::from(".fevercode/sessions"));
 
+                let action = opt.as_deref().unwrap_or("");
                 if action == "list" || action.is_empty() {
                     if !sessions_dir.exists() {
                         self.messages.push(MessageBubble::new(
@@ -1770,7 +2088,8 @@ Available themes:
                     ));
                 }
             }
-            SlashCommand::Mcp(sub) => {
+            SlashCommand::Mcp(opt) => {
+                let sub = opt.as_deref().unwrap_or("");
                 if sub == "list" || sub.is_empty() {
                     let mut lines = vec!["MCP Servers:".to_string()];
                     for server in &self.mcp_servers {
@@ -1817,7 +2136,8 @@ Available themes:
                     }
                 }
             }
-            SlashCommand::Preprompt(sub) => {
+            SlashCommand::Preprompt(opt) => {
+                let sub = opt.as_deref().unwrap_or("");
                 if sub == "on" {
                     self.preprompt_enabled = true;
                     self.messages.push(MessageBubble::new(
@@ -1831,7 +2151,7 @@ Available themes:
                         "Pre-prompt disabled.".to_string(),
                     ));
                 } else if !sub.is_empty() {
-                    self.preprompt_mode = sub.clone();
+                    self.preprompt_mode = sub.to_string();
                     self.messages.push(MessageBubble::new(
                         MessageRole::System,
                         format!("Pre-prompt mode: {}", sub),
@@ -1892,25 +2212,20 @@ Available themes:
                     .push(MessageBubble::new(MessageRole::System, info));
             }
             SlashCommand::Tools => {
-                let tools = [
-                    "shell",
-                    "read_file",
-                    "write_file",
-                    "list_directory",
-                    "search_files",
-                    "grep",
-                    "git_status",
-                    "git_diff",
-                    "git_log",
-                    "git_add",
-                    "git_commit",
-                ];
-                let mut lines = vec!["Available tools:".to_string()];
-                for t in &tools {
-                    lines.push(format!("  • {}", t));
-                }
-                self.messages
-                    .push(MessageBubble::new(MessageRole::System, lines.join("\n")));
+                self.show_tool_panel = !self.show_tool_panel;
+            }
+            SlashCommand::Unknown(name) => {
+                self.messages.push(MessageBubble::new(
+                    MessageRole::System,
+                    format!("Unknown slash command: {}", name),
+                ));
+            }
+            SlashCommand::Export(_path) => {
+                self.save_session();
+                self.messages.push(MessageBubble::new(
+                    MessageRole::System,
+                    format!("Session exported: {}", self.session_id),
+                ));
             }
         }
         vec![]
@@ -2152,6 +2467,7 @@ Available themes:
             }
         }
     }
+
 }
 
 impl Default for AppState {

@@ -33,6 +33,9 @@ struct Cli {
     /// Increase verbosity (-v, -vv, -vvv)
     #[clap(short, long, action = clap::ArgAction::Count)]
     verbose: u8,
+    /// Run in mock mode (no real API keys required)
+    #[clap(long)]
+    mock: bool,
 }
 
 #[derive(Subcommand)]
@@ -921,9 +924,20 @@ async fn main() -> anyhow::Result<()> {
             run_session(&action, id.as_deref())?;
         }
         None => {
-            let mut app = fever_tui::AppState::new();
+            // If --mock is enabled, bootstrap a provider client with MockProvider only.
+            let provider = if cli.mock {
+                let mut mock_client = fever_providers::ProviderClient::new();
+                let mock_provider = fever_providers::MockProvider::new();
+                mock_client.register(Arc::new(mock_provider), mock_client.list_providers().is_empty());
+                Arc::new(mock_client)
+            } else {
+                Arc::new(build_provider_client(false).await)
+            };
 
-            let provider = Arc::new(build_provider_client(false).await);
+            let mut app = fever_tui::AppState::new();
+            if cli.mock {
+                app.is_mock_mode = true;
+            }
             let tools = Arc::new(build_tool_registry());
 
             let mut guard = fever_core::PermissionGuard::new();
