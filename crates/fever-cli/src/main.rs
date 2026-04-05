@@ -871,23 +871,40 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            let client = build_provider_client(fetch).await;
-            let providers = client.list_providers();
-            if providers.is_empty() {
-                println!("No providers configured");
-                return Ok(());
-            }
-            for name in providers {
-                if let Some(adapter) = client.get_provider(&name) {
-                    println!("Provider: {}", name);
-                    let caps = adapter.capabilities();
-                    println!("  supports_chat: {}", caps.supports_chat);
-                    let models = adapter.list_models();
-                    for (i, m) in models.iter().take(5).enumerate() {
-                        println!("  model {}: {}", i + 1, m);
-                    }
-                    println!();
+            let registry = fever_providers::ProviderRegistry::builtin();
+            let profiles = registry.list();
+
+            let tier_label = |tier: &fever_providers::ProviderTier| match tier {
+                fever_providers::ProviderTier::FirstClass => "first-class",
+                fever_providers::ProviderTier::Compatible => "compatible",
+                fever_providers::ProviderTier::Community => "community",
+            };
+
+            let mut configured_count = 0usize;
+            for p in &profiles {
+                let configured = p.is_configured();
+                if configured {
+                    configured_count += 1;
                 }
+                let status = if configured { "✓" } else { "○" };
+                let tier = tier_label(&p.tier);
+                println!(
+                    "{} {:<20} {:<12} {} (default: {})",
+                    status, p.id, tier, p.display_name, p.default_model
+                );
+            }
+
+            println!();
+            println!(
+                "{} configured / {} total profiles",
+                configured_count,
+                profiles.len()
+            );
+
+            let client = build_provider_client(fetch).await;
+            let registered = client.list_providers();
+            if !registered.is_empty() {
+                println!("{} live adapters: {}", registered.len(), registered.join(", "));
             }
         }
         Some(Command::Version { local, bump }) => {

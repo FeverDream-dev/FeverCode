@@ -211,15 +211,15 @@ mode = "read"  # restrict to read-only for this project
 |-------|---------|
 | `fever-cli` | CLI interface — 10 subcommands, mock mode flag |
 | `fever-tui` | Terminal UI — Elm-style architecture, ratatui, 11 themes |
-| `fever-core` | Core traits — Task, Plan, Tool, EventBus, Permissions, Telemetry |
+| `fever-core` | Core traits — Task, Plan, Tool, Permissions; EventBus (stub), MemoryStore (stub), Telemetry (stub) |
 | `fever-agent` | Coding agent — role system, tool execution loop, prepare_request |
 | `fever-providers` | LLM abstraction — 4 protocol adapters, 50+ provider profiles, MockProvider, streaming |
 | `fever-tools` | Local tools — shell, filesystem, git, grep |
 | `fever-config` | Configuration — TOML, cascade merge, PermissionsConfig |
-| `fever-search` | Web search — DuckDuckGo integration |
+| `fever-search` | Web search — DuckDuckGo client (not wired into agent) |
 | `fever-telegram` | Telegram bot — loop monitor, rate limiting, remote commands |
 | `fever-onboard` | Onboarding — 21-question setup, deployment scaffolds |
-| `fever-browser` | Browser — Chrome MCP integration |
+| `fever-browser` | Browser — placeholder (requires Chrome MCP) |
 | `fever-release` | Release notes — changelog generation |
 
 ---

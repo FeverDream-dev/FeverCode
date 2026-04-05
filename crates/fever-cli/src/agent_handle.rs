@@ -15,7 +15,7 @@ use fever_tui::event::Message;
 pub struct FeverAgentHandle {
     pub agent: Arc<fever_agent::FeverAgent>,
     pub provider: Arc<ProviderClient>,
-    default_model: String,
+    current_model: Arc<std::sync::RwLock<String>>,
 }
 
 impl FeverAgentHandle {
@@ -26,18 +26,22 @@ impl FeverAgentHandle {
         guard: Arc<std::sync::RwLock<PermissionGuard>>,
     ) -> Self {
         let default_model = config.default_model.clone();
+        let current_model = Arc::new(std::sync::RwLock::new(default_model.clone()));
         let mut agent = fever_agent::FeverAgent::new(provider.clone(), config);
         agent = agent.with_tools(tools);
         agent = agent.with_permissions(guard);
         Self {
             agent: Arc::new(agent),
             provider,
-            default_model,
+            current_model,
         }
     }
 
-    pub fn default_model(&self) -> &str {
-        &self.default_model
+    pub fn default_model(&self) -> String {
+        self.current_model
+            .read()
+            .map(|m| m.clone())
+            .unwrap_or_default()
     }
 }
 
@@ -45,12 +49,14 @@ impl AgentHandle for FeverAgentHandle {
     fn submit(&self, content: String, tx: tokio::sync::mpsc::Sender<Message>) {
         let agent = Arc::clone(&self.agent);
         let provider = Arc::clone(&self.provider);
+        let model = self.default_model();
         tokio::spawn(async move {
             let initial_messages = [CoreMessage::user(content)];
             let context = AgentContext::new("tui-session".to_string());
 
             let result =
-                run_streaming_loop(&agent, &provider, &initial_messages, &context, &tx).await;
+                run_streaming_loop(&agent, &provider, &initial_messages, &context, &tx, &model)
+                    .await;
 
             if let Err(err_msg) = result {
                 for ch in err_msg.chars() {
@@ -68,6 +74,15 @@ impl AgentHandle for FeverAgentHandle {
             }
         });
     }
+
+    fn switch_model(&self, model: String) -> bool {
+        if let Ok(mut current) = self.current_model.write() {
+            *current = model;
+            true
+        } else {
+            false
+        }
+    }
 }
 
 async fn run_streaming_loop(
@@ -76,6 +91,7 @@ async fn run_streaming_loop(
     initial_messages: &[CoreMessage],
     context: &AgentContext,
     tx: &tokio::sync::mpsc::Sender<Message>,
+    model_override: &str,
 ) -> Result<(), String> {
     let mut history: Vec<CoreMessage> = initial_messages.to_vec();
     let max_iterations = 20;
@@ -85,6 +101,7 @@ async fn run_streaming_loop(
         let request = agent.prepare_request(&history, context).await;
         let mut stream_request = request.clone();
         stream_request.stream = true;
+        stream_request.model = model_override.to_string();
 
         let stream_result =
             tokio::time::timeout(request_timeout, provider.chat_stream(&stream_request))

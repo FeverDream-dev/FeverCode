@@ -501,6 +501,15 @@ impl AppState {
         }
     }
 
+    fn apply_provider_model(&mut self, provider: &str, model: &str) {
+        self.provider_name = provider.to_string();
+        self.model_name = model.to_string();
+        self.has_provider = provider != "none";
+        if let Some(agent) = &self.agent {
+            agent.switch_model(format!("{}/{}", provider, model));
+        }
+    }
+
     pub fn save_config(&self) {
         if let Some(config_dir) = dirs::config_dir() {
             let config_dir = config_dir.join("fevercode");
@@ -1171,11 +1180,13 @@ impl AppState {
             }
             KeyCode::Enter if self.settings_tab == 0 => {
                 if let Some(provider) = KNOWN_PROVIDERS.get(self.settings_provider_cursor) {
-                    self.provider_name = provider.to_string();
                     let models = known_models_for_provider(provider);
-                    if !models.is_empty() {
-                        self.model_name = models[0].to_string();
-                    }
+                    let model = if !models.is_empty() {
+                        models[0]
+                    } else {
+                        "default"
+                    };
+                    self.apply_provider_model(provider, model);
                     self.settings_model_cursor = 0;
                     self.save_config();
                     self.notify(&format!("Provider: {} / {}", provider, self.model_name));
@@ -1206,7 +1217,9 @@ impl AppState {
             KeyCode::Enter if self.settings_tab == 1 => {
                 let models = known_models_for_provider(&self.provider_name);
                 if let Some(model) = models.get(self.settings_model_cursor) {
-                    self.model_name = model.to_string();
+                    let p = self.provider_name.clone();
+                    let m = model.to_string();
+                    self.apply_provider_model(&p, &m);
                     self.save_config();
                     self.notify(&format!("Model: {}", model));
                 }
@@ -1577,11 +1590,13 @@ impl AppState {
                     if provider_index < KNOWN_PROVIDERS.len() {
                         self.settings_provider_cursor = provider_index;
                         if let Some(provider) = KNOWN_PROVIDERS.get(provider_index) {
-                            self.provider_name = provider.to_string();
                             let models = known_models_for_provider(provider);
-                            if !models.is_empty() {
-                                self.model_name = models[0].to_string();
-                            }
+                            let model = if !models.is_empty() {
+                                models[0]
+                            } else {
+                                "default"
+                            };
+                            self.apply_provider_model(provider, model);
                             self.settings_model_cursor = 0;
                             self.save_config();
                             self.notify(&format!("Provider: {} / {}", provider, self.model_name));
@@ -1593,7 +1608,9 @@ impl AppState {
                     if model_index < models.len() {
                         self.settings_model_cursor = model_index;
                         if let Some(model) = models.get(model_index) {
-                            self.model_name = model.to_string();
+                            let p = self.provider_name.clone();
+                            let m = model.to_string();
+                            self.apply_provider_model(&p, &m);
                             self.save_config();
                             self.notify(&format!("Model: {}", model));
                         }
@@ -2538,10 +2555,14 @@ impl AppState {
                             self.session_id = id.to_string();
                         }
                         if let Some(provider) = val.get("provider").and_then(|v| v.as_str()) {
-                            self.provider_name = provider.to_string();
-                        }
-                        if let Some(model) = val.get("model").and_then(|v| v.as_str()) {
-                            self.model_name = model.to_string();
+                            let model = val.get("model").and_then(|v| v.as_str()).unwrap_or("default");
+                            let p = provider.to_string();
+                            let m = model.to_string();
+                            self.apply_provider_model(&p, &m);
+                        } else if let Some(model) = val.get("model").and_then(|v| v.as_str()) {
+                            let p = self.provider_name.clone();
+                            let m = model.to_string();
+                            self.apply_provider_model(&p, &m);
                         }
                         continue;
                     }

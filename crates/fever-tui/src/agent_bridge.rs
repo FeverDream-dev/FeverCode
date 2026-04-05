@@ -13,4 +13,9 @@ use tokio::sync::mpsc;
 /// - On error, include error info in the last streamed chunk before `StreamEnd`
 pub trait AgentHandle: Send + Sync {
     fn submit(&self, content: String, tx: mpsc::Sender<Message>);
+
+    fn switch_model(&self, model: String) -> bool {
+        let _ = model;
+        false
+    }
 }

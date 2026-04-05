@@ -119,6 +119,12 @@ impl FeverAgent {
             prompt.push_str(user_context);
         }
 
+        let instructions = fever_core::discover_instructions(&self.workspace_root);
+        if !instructions.is_empty() {
+            prompt.push_str("\n\nProject Instructions:\n");
+            prompt.push_str(&instructions);
+        }
+
         prompt
     }
 
