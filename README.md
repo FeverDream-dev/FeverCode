@@ -73,7 +73,7 @@ fever --mock
 ## Feature Showcase
 
 ### 🧠 AI-Powered Coding
-12 LLM providers with streaming responses and a robust tool-execution loop. OpenAI, Anthropic, Gemini, Groq, DeepSeek, Mistral, Ollama, and more — switch instantly with `/model`.
+50+ LLM provider profiles across 4 protocol adapters (OpenAI, Anthropic, Gemini, Ollama) with streaming responses and a robust tool-execution loop. OpenAI, Anthropic, Gemini, Groq, DeepSeek, Mistral, Z.ai, Ollama, and many more — switch instantly with `/model`.
 
 ### 🖥️ Premium TUI
 11 hand-crafted themes (including the signature **anubis** Egyptian theme), mouse support, slash commands with fuzzy search, command palette (`Ctrl+K`), tool activity panel (`Ctrl+T`), diff viewer (`Ctrl+D`), and a segmented status bar.
@@ -179,6 +179,9 @@ mode = "read"  # restrict to read-only for this project
 | `GROQ_API_KEY` | Groq provider |
 | `DEEPSEEK_API_KEY` | DeepSeek provider |
 | `MISTRAL_API_KEY` | Mistral provider |
+| `ZAI_API_KEY` | Z.ai (GLM) provider |
+| `TOGETHER_API_KEY` | Together AI provider |
+| `XAI_API_KEY` | xAI (Grok) provider |
 | `TELEGRAM_BOT_TOKEN` | Telegram loop monitor |
 | `TELEGRAM_CHAT_ID` | Telegram recipient |
 | `TELEGRAM_NOTIFY_INTERVAL` | Min seconds between messages (default: 5) |
@@ -196,7 +199,8 @@ mode = "read"  # restrict to read-only for this project
 │ (commands) │   (TUI)    │  (traits)  │  (loop + roles)   │
 ├────────────┴────────────┴────────────┴────────────────────┤
 │ fever-providers    │ fever-tools    │ fever-config       │
-│  (12 adapters)     │  (shell/fs)    │  (TOML cascade)    │
+│  (4 adapters, 50+  │  (shell/fs)    │  (TOML cascade)    │
+│   profiles)        │                │                     │
 ├────────────────────┴────────────────┴────────────────────┤
 │ fever-search  │ fever-telegram  │ fever-onboard          │
 │ (DuckDuckGo) │  (bot monitor)  │ (project setup)       │
@@ -209,7 +213,7 @@ mode = "read"  # restrict to read-only for this project
 | `fever-tui` | Terminal UI — Elm-style architecture, ratatui, 11 themes |
 | `fever-core` | Core traits — Task, Plan, Tool, EventBus, Permissions, Telemetry |
 | `fever-agent` | Coding agent — role system, tool execution loop, prepare_request |
-| `fever-providers` | LLM abstraction — 12 adapters, MockProvider, streaming |
+| `fever-providers` | LLM abstraction — 4 protocol adapters, 50+ provider profiles, MockProvider, streaming |
 | `fever-tools` | Local tools — shell, filesystem, git, grep |
 | `fever-config` | Configuration — TOML, cascade merge, PermissionsConfig |
 | `fever-search` | Web search — DuckDuckGo integration |
@@ -276,7 +280,7 @@ fever version
 # Build
 cargo build --release
 
-# Test (242 tests)
+# Test (221 tests)
 cargo test
 
 # Format
