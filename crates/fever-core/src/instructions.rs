@@ -18,7 +18,7 @@ pub fn discover_instructions(workspace: &Path) -> String {
         }
 
         current = dir.parent().map(|p| p.to_path_buf());
-        if current.as_ref().map_or(false, |p| *p == dir) {
+        if current.as_ref().is_some_and(|p| *p == dir) {
             break;
         }
     }

@@ -1523,8 +1523,7 @@ impl AppState {
         match self.screen {
             Screen::Home => {
                 
-                if self.slash_menu_visible {
-                    if slash_popup_height > 0 {
+                if self.slash_menu_visible && slash_popup_height > 0 {
                         let y = slash_popup_top_y;
                         let end_y = slash_popup_top_y + slash_popup_height - 1;
                         let r = event.row as i32;
@@ -1543,7 +1542,6 @@ impl AppState {
                                 }
                             }
                         }
-                    }
                 }
                 let actions = self.home_action_count.min(7);
                 if actions > 0 {
@@ -2439,8 +2437,7 @@ impl AppState {
                     }
                 }
             }
-        } else {
-            if let Ok(data) = serde_json::from_str::<serde_json::Value>(&content) {
+        } else if let Ok(data) = serde_json::from_str::<serde_json::Value>(&content) {
                 if let Some(id) = data.get("id").and_then(|v| v.as_str()) {
                     self.session_id = id.to_string();
                 }
@@ -2457,7 +2454,6 @@ impl AppState {
                         msg_count += 1;
                     }
                 }
-            }
         }
 
         self.scroll_offset = 0;

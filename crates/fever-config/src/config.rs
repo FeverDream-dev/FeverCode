@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -401,7 +401,7 @@ impl ConfigManager {
         }
     }
 
-    pub fn load_with_workspace(&self, workspace: &PathBuf) -> anyhow::Result<Config> {
+    pub fn load_with_workspace(&self, workspace: &Path) -> anyhow::Result<Config> {
         // Start with defaults
         let mut merged = Config::default();
 

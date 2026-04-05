@@ -1,13 +1,13 @@
 use ratatui::{
-    Frame,
     layout::Rect,
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
+    Frame,
 };
 
 use crate::app::AppState;
-use crate::app::{KNOWN_PROVIDERS, known_models_for_provider};
+use crate::app::{known_models_for_provider, KNOWN_PROVIDERS};
 use crate::theme::Theme;
 use crate::util::glyphs;
 
@@ -434,18 +434,15 @@ pub fn render(f: &mut Frame, area: Rect, state: &mut AppState) {
     }
 
     lines.push(Line::from(""));
-    match state.settings_tab {
-        0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 => {
-            lines.push(Line::from(vec![
-                Span::styled("  [Esc] ", Style::default().fg(theme.accent())),
-                Span::styled("back    ", Style::default().fg(theme.fg())),
-                Span::styled("[\u{2191}\u{2193}] ", Style::default().fg(theme.accent())),
-                Span::styled("navigate    ", Style::default().fg(theme.fg())),
-                Span::styled("[Enter] ", Style::default().fg(theme.accent())),
-                Span::styled("toggle", Style::default().fg(theme.fg())),
-            ]));
-        }
-        _ => {}
+    if (0..=7).contains(&state.settings_tab) {
+        lines.push(Line::from(vec![
+            Span::styled("  [Esc] ", Style::default().fg(theme.accent())),
+            Span::styled("back    ", Style::default().fg(theme.fg())),
+            Span::styled("[\u{2191}\u{2193}] ", Style::default().fg(theme.accent())),
+            Span::styled("navigate    ", Style::default().fg(theme.fg())),
+            Span::styled("[Enter] ", Style::default().fg(theme.accent())),
+            Span::styled("toggle", Style::default().fg(theme.fg())),
+        ]));
     }
 
     let paragraph = Paragraph::new(lines).style(Style::default().bg(theme.bg()).fg(theme.fg()));

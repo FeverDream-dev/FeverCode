@@ -454,12 +454,8 @@ impl SlashCommand {
                     let candidate =
                         format!("{} {}{}", spec.name, spec.aliases.join(" "), spec.summary);
                     let m = SkimMatcherV2::default();
-                    if let Some(score) = m.fuzzy_match(&candidate.to_lowercase(), &q.to_lowercase())
-                    {
-                        Some((spec, score))
-                    } else {
-                        None
-                    }
+                    m.fuzzy_match(&candidate.to_lowercase(), &q.to_lowercase())
+                        .map(|score| (spec, score))
                 })
                 .collect();
             matches.sort_by(|a, b| b.1.cmp(&a.1));

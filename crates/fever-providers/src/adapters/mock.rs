@@ -81,8 +81,7 @@ impl ProviderAdapter for MockProvider {
     async fn chat(&self, request: &ChatRequest) -> ProviderResult<ChatResponse> {
         let content = self
             .response_override
-            .as_ref()
-            .map(|s| s.clone())
+            .clone()
             .unwrap_or_else(|| generate_response(request));
 
         Ok(ChatResponse {
@@ -94,7 +93,7 @@ impl ProviderAdapter for MockProvider {
                 index: 0,
                 message: ChatMessage {
                     role: "assistant".to_string(),
-                    content: content,
+                    content,
                     tool_calls: None,
                     tool_call_id: None,
                 },
@@ -114,8 +113,7 @@ impl ProviderAdapter for MockProvider {
     ) -> ProviderResult<Box<dyn Stream<Item = ProviderResult<StreamChunk>> + Send + Unpin>> {
         let content = self
             .response_override
-            .as_ref()
-            .map(|s| s.clone())
+            .clone()
             .unwrap_or_else(|| generate_response(request));
 
         let id = format!("mock-{}", std::time::SystemTime::now()

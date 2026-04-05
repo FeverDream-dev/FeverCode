@@ -33,6 +33,12 @@ pub struct MemorySink {
     events: Mutex<Vec<TelemetryEvent>>,
 }
 
+impl Default for MemorySink {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemorySink {
     pub fn new() -> Self {
         MemorySink {
@@ -70,7 +76,6 @@ impl JsonlSink {
         let file = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
-            .write(true)
             .open(&path)?;
         Ok(JsonlSink {
             path,
