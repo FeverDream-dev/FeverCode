@@ -423,6 +423,36 @@ impl ProviderAdapter for AnthropicAdapter {
                         break;
                     }
 
+                    if event_type == "message_delta" && !data.is_empty() {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&data) {
+                            let stop_reason = json
+                                .pointer("/delta/stop_reason")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
+                            if stop_reason == "tool_use" {
+                                let _ = tx
+                                    .send(Ok(StreamChunk {
+                                        id: None,
+                                        delta: None,
+                                        content: None,
+                                        finish_reason: Some("tool_calls".to_string()),
+                                        tool_calls: None,
+                                    }))
+                                    .await;
+                            } else if stop_reason == "end_turn" {
+                                let _ = tx
+                                    .send(Ok(StreamChunk {
+                                        id: None,
+                                        delta: None,
+                                        content: None,
+                                        finish_reason: Some("stop".to_string()),
+                                        tool_calls: None,
+                                    }))
+                                    .await;
+                            }
+                        }
+                    }
+
                     if event_type == "content_block_delta" && !data.is_empty() {
                         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&data) {
                             let delta_type = json
@@ -445,6 +475,38 @@ impl ProviderAdapter for AnthropicAdapter {
                                         }))
                                         .await;
                                 }
+                            }
+                        }
+                    }
+
+                    if event_type == "content_block_start" && !data.is_empty() {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&data) {
+                            let block_type = json
+                                .pointer("/content_block/type")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
+                            if block_type == "tool_use" {
+                                let tool_id = json
+                                    .pointer("/content_block/id")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                let tool_name = json
+                                    .pointer("/content_block/name")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                let _ = tx
+                                    .send(Ok(StreamChunk {
+                                        id: Some(tool_id.to_string()),
+                                        delta: None,
+                                        content: None,
+                                        finish_reason: None,
+                                        tool_calls: Some(vec![ToolCall {
+                                            id: tool_id.to_string(),
+                                            name: tool_name.to_string(),
+                                            arguments: serde_json::json!({}),
+                                        }]),
+                                    }))
+                                    .await;
                             }
                         }
                     }

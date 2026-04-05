@@ -402,14 +402,40 @@ impl ProviderAdapter for GeminiAdapter {
                                     .and_then(|v| v.as_str())
                                     .map(String::from);
 
-                                if content.is_some() || finish_reason.is_some() {
+                                let tool_calls = json
+                                    .pointer("/choices/0/delta/tool_calls")
+                                    .and_then(|v| v.as_array())
+                                    .map(|arr| {
+                                        arr.iter()
+                                            .filter_map(|tc| {
+                                                let func = tc.get("function")?;
+                                                let name = func.get("name")?.as_str()?.to_string();
+                                                let arguments = func
+                                                    .get("arguments")
+                                                    .cloned()
+                                                    .unwrap_or(serde_json::Value::String(String::new()));
+                                                let tc_id = tc
+                                                    .get("id")
+                                                    .and_then(|v| v.as_str())
+                                                    .unwrap_or("")
+                                                    .to_string();
+                                                Some(crate::models::ToolCall {
+                                                    id: tc_id,
+                                                    name,
+                                                    arguments,
+                                                })
+                                            })
+                                            .collect::<Vec<_>>()
+                                    });
+
+                                if content.is_some() || finish_reason.is_some() || tool_calls.is_some() {
                                     let _ = tx
                                         .send(Ok(StreamChunk {
                                             id,
                                             delta: None,
                                             content,
                                             finish_reason,
-                                            tool_calls: None,
+                                            tool_calls,
                                         }))
                                         .await;
                                 }
