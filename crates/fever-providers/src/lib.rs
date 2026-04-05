@@ -1,5 +1,6 @@
 pub mod adapter;
 pub mod adapters;
+pub use adapters::mock::MockProvider;
 pub mod client;
 pub mod error;
 pub mod models;
