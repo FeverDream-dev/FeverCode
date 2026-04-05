@@ -12,7 +12,75 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-/// Permission scopes controlling what actions the agent may perform.
+/// Hierarchical permission modes, inspired by claw-code's permission model.
+///
+/// Modes provide a convenient way to set multiple scopes at once,
+/// while still allowing fine-grained scope control via `grant()`/`revoke()`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+pub enum PermissionMode {
+    /// Read-only: no shell, no filesystem writes, no git modifications.
+    /// Only read tools (file read, directory listing, grep, git status/log).
+    #[default]
+    ReadOnly,
+    /// Workspace-write: + file writes within the workspace directory.
+    /// Shell execution for read-only commands only.
+    WorkspaceWrite,
+    /// Full access: + shell execution, + file deletion, + git push/commit.
+    /// Use with caution.
+    DangerFullAccess,
+}
+
+impl PermissionMode {
+    /// Display label for the status bar.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::ReadOnly => "read",
+            Self::WorkspaceWrite => "write",
+            Self::DangerFullAccess => "full",
+        }
+    }
+
+    /// Parse a mode string (case-insensitive, multiple aliases).
+    pub fn from_str_fuzzy(s: &str) -> Option<Self> {
+        match s.to_lowercase().as_str() {
+            "read" | "read-only" | "ro" | "safe" => Some(Self::ReadOnly),
+            "write" | "workspace-write" | "workspace" => Some(Self::WorkspaceWrite),
+            "full" | "danger-full-access" | "danger" | "auto" => Some(Self::DangerFullAccess),
+            _ => None,
+        }
+    }
+}
+
+/// Apply a permission mode to a guard, granting the appropriate scopes.
+///
+/// This does NOT revoke existing scopes — it only adds new ones.
+/// To switch modes cleanly, create a new PermissionGuard.
+pub fn apply_mode(guard: &mut PermissionGuard, mode: PermissionMode) {
+    match mode {
+        PermissionMode::ReadOnly => {
+            guard.grant(PermissionScope::FilesystemRead);
+        }
+        PermissionMode::WorkspaceWrite => {
+            guard.grant(PermissionScope::FilesystemRead);
+            guard.grant(PermissionScope::FilesystemWrite);
+            guard.grant(PermissionScope::GitOperations);
+        }
+        PermissionMode::DangerFullAccess => {
+            guard.grant(PermissionScope::FilesystemRead);
+            guard.grant(PermissionScope::FilesystemWrite);
+            guard.grant(PermissionScope::FilesystemDelete);
+            guard.grant(PermissionScope::ShellExec);
+            guard.grant(PermissionScope::GitOperations);
+        }
+    }
+}
+
+/// Create a fresh PermissionGuard pre-configured for the given mode.
+pub fn guard_for_mode(mode: PermissionMode) -> PermissionGuard {
+    let mut guard = PermissionGuard::new();
+    apply_mode(&mut guard, mode);
+    guard
+}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PermissionScope {
     ShellExec,
