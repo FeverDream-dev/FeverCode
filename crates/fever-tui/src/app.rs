@@ -1954,52 +1954,141 @@ impl AppState {
                 }
             }
             SlashCommand::Doctor => {
-                let glyph_tier = format!("{:?}", crate::util::glyphs::detect_tier());
-                let checks: Vec<(&str, (String, bool))> = vec![
-                    ("Terminal", {
-                        let check = std::io::stdout().is_terminal();
-                        (
-                            if check { "interactive" } else { "piped" }.to_string(),
-                            check,
-                        )
-                    }),
-                    ("Theme", (self.theme.name.to_string(), true)),
-                    ("Glyphs", (glyph_tier, true)),
-                    (
-                        "Provider",
-                        (
-                            self.provider_name.clone(),
-                            !self.provider_name.is_empty() && self.provider_name != "none",
-                        ),
-                    ),
-                    (
-                        "Model",
-                        (
-                            self.model_name.clone(),
-                            !self.model_name.is_empty() && self.model_name != "none",
-                        ),
-                    ),
-                    ("Messages", (self.messages.len().to_string(), true)),
-                ];
                 let mut lines: Vec<String> = Vec::new();
                 lines.push("Fever Doctor".to_string());
-                for (label, (value, ok)) in &checks {
-                    let icon = if *ok { "✓" } else { "✗" };
-                    lines.push(format!("  {} {} - {}", icon, label, value));
-                }
-                let status = if checks.iter().all(|(_, (_, ok))| *ok) {
-                    "All checks passed."
-                } else {
-                    "Some checks failed. Run `fever doctor` for details."
+                let mut fail_count = 0u32;
+
+                let run_cmd = |prog: &str, args: &[&str]| -> (String, bool) {
+                    match std::process::Command::new(prog).args(args).output() {
+                        Ok(out) if out.status.success() => {
+                            (String::from_utf8_lossy(&out.stdout).trim().to_string(), true)
+                        }
+                        Ok(out) => (
+                            String::from_utf8_lossy(&out.stderr).trim().to_string(),
+                            false,
+                        ),
+                        Err(e) => (format!("not found: {}", e), false),
+                    }
                 };
+
+                // ── Environment ──────────────────────────────────────
                 lines.push(String::new());
-                lines.push(status.to_string());
+                lines.push("── Environment ──".to_string());
+
+                let (term_val, term_ok) = {
+                    let is_term = std::io::stdout().is_terminal();
+                    (
+                        if is_term { "interactive".to_string() } else { "piped".to_string() },
+                        is_term,
+                    )
+                };
+                lines.push(format!("  {} Terminal - {}", if term_ok { "✓" } else { "✗" }, term_val));
+                if !term_ok { fail_count += 1; }
+
+                lines.push(format!("  ✓ Theme - {}", self.theme.name));
+
+                let glyph_tier = format!("{:?}", crate::util::glyphs::detect_tier());
+                lines.push(format!("  ✓ Glyphs - {}", glyph_tier));
+
+                let (rust_ver, rust_ok) = run_cmd("rustc", &["--version"]);
+                lines.push(format!("  {} Rust - {}", if rust_ok { "✓" } else { "✗" }, if rust_ok { rust_ver } else { "not found".to_string() }));
+                if !rust_ok { fail_count += 1; }
+
+                let (fever_ver, fever_ok) = run_cmd("fever", &["version"]);
+                lines.push(format!("  {} Fever - {}", if fever_ok { "✓" } else { "⚠" }, if fever_ok { fever_ver } else { "not in PATH".to_string() }));
+
+                // ── Provider ────────────────────────────────────────
+                lines.push(String::new());
+                lines.push("── Provider ──".to_string());
+
+                let prov_ok = !self.provider_name.is_empty() && self.provider_name != "none";
+                lines.push(format!("  {} Provider - {}", if prov_ok { "✓" } else { "✗" }, if prov_ok { &self.provider_name } else { "not configured" }));
+                if !prov_ok { fail_count += 1; }
+
+                let model_ok = !self.model_name.is_empty() && self.model_name != "none";
+                lines.push(format!("  {} Model - {}", if model_ok { "✓" } else { "✗" }, if model_ok { &self.model_name } else { "not configured" }));
+                if !model_ok { fail_count += 1; }
+
+                if self.is_mock_mode {
+                    lines.push("  ⚠ Mock mode - active (no real provider)".to_string());
+                } else {
+                    lines.push("  ✓ Mock mode - off".to_string());
+                }
+
+                // ── Workspace ───────────────────────────────────────
+                lines.push(String::new());
+                lines.push("── Workspace ──".to_string());
+
+                let ws_path = PathBuf::from(&self.workspace);
+                let ws_exists = ws_path.exists();
+                lines.push(format!("  {} Path - {}", if ws_exists { "✓" } else { "✗" }, &self.workspace));
+                if !ws_exists { fail_count += 1; }
+
+                let (_, git_ok) = run_cmd("git", &["rev-parse", "--is-inside-work-tree"]);
+                lines.push(format!("  {} Git repo - {}", if git_ok { "✓" } else { "⚠" }, if git_ok { "yes" } else { "not a git repo" }));
+
+                let (branch, branch_ok) = run_cmd("git", &["rev-parse", "--abbrev-ref", "HEAD"]);
+                lines.push(format!("  {} Branch - {}", if branch_ok { "✓" } else { "⚠" }, if branch_ok { &branch } else { "unknown" }));
+
+                let (dirty_out, _) = run_cmd("git", &["status", "--porcelain"]);
+                let is_dirty = !dirty_out.is_empty();
+                lines.push(format!("  {} Dirty - {}", if is_dirty { "⚠" } else { "✓" }, if is_dirty { format!("{} files changed", dirty_out.lines().count()) } else { "clean".to_string() }));
+
+                // ── Tools ───────────────────────────────────────────
+                lines.push(String::new());
+                lines.push("── Tools ──".to_string());
+
+                let tool_count = self.tool_calls.len();
+                lines.push(format!("  ✓ Tool calls - {} this session", tool_count));
+
+                lines.push(format!("  ✓ Permissions - {}", self.permission_mode.label()));
+
+                let sessions_dir = dirs::data_dir()
+                    .map(|d| d.join("fevercode").join("sessions"))
+                    .unwrap_or_else(|| PathBuf::from(".fevercode/sessions"));
+                let session_count = std::fs::read_dir(&sessions_dir)
+                    .map(|entries| entries.filter_map(|e| e.ok()).count())
+                    .unwrap_or(0);
+                lines.push(format!("  ✓ Sessions - {} saved", session_count));
+
+                let sessions_writable = std::fs::create_dir_all(&sessions_dir).is_ok();
+                lines.push(format!("  {} Session dir - {}", if sessions_writable { "✓" } else { "✗" }, if sessions_writable { "writable" } else { "cannot write" }));
+                if !sessions_writable { fail_count += 1; }
+
+                // ── System ──────────────────────────────────────────
+                lines.push(String::new());
+                lines.push("── System ──".to_string());
+
+                let (cargo_check, check_ok) = run_cmd("cargo", &["check", "--workspace"]);
+                let check_summary = if check_ok { "compiles".to_string() } else { cargo_check.lines().next().unwrap_or("failed").to_string() };
+                lines.push(format!("  {} Cargo check - {}", if check_ok { "✓" } else { "✗" }, check_summary));
+                if !check_ok { fail_count += 1; }
+
+                let config_path = dirs::config_dir()
+                    .map(|d| d.join("fevercode").join("config.toml"))
+                    .unwrap_or_else(|| PathBuf::from("~/.config/fevercode/config.toml"));
+                let config_exists = config_path.exists();
+                lines.push(format!("  {} Config - {}", if config_exists { "✓" } else { "⚠" }, if config_exists { config_path.display().to_string() } else { "not found".to_string() }));
+
+                // Check if test files exist (don't actually run them — too slow for interactive)
+                let has_tests = std::path::Path::new("tests").exists()
+                    || (std::path::Path::new("Cargo.toml").exists()
+                        && std::fs::read_to_string("Cargo.toml")
+                            .map(|c| c.contains("[dev-dependencies]") || c.contains("[[test]]"))
+                            .unwrap_or(false));
+                lines.push(format!("  {} Tests - {}", if has_tests { "✓" } else { "⚠" }, if has_tests { "test files found" } else { "no tests detected" }));
+
+                // ── Summary ─────────────────────────────────────────
+                lines.push(String::new());
+                if fail_count == 0 {
+                    lines.push("✓ All checks passed.".to_string());
+                } else {
+                    lines.push(format!("✗ {} check(s) failed. Run `fever doctor` for details.", fail_count));
+                }
+
                 self.messages.push(MessageBubble::new(
                     MessageRole::System,
-                    lines.join(
-                        "
-",
-                    ),
+                    lines.join("\n"),
                 ));
             }
             SlashCommand::Session(opt) => {
@@ -2022,20 +2111,23 @@ impl AppState {
                                     .filter_map(|e| e.ok())
                                     .filter_map(|e| {
                                         let name = e.file_name().to_string_lossy().to_string();
-                                        if name.ends_with(".json") {
-                                            let stem = name.trim_end_matches(".json").to_string();
-                                            let meta = e.metadata().ok()?;
-                                            let modified = meta.modified().ok()?;
-                                            let time =
-                                                chrono::DateTime::<chrono::Local>::from(modified);
-                                            Some(format!(
-                                                "  {}  {}",
-                                                stem,
-                                                time.format("%Y-%m-%d %H:%M")
-                                            ))
-                                        } else {
-                                            None
+                                        let is_jsonl = name.ends_with(".jsonl");
+                                        let is_json = !is_jsonl && name.ends_with(".json");
+                                        if !is_jsonl && !is_json {
+                                            return None;
                                         }
+                                        let stem = name.trim_end_matches(".jsonl").trim_end_matches(".json").to_string();
+                                        let meta = e.metadata().ok()?;
+                                        let modified = meta.modified().ok()?;
+                                        let time =
+                                            chrono::DateTime::<chrono::Local>::from(modified);
+                                        let size_kb = meta.len() / 1024;
+                                        Some(format!(
+                                            "  {}  {}  ({}KB)",
+                                            stem,
+                                            time.format("%Y-%m-%d %H:%M"),
+                                            size_kb.max(1)
+                                        ))
                                     })
                                     .collect()
                             })
@@ -2063,7 +2155,7 @@ impl AppState {
                                     .filter(|e| {
                                         e.path()
                                             .extension()
-                                            .map(|ext| ext == "json")
+                                            .map(|ext| ext == "json" || ext == "jsonl")
                                             .unwrap_or(false)
                                     })
                                     .count()
@@ -2081,10 +2173,23 @@ impl AppState {
                             "No sessions to clear.".to_string(),
                         ));
                     }
+                } else if let Some(id) = action.strip_prefix("resume ") {
+                    match self.load_session(id.trim()) {
+                        Ok(msg) => {
+                            self.screen = Screen::Chat;
+                            self.notify(&msg);
+                        }
+                        Err(err) => {
+                            self.messages.push(MessageBubble::new(
+                                MessageRole::System,
+                                err,
+                            ));
+                        }
+                    }
                 } else {
                     self.messages.push(MessageBubble::new(
                         MessageRole::System,
-                        "Usage: /session [list|clear]".to_string(),
+                        "Usage: /session [list|clear|resume <id>]".to_string(),
                     ));
                 }
             }
@@ -2244,25 +2349,119 @@ impl AppState {
 
         let _ = std::fs::create_dir_all(&sessions_dir);
 
-        let session_data = serde_json::json!({
+        let mut lines: Vec<String> = Vec::new();
+        let header = serde_json::json!({
+            "type": "session_header",
             "id": self.session_id,
             "provider": self.provider_name,
             "model": self.model_name,
             "workspace": self.workspace,
-            "messages": self.messages.iter().map(|m| {
-                serde_json::json!({
-                    "role": format!("{:?}", m.role).to_lowercase(),
-                    "content": m.content,
-                })
-            }).collect::<Vec<_>>(),
-            "saved_at": chrono::Local::now().to_rfc3339(),
+            "permission_mode": self.permission_mode.label(),
+            "created_at": chrono::Local::now().to_rfc3339(),
         });
+        lines.push(serde_json::to_string(&header).unwrap_or_default());
 
-        let path = sessions_dir.join(format!("{}.json", self.session_id));
-        if let Ok(json) = serde_json::to_string_pretty(&session_data) {
-            let _ = std::fs::write(&path, json);
-            tracing::info!(session = %self.session_id, "Saved session");
+        for m in &self.messages {
+            let entry = serde_json::json!({
+                "type": "message",
+                "role": format!("{:?}", m.role).to_lowercase(),
+                "content": m.content,
+            });
+            lines.push(serde_json::to_string(&entry).unwrap_or_default());
         }
+
+        let path = sessions_dir.join(format!("{}.jsonl", self.session_id));
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&path)
+        {
+            use std::io::Write;
+            for line in &lines {
+                let _ = writeln!(file, "{}", line);
+            }
+            tracing::info!(session = %self.session_id, "Saved session (JSONL)");
+        }
+    }
+
+    pub fn load_session(&mut self, session_id: &str) -> Result<String, String> {
+        let sessions_dir = dirs::data_dir()
+            .map(|d| d.join("fevercode").join("sessions"))
+            .unwrap_or_else(|| std::path::PathBuf::from(".fevercode/sessions"));
+
+        let jsonl_path = sessions_dir.join(format!("{}.jsonl", session_id));
+        let json_path = sessions_dir.join(format!("{}.json", session_id));
+
+        let content = if jsonl_path.exists() {
+            std::fs::read_to_string(&jsonl_path)
+                .map_err(|e| format!("Cannot read {}: {}", jsonl_path.display(), e))?
+        } else if json_path.exists() {
+            std::fs::read_to_string(&json_path)
+                .map_err(|e| format!("Cannot read {}: {}", json_path.display(), e))?
+        } else {
+            return Err(format!("Session '{}' not found", session_id));
+        };
+
+        self.messages.clear();
+        let mut msg_count = 0;
+
+        if jsonl_path.exists() {
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(trimmed) {
+                    let entry_type = val.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                    if entry_type == "session_header" {
+                        if let Some(id) = val.get("id").and_then(|v| v.as_str()) {
+                            self.session_id = id.to_string();
+                        }
+                        if let Some(provider) = val.get("provider").and_then(|v| v.as_str()) {
+                            self.provider_name = provider.to_string();
+                        }
+                        if let Some(model) = val.get("model").and_then(|v| v.as_str()) {
+                            self.model_name = model.to_string();
+                        }
+                        continue;
+                    }
+                    if entry_type == "message" {
+                        let role_str = val.get("role").and_then(|v| v.as_str()).unwrap_or("user");
+                        let content_str = val.get("content").and_then(|v| v.as_str()).unwrap_or("");
+                        let role = match role_str {
+                            "user" => MessageRole::User,
+                            "assistant" => MessageRole::Assistant,
+                            _ => MessageRole::System,
+                        };
+                        self.messages.push(MessageBubble::new(role, content_str.to_string()));
+                        msg_count += 1;
+                    }
+                }
+            }
+        } else {
+            if let Ok(data) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(id) = data.get("id").and_then(|v| v.as_str()) {
+                    self.session_id = id.to_string();
+                }
+                if let Some(msgs) = data.get("messages").and_then(|v| v.as_array()) {
+                    for msg in msgs {
+                        let role_str = msg.get("role").and_then(|v| v.as_str()).unwrap_or("user");
+                        let content_str = msg.get("content").and_then(|v| v.as_str()).unwrap_or("");
+                        let role = match role_str {
+                            "user" => MessageRole::User,
+                            "assistant" => MessageRole::Assistant,
+                            _ => MessageRole::System,
+                        };
+                        self.messages.push(MessageBubble::new(role, content_str.to_string()));
+                        msg_count += 1;
+                    }
+                }
+            }
+        }
+
+        self.scroll_offset = 0;
+        Ok(format!("Resumed session '{}': {} messages loaded", session_id, msg_count))
     }
 
     // ── Rendering ──────────────────────────────────────────────────

@@ -8,7 +8,7 @@ use fever_core::{
     ToolRegistry,
 };
 use fever_providers::ProviderClient;
-use fever_providers::models::{ChatMessage, ChatRequest};
+use fever_providers::models::ChatMessage;
 use fever_tui::AgentHandle;
 use fever_tui::event::Message;
 
@@ -70,9 +70,6 @@ impl AgentHandle for FeverAgentHandle {
     }
 }
 
-/// Streaming agent loop that uses `chat_stream` for real-time output.
-/// On tool calls: collects the response, executes tools, then makes a follow-up `chat` call.
-/// Streams text chunks to the TUI as they arrive.
 async fn run_streaming_loop(
     agent: &fever_agent::FeverAgent,
     provider: &ProviderClient,
@@ -84,52 +81,12 @@ async fn run_streaming_loop(
     let max_iterations = 20;
     let request_timeout = std::time::Duration::from_secs(120);
 
-    // Build the initial request with system prompt from the agent's role
-    let role = agent.get_current_role();
-    let system_content = format!("{}\n\nContext: {}", role.system_prompt, context.metadata,);
-
     for iteration in 0..max_iterations {
-        let mut chat_messages = vec![ChatMessage {
-            role: "system".to_string(),
-            content: system_content.clone(),
-            tool_calls: None,
-            tool_call_id: None,
-        }];
+        let request = agent.prepare_request(&history, context).await;
+        let mut stream_request = request.clone();
+        stream_request.stream = true;
 
-        for msg in &history {
-            chat_messages.push(ChatMessage {
-                role: msg.role.clone(),
-                content: msg.content.clone(),
-                tool_calls: None,
-                tool_call_id: None,
-            });
-        }
-
-        let tools = match &agent.tools {
-            Some(t) => t,
-            None => return Err("No tools registered".to_string()),
-        };
-        let tool_definitions: Vec<_> = tools
-            .schemas()
-            .into_iter()
-            .map(|s| fever_providers::ToolDefinition {
-                name: s.name,
-                description: s.description,
-                parameters: s.parameters,
-            })
-            .collect();
-
-        let request = ChatRequest {
-            model: agent.default_model().to_string(),
-            messages: chat_messages,
-            tools: Some(tool_definitions.clone()),
-            temperature: Some(0.7),
-            max_tokens: Some(4096),
-            stream: true,
-        };
-
-        // Stream the response — SSE chunks arrive in real-time from the provider
-        let stream_result = tokio::time::timeout(request_timeout, provider.chat_stream(&request))
+        let stream_result = tokio::time::timeout(request_timeout, provider.chat_stream(&stream_request))
             .await
             .map_err(|_| {
                 format!(
@@ -165,44 +122,37 @@ async fn run_streaming_loop(
             }
         }
 
-        // Check if the response has tool calls (non-streaming tool calls come in the final chunk)
-        // For now, after streaming, we need to check if the model wants to use tools.
-        // We do this by making a non-streaming call with the accumulated content to detect tool calls.
         let has_tool_calls = finish_reason.as_deref() == Some("tool_calls")
             || finish_reason.as_deref() == Some("function_call");
 
         if has_tool_calls {
-            let mut retry_messages = vec![ChatMessage {
+            let mut detect_messages = vec![ChatMessage {
                 role: "system".to_string(),
-                content: system_content.clone(),
+                content: request.messages.first().map(|m| m.content.clone()).unwrap_or_default(),
                 tool_calls: None,
                 tool_call_id: None,
             }];
             for msg in &history {
-                retry_messages.push(ChatMessage {
+                detect_messages.push(ChatMessage {
                     role: msg.role.clone(),
                     content: msg.content.clone(),
                     tool_calls: None,
                     tool_call_id: None,
                 });
             }
-            retry_messages.push(ChatMessage {
+            detect_messages.push(ChatMessage {
                 role: "assistant".to_string(),
                 content: response_content.clone(),
                 tool_calls: None,
                 tool_call_id: None,
             });
 
-            let tool_request = ChatRequest {
-                model: agent.default_model().to_string(),
-                messages: retry_messages,
-                tools: Some(tool_definitions.clone()),
-                temperature: Some(0.0),
-                max_tokens: Some(4096),
-                stream: false,
-            };
+            let mut detect_request = request;
+            detect_request.messages = detect_messages;
+            detect_request.stream = false;
+            detect_request.temperature = Some(0.0);
 
-            let tool_response = tokio::time::timeout(request_timeout, provider.chat(&tool_request))
+            let tool_response = tokio::time::timeout(request_timeout, provider.chat(&detect_request))
                 .await
                 .map_err(|_| {
                     format!(
@@ -260,7 +210,7 @@ async fn run_streaming_loop(
             });
 
             let execution_context = ExecutionContext::new(
-                "loop_plan".to_string(),
+                "tui-loop".to_string(),
                 format!("iteration-{}", iteration + 1),
             );
 
