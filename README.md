@@ -280,7 +280,7 @@ fever version
 # Build
 cargo build --release
 
-# Test (221 tests)
+# Test (237 tests)
 cargo test
 
 # Format
