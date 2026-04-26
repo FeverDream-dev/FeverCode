@@ -1,0 +1,67 @@
+[workspace]
+root_policy = "launch_directory"
+create_state_dir = true
+state_dir = ".fevercode"
+
+[ui]
+theme = "egyptian_portal"
+show_diff_by_default = true
+show_token_budget = true
+
+[safety]
+mode = "ask" # ask | auto | spray
+allow_writes_inside_workspace = true
+allow_writes_outside_workspace = false
+allow_shell = true
+allow_network = false
+allow_git_commit = false
+allow_package_install = false
+max_endless_iterations = 25
+checkpoint_every_iterations = 3
+
+[providers.default]
+name = "zai"
+model = "glm-coding-plan-default"
+base_url = "https://api.z.ai/api/paas/v4"
+api_key_env = "ZAI_API_KEY"
+kind = "openai_compatible"
+
+[[providers.available]]
+name = "openai"
+kind = "openai_compatible"
+base_url = "https://api.openai.com/v1"
+api_key_env = "OPENAI_API_KEY"
+models = ["gpt-5.5-codex", "gpt-5.5"]
+
+[[providers.available]]
+name = "zai"
+kind = "openai_compatible"
+base_url = "https://api.z.ai/api/paas/v4"
+api_key_env = "ZAI_API_KEY"
+models = ["glm-5.1", "glm-4.6", "glm-coding-plan-default"]
+
+[[providers.available]]
+name = "ollama-local"
+kind = "openai_compatible"
+base_url = "http://localhost:11434/v1"
+api_key_env = "OLLAMA_API_KEY_OPTIONAL"
+models = ["qwen2.5-coder", "deepseek-coder", "llama3.1"]
+
+[[providers.available]]
+name = "ollama-cloud"
+kind = "openai_compatible"
+base_url = "https://ollama.com/v1"
+api_key_env = "OLLAMA_CLOUD_API_KEY"
+models = ["gpt-oss", "qwen3-coder"]
+
+[[providers.available]]
+name = "gemini-cli"
+kind = "external_cli"
+command = "gemini"
+models = ["gemini-default"]
+
+[agents]
+enabled = ["ra-planner", "thoth-architect", "anubis-guardian", "ptah-builder", "maat-checker", "seshat-docs"]
+
+[mcp]
+config_file = ".fevercode/mcp.json"

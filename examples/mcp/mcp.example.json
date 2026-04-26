@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "filesystem-readonly": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+      "env": {}
+    }
+  }
+}

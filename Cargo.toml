@@ -1,0 +1,41 @@
+[package]
+name = "fevercode"
+version = "0.1.0"
+edition = "2021"
+description = "FeverCode / fever: an Egyptian-portal inspired terminal AI coding agent."
+license-file = "LICENSE.md"
+repository = "https://github.com/YOUR_ORG/fevercode"
+readme = "README.md"
+
+[[bin]]
+name = "fever"
+path = "src/main.rs"
+
+[[bin]]
+name = "fevercode"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+crossterm = "0.28"
+ratatui = "0.29"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "process", "fs", "io-util", "sync", "time"] }
+walkdir = "2.5"
+ignore = "0.4"
+directories = "5.0"
+thiserror = "1.0"
+uuid = { version = "1.10", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+futures = "0.3"
+tokio-stream = "0.1"
+unicode-width = "0.2"
+similar = "2.6"
+async-stream = "0.3"
+
+[dev-dependencies]
+tempfile = "3.12"
