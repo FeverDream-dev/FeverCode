@@ -48,37 +48,46 @@ The project is implemented in Rust and ships a CLI (fever and fevercode) plus a 
 | TUI slash commands | Working | /help, /plan, /run, /spray, /ask, /auto, /doctor, /diff, /approve, /status, /model, /clear, /exit |
 | fever --help (general) | Working | shows usage and commands |
 | Tests and lint completeness | Working | 43 tests passing, lint clean |
+| fever souls list/show/validate/init | Working | lists built-in souls and config |
+| fever context stats | Working | shows session statistics (MVP) |
+| fever context compact | Working | generates compact session summary |
+| Secret redaction | Working | API keys, tokens, private keys redacted from logs |
+| Session events | Working | JSONL event log under .fevercode/session/ |
+| Release workflow | Working | cargo-dist configured, tag-triggered (no release published yet) |
+| One-line installer | Planned | scripts exist, requires first release tag |
+| Fever Souls (new) | Planned | see SOULS.md for agent constitution |
+| SOULS.md | Working | agent constitution file |
 
 > Experimental: fever endless "goal" prints loop outline (requires provider)
 
 ## Install
 
-From source only. Do not install from crates.io or rely on prebuilt releases.
+Three pathways are provided to install FeverCode. Content below reflects current release status and available artifacts.
 
-1) Clone the repository
+### macOS / Linux
+Available after first release
 
-```bash
-git clone https://github.com/FeverDream-dev/FeverCode.git
+```
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/FeverDream-dev/FeverCode/releases/latest/download/fever-installer.sh | sh
 ```
 
-2) Build the fever codebase
+### Windows
+Available after first release
 
-```bash
-cd FeverCode/fevercode_starter
-cargo build
+```
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/FeverDream-dev/FeverCode/releases/latest/download/fever-installer.ps1 | iex"
 ```
 
-3) (Optional) Verify with formatting, linting, and tests
+### From source
+This one works NOW
 
-```bash
-cargo fmt
-cargo clippy
-cargo test
+```
+cargo install --git https://github.com/FeverDream-dev/FeverCode fever
 ```
 
 Notes:
-- Building from source is required for FeverCode in this early stage; no cargo install or release artifacts are published yet.
-- All commands in this README reflect current, verifiable behavior when API keys are configured for providers.
+- Building from source is the current path for FeverCode; prebuilt releases are not yet published to crates.io.
+- All commands assume API keys are configured for the chosen providers.
 
 ## Quick Start
 
@@ -91,39 +100,27 @@ Notes:
 
 Advanced: interact with the in-terminal UI by running fever with no arguments. This opens a full-screen Ratatui-based UI with chat input, a sidebar, and slash commands.
 
-## Safety Model
+## Fever Souls
 
-FeverCode operates in three modes:
-- ask: prompt-driven planning where you ask for a specific outcome
-- auto: automated planning and execution within guardrails
-- spray: bulk command execution with safety checks
+FeverCode uses SOULS.md as its agent constitution. It defines how the coding souls plan, edit, test, compress context, and protect your workspace.
+- Ra plans.
+- Thoth designs.
+- Ptah builds.
+- Maat verifies.
+- Anubis guards.
+- Seshat documents.
 
-Workspace-only rule:
-- FeverCode writes are restricted to the workspace it runs in. All changes are scoped to the repository you operate on unless you explicitly opt into cross-workspace actions. This keeps changes auditable and reversible.
+CLI: fever souls list, fever souls show ra, fever souls validate, fever souls init
 
-## Provider Setup
+## Context Economy
 
-| Provider | Type | Env Var | Config Key | Status |
-|----------|------|---------|------------|--------|
-| Z.ai (openai_compatible) | OpenAI-compatible streaming client | ZAI_API_KEY | providers.z_ai.api_key | Implemented |
-| OpenAI (openai_compatible) | OpenAI-compatible streaming client | OPENAI_API_KEY | providers.openai.api_key | Implemented |
-| Ollama Local (openai_compatible) | Ollama running locally | OLLAMA_HOST | providers.ollama_local.host | Implemented |
-| Ollama Cloud (openai_compatible) | Ollama Cloud service | OLLAMA_CLOUD_API_KEY | providers.ollama_cloud.api_key | Implemented |
-| Gemini CLI (external_cli) | External CLI bridge | GEMINI_CLI_PATH | providers.gemini_cli.path | Implemented |
-| Generic OpenAI-compatible endpoint | OpenAI-compatible streaming client | OPENAI_API_KEY | providers.generic_openai.api_endpoint | Implemented |
-
-Notes:
-- The provider abstraction is real and streaming works when API keys are configured.
-- MCP stdio client is implemented but not wired to the TUI agent loop yet.
-
-## Agent Design
-
-- Ra Planner: orchestrates task planning and resource allocation.
-- Thoth Architect: designs the solution structure and interfaces.
-- Ptah Builder: translates plans into executable steps.
-- Maat Checker: validates correctness and safety at each stage.
-- Anubis Guardian: enforces guardrails and safety policies.
-- Seshat Docs: maintains documentation and traceability of decisions.
+FeverCode prefers small, targeted context over raw dumps:
+- Compact tool outputs (200-line default truncation)
+- Session event logging (.fevercode/session/events.jsonl)
+- Secret redaction (API keys, tokens, private keys)
+- Generated analysis scripts over reading many files
+- Session summaries (fever context compact)
+- Searchable future memory (planned)
 
 ## Commands
 
@@ -140,9 +137,14 @@ Notes:
 
 TUI slash commands:
 - /help /plan /run /spray /ask /auto /doctor /diff /approve /status /model /clear /exit
+fever souls list/show/validate/init
+fever context stats/compact
 
 ## Architecture
 
+- Souls: agent constitution and soul config
+- Events: session event logging and compaction
+- Context economy: output truncation, secret redaction
 - Safety: guard-rails, risk classifications, and spray mode guards
 - Config: loads .fevercode/config.toml and mcp.json; provider settings live here
 - Workspace: writes are workspace-scoped
@@ -159,8 +161,7 @@ TUI slash commands:
 - MVP stabilization: confirm core flows, tests pass
 - Agent loop: wiring for continuous planning/execution with providers (requires API keys)
 - MCP wiring: connect stdio MCP client to the UI flow
-- Release artifacts: build artifacts and docs site
-- Docs site: publish a centralized docs site
+
 
 ## Contributing
 

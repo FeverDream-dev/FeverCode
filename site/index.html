@@ -37,7 +37,7 @@
       </h1>
       <p class="hero-subtitle">
         <span class="tagline">A terminal AI coding portal for builders.</span><br>
-        Rust-powered. Full-screen TUI. Workspace-safe. 43 tests passing.
+        Rust-powered. Full-screen TUI. Workspace-safe. 70 tests passing.
       </p>
       <div class="hero-actions">
         <a href="#install" class="btn btn-primary">
@@ -140,7 +140,7 @@
 
         <div class="feature-card">
           <div class="card-icon">🧪</div>
-          <h3>43 Passing Tests <span class="badge badge-available">Available</span></h3>
+          <h3>70 Passing Tests <span class="badge badge-available">Available</span></h3>
           <p>CLI parsing, provider configs, agent definitions, workspace validation — tested and green. Run <code>cargo test</code> yourself.</p>
         </div>
 
@@ -148,6 +148,30 @@
           <div class="card-icon">📡</div>
           <h3>CLI Commands <span class="badge badge-available">Available</span></h3>
           <p><code>fever</code>, <code>init</code>, <code>doctor</code>, <code>plan</code>, <code>run</code>, <code>endless</code>, <code>providers</code>, <code>agents</code>, <code>version</code> — all wired up.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">📜</div>
+          <h3>SOULS.md <span class="badge badge-available">Available</span></h3>
+          <p>Agent constitution for Ra, Thoth, Ptah, Maat, Anubis, and Seshat souls. Each agent has a defined identity and behavioral contract.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">🎯</div>
+          <h3>Context Economy <span class="badge badge-available">Available</span></h3>
+          <p>Output truncation, secret redaction, and session logging. Keep token usage lean without losing critical information.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">🔗</div>
+          <h3>Session Continuity <span class="badge badge-available">Available</span></h3>
+          <p>JSONL event log and compact summaries. Resume where you left off with full conversation history preserved.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">🚀</div>
+          <h3>One-line Install <span class="badge badge-planned">Planned</span></h3>
+          <p>macOS, Linux, and Windows installers. One command to get FeverCode running — pending first release.</p>
         </div>
 
         <!-- Planned -->
@@ -181,36 +205,58 @@
   <!-- ====== INSTALL ====== -->
   <section class="section" id="install">
     <div class="container">
-      <h2 class="section-title">Install from Source</h2>
+      <h2 class="section-title">Install FeverCode</h2>
       <hr class="gold-line">
-      <p class="section-subtitle">You need Rust nightly and Git. That's it.</p>
+      <p class="section-subtitle">Choose your platform. One command to get started.</p>
 
       <div class="install-box">
-        <div class="install-header">
-          <span class="shell-icon">⟩</span> terminal
+        <div class="install-tabs" role="tablist">
+          <button class="install-tab active" role="tab" data-tab="macos" aria-selected="true">macOS / Linux</button>
+          <button class="install-tab" role="tab" data-tab="windows" aria-selected="false">Windows</button>
+          <button class="install-tab" role="tab" data-tab="source" aria-selected="false">From Source</button>
         </div>
-        <div class="install-body">
-<pre>
-<span class="cmt"># Clone the repository</span>
-<span class="cmd">git clone</span> https://github.com/FeverDream-dev/FeverCode.git
-<span class="cmd">cd</span> <span class="path">FeverCode</span>
 
-<span class="cmt"># Build in release mode</span>
-<span class="cmd">cargo build</span> <span class="path">--release</span>
-
-<span class="cmt"># Run the doctor to verify your setup</span>
-<span class="cmd">./target/release/fevercode</span> <span class="path">doctor</span>
-
-<span class="cmt"># Initialize a workspace</span>
-<span class="cmd">./target/release/fevercode</span> <span class="path">init</span>
-
-<span class="cmt"># Launch the portal</span>
-<span class="cmd">./target/release/fevercode</span> <span class="path">run</span>
-</pre>
+        <div class="install-tab-panel active" id="tab-macos" role="tabpanel">
+          <button class="copy-btn" data-copy="curl-macos" aria-label="Copy command">Copy</button>
+<pre id="curl-macos"><span class="cmt"># One-line install (macOS / Linux)</span>
+<span class="cmd">curl</span> <span class="path">--proto '=https' --tlsv1.2 -LsSf</span> https://github.com/FeverDream-dev/FeverCode/releases/latest/download/fever-installer.sh <span class="path">| sh</span></pre>
         </div>
+
+        <div class="install-tab-panel" id="tab-windows" role="tabpanel">
+          <button class="copy-btn" data-copy="ps-windows" aria-label="Copy command">Copy</button>
+<pre id="ps-windows"><span class="cmt"># One-line install (Windows PowerShell)</span>
+<span class="cmd">powershell</span> <span class="path">-ExecutionPolicy Bypass -c</span> "irm https://github.com/FeverDream-dev/FeverCode/releases/latest/download/fever-installer.ps1 <span class="path">| iex</span>"</pre>
+        </div>
+
+        <div class="install-tab-panel" id="tab-source" role="tabpanel">
+          <button class="copy-btn" data-copy="cargo-source" aria-label="Copy command">Copy</button>
+<pre id="cargo-source"><span class="cmt"># Install from source (all platforms)</span>
+<span class="cmd">cargo install</span> <span class="path">--git</span> https://github.com/FeverDream-dev/FeverCode <span class="path">fever</span></pre>
+        </div>
+
         <div class="install-note">
-          Requires Rust nightly toolchain. Run <code>rustup default nightly</code> if needed.
+          One-line installers available after the first release. Use source install until then.
         </div>
+      </div>
+
+      <div class="install-fallback">
+        <h4><span>⚠</span> No release yet?</h4>
+        <p style="font-size:0.875rem; color:var(--text-sec);">Until the first release is published, install from source:</p>
+<pre><span class="cmd">git clone</span> https://github.com/FeverDream-dev/FeverCode
+<span class="cmd">cd</span> <span class="path">FeverCode/fevercode_starter</span>
+<span class="cmd">cargo build</span> <span class="path">--release</span></pre>
+      </div>
+
+      <div class="docs-links">
+        <a href="https://github.com/FeverDream-dev/FeverCode/blob/main/SOULS.md" class="docs-link" target="_blank" rel="noopener">
+          <span class="link-icon">📜</span> SOULS.md
+        </a>
+        <a href="https://github.com/FeverDream-dev/FeverCode/blob/main/docs/souls.md" class="docs-link" target="_blank" rel="noopener">
+          <span class="link-icon">📖</span> Souls Documentation
+        </a>
+        <a href="https://github.com/FeverDream-dev/FeverCode/blob/main/docs/context-economy.md" class="docs-link" target="_blank" rel="noopener">
+          <span class="link-icon">🎯</span> Context Economy
+        </a>
       </div>
     </div>
   </section>
@@ -365,7 +411,7 @@
             Foundation
             <span class="roadmap-phase phase-current">Current</span>
           </h4>
-          <p>CLI skeleton, provider configs, agent role definitions, TUI layout, MCP stdio client, workspace safety boundary, 43 tests passing. This is where we are today.</p>
+          <p>CLI skeleton, provider configs, agent role definitions, TUI layout, MCP stdio client, workspace safety boundary, 70 tests passing. This is where we are today.</p>
         </div>
 
         <div class="roadmap-item">
@@ -412,6 +458,9 @@
         </div>
         <ul class="footer-links">
           <li><a href="https://github.com/FeverDream-dev/FeverCode" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/FeverDream-dev/FeverCode/blob/main/SOULS.md" target="_blank" rel="noopener">SOULS.md</a></li>
+          <li><a href="https://github.com/FeverDream-dev/FeverCode/blob/main/docs/souls.md" target="_blank" rel="noopener">Docs: Souls</a></li>
+          <li><a href="https://github.com/FeverDream-dev/FeverCode/blob/main/docs/context-economy.md" target="_blank" rel="noopener">Docs: Context Economy</a></li>
           <li><a href="https://github.com/FeverDream-dev/FeverCode/issues" target="_blank" rel="noopener">Issues</a></li>
           <li><a href="#features">Features</a></li>
           <li><a href="#install">Install</a></li>

@@ -5,6 +5,10 @@ mod approval;
 #[allow(dead_code)]
 mod config;
 #[allow(dead_code)]
+mod context_economy;
+#[allow(dead_code)]
+mod events;
+#[allow(dead_code)]
 mod mcp;
 #[allow(dead_code)]
 mod patch;
@@ -12,6 +16,8 @@ mod patch;
 mod providers;
 #[allow(dead_code)]
 mod safety;
+#[allow(dead_code)]
+mod souls;
 #[allow(dead_code)]
 mod tools;
 mod tui;
@@ -78,6 +84,45 @@ enum Commands {
 
     #[command(about = "Print version information")]
     Version,
+
+    #[command(about = "Manage FeverCode souls and agent constitution")]
+    Souls {
+        #[command(subcommand)]
+        action: SoulsAction,
+    },
+
+    #[command(about = "Context economy: session stats and compaction")]
+    Context {
+        #[command(subcommand)]
+        action: ContextAction,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum SoulsAction {
+    #[command(about = "List all built-in and configured souls")]
+    List,
+
+    #[command(about = "Show details for a specific soul")]
+    Show {
+        #[arg(help = "Soul name: ra, thoth, ptah, maat, anubis, seshat")]
+        name: String,
+    },
+
+    #[command(about = "Validate SOULS.md and souls config")]
+    Validate,
+
+    #[command(about = "Create SOULS.md and .fevercode/souls.toml if missing")]
+    Init,
+}
+
+#[derive(Subcommand, Debug)]
+enum ContextAction {
+    #[command(about = "Show context and session statistics")]
+    Stats,
+
+    #[command(about = "Generate a compact session summary")]
+    Compact,
 }
 
 #[tokio::main]
@@ -102,6 +147,8 @@ async fn main() -> Result<()> {
             println!("fever {} (fevercode)", env!("CARGO_PKG_VERSION"));
             Ok(())
         }
+        Some(Commands::Souls { action }) => handle_souls(action, &root.root),
+        Some(Commands::Context { action }) => handle_context(action, &root),
     }
 }
 
@@ -293,5 +340,52 @@ fn empty_hint(s: &str) -> &str {
         "<no task provided>"
     } else {
         s
+    }
+}
+
+fn handle_souls(action: SoulsAction, root: &std::path::Path) -> anyhow::Result<()> {
+    let cfg = souls::SoulsConfig::load(root)?;
+    match action {
+        SoulsAction::List => {
+            souls::list_souls(cfg.as_ref());
+            Ok(())
+        }
+        SoulsAction::Show { name } => souls::show_soul(&name, cfg.as_ref()),
+        SoulsAction::Validate => souls::validate_souls(root),
+        SoulsAction::Init => {
+            souls::init_souls_file(root)?;
+            souls::init_souls_md(root)?;
+            Ok(())
+        }
+    }
+}
+
+fn handle_context(action: ContextAction, root: &workspace::Workspace) -> anyhow::Result<()> {
+    let log = events::SessionLog::new(&root.state_dir);
+    match action {
+        ContextAction::Stats => {
+            let events = log.read_events()?;
+            let summary_exists = log.summary_path().exists();
+            let stats = context_economy::format_context_stats(
+                events.len(),
+                summary_exists,
+                log.events_path(),
+                log.summary_path(),
+            );
+            print!("{}", stats);
+            Ok(())
+        }
+        ContextAction::Compact => {
+            let summary = log.generate_summary()?;
+            log.write_summary(&summary)?;
+            let redacted = context_economy::redact_secrets(&summary);
+            println!(
+                "Session summary written to: {}",
+                log.summary_path().display()
+            );
+            println!();
+            print!("{}", redacted);
+            Ok(())
+        }
     }
 }

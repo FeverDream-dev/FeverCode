@@ -35,3 +35,26 @@ Troubleshooting
 - If the build fails, make sure you have a recent Rust toolchain and a clean workspace (cargo clean) before retrying.
 - Ensure dependencies are up to date: cargo update
 - If the binary name differs, search the Cargo.toml for the [[bin]] section to confirm the executable name.
+
+Install methods (post-release)
+
+a) macOS/Linux one-line curl installer
+- After a FeverCode release is published, run:
+  curl --proto '=https' --tlsv1.2 -LsSf https://github.com/FeverDream-dev/FeverCode/releases/latest/download/fever-installer.sh | sh
+
+b) Windows one-line PowerShell installer
+- After a FeverCode release is published, run:
+  irm https://github.com/FeverDream-dev/FeverCode/releases/latest/download/fever-installer.ps1 | iex
+
+c) Source install via cargo
+- cargo install --git https://github.com/FeverDream-dev/FeverCode fever
+
+Uninstall
+- macOS/Linux:
+  - cargo uninstall fever
+  - or rm -f $(which fever)
+- Windows:
+  - Remove fever.exe from PATH and delete the binary if installed
+
+Notes
+- The curl and PowerShell installers only work AFTER a FeverCode release is published. Until then, only the source install is guaranteed to work.

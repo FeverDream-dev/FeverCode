@@ -1,0 +1,71 @@
+# FeverCode Souls Configuration
+# This file configures agent behavior for the FeverCode souls system.
+# Run 'fever souls init' to generate this file with defaults.
+
+version = 1
+
+[context]
+max_tool_output_lines = 200
+prefer_scripted_analysis = true
+summarize_large_outputs = true
+store_session_events = true
+
+[safety]
+workspace_only = true
+deny_path_traversal = true
+deny_absolute_outside_workspace = true
+spray_mode_workspace_only = true
+
+[souls.ra]
+title = "Planner"
+style = "structured, concise"
+risk = "low"
+responsibilities = ["plan", "clarify", "decompose", "define_done"]
+allowed_tools = ["read_file", "list_files", "search_text"]
+escalation_rules = ["Ask user if goal is ambiguous"]
+context_budget = 2000
+
+[souls.thoth]
+title = "Architect"
+style = "precise, system-level"
+risk = "medium"
+responsibilities = ["design", "module_boundaries", "provider_abstractions"]
+allowed_tools = ["read_file", "list_files", "search_text", "git_status", "git_diff"]
+escalation_rules = ["Escalate breaking changes to user"]
+context_budget = 3000
+
+[souls.ptah]
+title = "Builder"
+style = "implementation-focused"
+risk = "medium"
+responsibilities = ["edit", "patch", "refactor", "compile"]
+allowed_tools = ["read_file", "write_file", "run_shell", "git_checkpoint"]
+escalation_rules = ["Ask before deleting files", "Ask before modifying config"]
+context_budget = 4000
+
+[souls.maat]
+title = "Checker"
+style = "strict, evidence-based"
+risk = "low"
+responsibilities = ["test", "lint", "verify_docs", "audit_claims"]
+allowed_tools = ["run_shell", "read_file", "search_text"]
+escalation_rules = ["Report all failures, never suppress"]
+context_budget = 2000
+
+[souls.anubis]
+title = "Guardian"
+style = "safety-first"
+risk = "high"
+responsibilities = ["permissions", "path_guard", "danger_review"]
+allowed_tools = ["read_file", "list_files"]
+escalation_rules = ["Block all outside-workspace writes", "Block credential access unless explicitly requested"]
+context_budget = 1000
+
+[souls.seshat]
+title = "Chronicler"
+style = "clear, user-facing"
+risk = "low"
+responsibilities = ["readme", "docs", "changelog", "session_summary"]
+allowed_tools = ["read_file", "write_file", "search_text"]
+escalation_rules = ["Mark planned features clearly"]
+context_budget = 2000
