@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FeverCode — Terminal AI Coding Portal</title>
+  <meta name="description" content="A Rust terminal AI coding agent with Egyptian precision. Full-screen TUI, workspace safety, 5 providers, 6 agent roles.">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
+</head>
+<body>
+
+  <!-- ====== NAVIGATION ====== -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <span class="logo-icon">𓂀</span>
+        FeverCode
+      </a>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation">☰</button>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#install">Install</a></li>
+        <li><a href="#providers">Providers</a></li>
+        <li><a href="#safety">Safety</a></li>
+        <li><a href="#architecture">Architecture</a></li>
+        <li><a href="https://github.com/FeverDream-dev/FeverCode" class="nav-cta" target="_blank" rel="noopener">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ====== HERO ====== -->
+  <section class="hero">
+    <div class="container hero-content">
+      <h1 class="hero-title">
+        <span class="accent">FeverCode</span>
+      </h1>
+      <p class="hero-subtitle">
+        <span class="tagline">A terminal AI coding portal for builders.</span><br>
+        Rust-powered. Full-screen TUI. Workspace-safe. 43 tests passing.
+      </p>
+      <div class="hero-actions">
+        <a href="#install" class="btn btn-primary">
+          <span class="btn-icon">⌗</span> Get Started
+        </a>
+        <a href="https://github.com/FeverDream-dev/FeverCode" class="btn btn-secondary" target="_blank" rel="noopener">
+          <span class="btn-icon">↗</span> View on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== TERMINAL MOCKUP ====== -->
+  <section class="section" id="preview">
+    <div class="container">
+      <h2 class="section-title text-center">See the Portal</h2>
+      <hr class="gold-line">
+      <p class="section-subtitle text-center">Full-screen terminal UI built with Ratatui — your workspace, at a glance.</p>
+
+      <div class="terminal-mockup">
+        <div class="terminal-bar">
+          <span class="terminal-dot red"></span>
+          <span class="terminal-dot yellow"></span>
+          <span class="terminal-dot green"></span>
+          <span class="terminal-bar-title"><span>fevercode</span> — ~/projects/my-app</span>
+        </div>
+        <div class="terminal-body">
+<pre>
+<span class="t-gold">╭──────────────────────────────────────────────────────────────────────────────────╮</span>
+<span class="t-gold">│</span>  <span class="t-amber">Workspace:</span> <span class="t-white">~/projects/my-app</span>    <span class="t-amber">Mode:</span> <span class="t-green">ask</span>    <span class="t-amber">Provider:</span> <span class="t-white">zai</span>    <span class="t-amber">Agent:</span> <span class="t-white">builder</span>  <span class="t-gold">│</span>
+<span class="t-gold">╰──────────────────────────────────────────────────────────────────────────────────╯</span>
+
+<span class="t-muted">┌─ Agents ─────────────────┐</span>  <span class="t-muted">┌─ Chat ──────────────────────────────────────────────────────────────┐</span>
+<span class="t-muted">│</span>  <span class="t-green">●</span> <span class="t-white">builder</span>              <span class="t-muted">│</span>  <span class="t-muted">│</span>                                                                    <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-dim">○</span> <span class="t-sec">planner</span>              <span class="t-muted">│</span>  <span class="t-muted">│</span>  <span class="t-gold">You:</span> <span class="t-white">Add error handling to the parse_config function</span>          <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-dim">○</span> <span class="t-sec">architect</span>             <span class="t-muted">│</span>  <span class="t-muted">│</span>                                                                    <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-dim">○</span> <span class="t-sec">reviewer</span>              <span class="t-muted">│</span>  <span class="t-muted">│</span>  <span class="t-gold">FeverCode:</span> <span class="t-green">Analyzed src/config.rs (line 42-78)</span>                   <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-dim">○</span> <span class="t-sec">fixer</span>                 <span class="t-muted">│</span>  <span class="t-muted">│</span>             <span class="t-sec">Planning 3 changes:</span>                                  <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-dim">○</span> <span class="t-sec">explorer</span>              <span class="t-muted">│</span>  <span class="t-muted">│</span>             <span class="t-sec">1. Wrap parse() in Result&lt;Config, ConfigError&gt;</span>             <span class="t-muted">│</span>
+<span class="t-muted">│</span>                          <span class="t-muted">│</span>  <span class="t-muted">│</span>             <span class="t-sec">2. Add custom error variants</span>                             <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-amber">[↑↓] select</span>  <span class="t-amber">[⏎] use</span>  <span class="t-muted">│</span>  <span class="t-muted">│</span>             <span class="t-sec">3. Update call sites with ? operator</span>                     <span class="t-muted">│</span>
+<span class="t-muted">└──────────────────────────┘</span>  <span class="t-muted">│</span>                                                                    <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-amber">── Approval Queue ──</span>                                        <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-dim">[1] src/config.rs</span>  <span class="t-green">+12 -3</span>   <span class="t-amber">[y/n/e]</span>                     <span class="t-muted">│</span>
+<span class="t-muted">│</span>                                                                    <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span> <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-gold">❯</span> <span class="t-white">Add error handling to the parse_config function_</span>                <span class="t-muted">│</span>
+<span class="t-muted">└─────────────────────────────────────────────────────────────────────┘</span>
+</pre>
+        </div>
+        <div class="terminal-label">TUI Preview — Actual interface rendered in terminal via Ratatui</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== FEATURES ====== -->
+  <section class="section" id="features">
+    <div class="container">
+      <h2 class="section-title text-center">What's Inside</h2>
+      <hr class="gold-line">
+      <p class="section-subtitle text-center">Built in Rust. Tested. Workspace-scoped. No excuses.</p>
+
+      <div class="feature-grid">
+        <!-- Available Now -->
+        <div class="feature-card">
+          <div class="card-icon">🖥</div>
+          <h3>Full-Screen TUI <span class="badge badge-available">Available</span></h3>
+          <p>Full-screen terminal interface built with Ratatui. Chat panel, agent sidebar, approval queue — all keyboard-driven.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">🔒</div>
+          <h3>Workspace Safety <span class="badge badge-available">Available</span></h3>
+          <p>All operations are sandboxed to your project workspace. No wandering outside. What happens in the workspace stays in the workspace.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">⚡</div>
+          <h3>5 Provider Configs <span class="badge badge-available">Available</span></h3>
+          <p>Pre-configured for Z.ai, OpenAI, Ollama Local, Ollama Cloud, and Gemini CLI. Set your API key, pick a provider, go.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">🤖</div>
+          <h3>6 Agent Roles <span class="badge badge-available">Available</span></h3>
+          <p>Builder, Planner, Architect, Reviewer, Fixer, Explorer — each agent has a defined role and system prompt.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">🔌</div>
+          <h3>MCP Stdio Client <span class="badge badge-available">Available</span></h3>
+          <p>Model Context Protocol client over stdio. Connect external tool servers to extend FeverCode's capabilities.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">✅</div>
+          <h3>Patch & Approval Queue <span class="badge badge-available">Available</span></h3>
+          <p>Review every change before it lands. Diff view, approve/reject/edit — you stay in control of your codebase.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">🧪</div>
+          <h3>43 Passing Tests <span class="badge badge-available">Available</span></h3>
+          <p>CLI parsing, provider configs, agent definitions, workspace validation — tested and green. Run <code>cargo test</code> yourself.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">📡</div>
+          <h3>CLI Commands <span class="badge badge-available">Available</span></h3>
+          <p><code>fever</code>, <code>init</code>, <code>doctor</code>, <code>plan</code>, <code>run</code>, <code>endless</code>, <code>providers</code>, <code>agents</code>, <code>version</code> — all wired up.</p>
+        </div>
+
+        <!-- Planned -->
+        <div class="feature-card">
+          <div class="card-icon">🔄</div>
+          <h3>AI Agent Loop <span class="badge badge-planned">Planned</span></h3>
+          <p>Full autonomous coding loop: prompt → plan → execute → verify → iterate. The engine that ties it all together.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">📦</div>
+          <h3>Crates.io & Binaries <span class="badge badge-planned">Planned</span></h3>
+          <p><code>cargo install fevercode</code> and pre-built binaries for Linux, macOS, Windows. One command, zero friction.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">🧠</div>
+          <h3>Memory & Context <span class="badge badge-planned">Planned</span></h3>
+          <p>Persistent memory across sessions. Remember project conventions, past decisions, and your coding preferences.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">🌐</div>
+          <h3>Browser Tools <span class="badge badge-planned">Planned</span></h3>
+          <p>Integrated browser automation for web testing, scraping, and UI verification. See your changes rendered live.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== INSTALL ====== -->
+  <section class="section" id="install">
+    <div class="container">
+      <h2 class="section-title">Install from Source</h2>
+      <hr class="gold-line">
+      <p class="section-subtitle">You need Rust nightly and Git. That's it.</p>
+
+      <div class="install-box">
+        <div class="install-header">
+          <span class="shell-icon">⟩</span> terminal
+        </div>
+        <div class="install-body">
+<pre>
+<span class="cmt"># Clone the repository</span>
+<span class="cmd">git clone</span> https://github.com/FeverDream-dev/FeverCode.git
+<span class="cmd">cd</span> <span class="path">FeverCode</span>
+
+<span class="cmt"># Build in release mode</span>
+<span class="cmd">cargo build</span> <span class="path">--release</span>
+
+<span class="cmt"># Run the doctor to verify your setup</span>
+<span class="cmd">./target/release/fevercode</span> <span class="path">doctor</span>
+
+<span class="cmt"># Initialize a workspace</span>
+<span class="cmd">./target/release/fevercode</span> <span class="path">init</span>
+
+<span class="cmt"># Launch the portal</span>
+<span class="cmd">./target/release/fevercode</span> <span class="path">run</span>
+</pre>
+        </div>
+        <div class="install-note">
+          Requires Rust nightly toolchain. Run <code>rustup default nightly</code> if needed.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== PROVIDERS ====== -->
+  <section class="section" id="providers">
+    <div class="container">
+      <h2 class="section-title text-center">Providers</h2>
+      <hr class="gold-line">
+      <p class="section-subtitle text-center">Five provider configurations ready to go. Set the env var, select the provider, start building.</p>
+
+      <div class="provider-grid">
+        <div class="provider-card">
+          <h4>Z.ai</h4>
+          <code class="env-var">ZAI_API_KEY</code>
+          <p>Z.ai's coding-optimized models. Default provider.</p>
+          <div class="provider-status">
+            <span class="status-dot active"></span> Configured
+          </div>
+        </div>
+
+        <div class="provider-card">
+          <h4>OpenAI</h4>
+          <code class="env-var">OPENAI_API_KEY</code>
+          <p>GPT-4o and o-series models. Industry standard.</p>
+          <div class="provider-status">
+            <span class="status-dot active"></span> Configured
+          </div>
+        </div>
+
+        <div class="provider-card">
+          <h4>Ollama Local</h4>
+          <code class="env-var">OLLAMA_HOST</code>
+          <p>Run models locally. Zero cost, full privacy. Default: localhost:11434.</p>
+          <div class="provider-status">
+            <span class="status-dot active"></span> Configured
+          </div>
+        </div>
+
+        <div class="provider-card">
+          <h4>Ollama Cloud</h4>
+          <code class="env-var">OLLAMA_CLOUD_KEY</code>
+          <p>Managed Ollama endpoint. Local model quality without local hardware.</p>
+          <div class="provider-status">
+            <span class="status-dot active"></span> Configured
+          </div>
+        </div>
+
+        <div class="provider-card">
+          <h4>Gemini CLI</h4>
+          <code class="env-var">GEMINI_API_KEY</code>
+          <p>Google's Gemini models via CLI integration.</p>
+          <div class="provider-status">
+            <span class="status-dot active"></span> Configured
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== SAFETY ====== -->
+  <section class="section" id="safety">
+    <div class="container">
+      <h2 class="section-title">Safety Modes</h2>
+      <hr class="gold-line">
+      <p class="section-subtitle">Three operating modes. You choose how much autonomy FeverCode gets.</p>
+
+      <div class="safety-modes">
+        <div class="safety-card">
+          <div class="mode-icon">💬</div>
+          <h4>ask</h4>
+          <div class="mode-label">Ask Mode</div>
+          <p>Read-only. FeverCode analyzes your code, answers questions, suggests changes — but touches nothing. Safe as a conversation.</p>
+        </div>
+
+        <div class="safety-card">
+          <div class="mode-icon">⚖</div>
+          <h4>auto</h4>
+          <div class="mode-label">Auto Mode</div>
+          <p>Proposes changes through the approval queue. Every edit, every file operation passes through your review before applying.</p>
+        </div>
+
+        <div class="safety-card">
+          <div class="mode-icon">⚡</div>
+          <h4>spray</h4>
+          <div class="mode-label">Spray Mode</div>
+          <p>Full autonomy within the workspace boundary. FeverCode executes plans, writes code, runs tests — all without waiting for approval.</p>
+        </div>
+      </div>
+
+      <div class="safety-boundary">
+        <div class="shield">🛡</div>
+        <div>
+          <h4>Workspace Boundary — Non-Negotiable</h4>
+          <p>Regardless of mode, FeverCode never operates outside your project directory. No home directory access, no system files, no escapes. The workspace boundary is enforced at the architecture level — not a config flag you can toggle off.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== ARCHITECTURE ====== -->
+  <section class="section" id="architecture">
+    <div class="container">
+      <h2 class="section-title text-center">Architecture</h2>
+      <hr class="gold-line">
+      <p class="section-subtitle text-center">The pipeline from prompt to production. Every step is auditable.</p>
+
+      <div class="arch-flow">
+        <div class="arch-step">
+          <div class="step-icon">💬</div>
+          <div class="step-name">Prompt</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-step">
+          <div class="step-icon">📋</div>
+          <div class="step-name">Plan</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-step">
+          <div class="step-icon">🔐</div>
+          <div class="step-name">Approval</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-step">
+          <div class="step-icon">🔧</div>
+          <div class="step-name">Tools</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-step">
+          <div class="step-icon">✅</div>
+          <div class="step-name">Checks</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-step">
+          <div class="step-icon">📊</div>
+          <div class="step-name">Summary</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== ROADMAP ====== -->
+  <section class="section" id="roadmap">
+    <div class="container">
+      <h2 class="section-title">Roadmap</h2>
+      <hr class="gold-line">
+      <p class="section-subtitle">Where we are. Where we're going.</p>
+
+      <div class="roadmap">
+        <div class="roadmap-item">
+          <h4>
+            Foundation
+            <span class="roadmap-phase phase-current">Current</span>
+          </h4>
+          <p>CLI skeleton, provider configs, agent role definitions, TUI layout, MCP stdio client, workspace safety boundary, 43 tests passing. This is where we are today.</p>
+        </div>
+
+        <div class="roadmap-item">
+          <h4>
+            Agent Loop
+            <span class="roadmap-phase phase-next">Next</span>
+          </h4>
+          <p>Wire the full autonomous coding loop: prompt → plan → execute → verify. Connect providers to agent roles. Make the portal actually think and act.</p>
+        </div>
+
+        <div class="roadmap-item">
+          <h4>
+            Publishing
+            <span class="roadmap-phase phase-next">Next</span>
+          </h4>
+          <p>crates.io publication, pre-built release binaries for Linux/macOS/Windows, homebrew tap. One-command install for everyone.</p>
+        </div>
+
+        <div class="roadmap-item future">
+          <h4>
+            Memory & Context
+            <span class="roadmap-phase phase-future">Future</span>
+          </h4>
+          <p>Persistent memory across sessions. Project conventions, past decisions, coding style preferences — FeverCode remembers.</p>
+        </div>
+
+        <div class="roadmap-item future">
+          <h4>
+            Extended Tools
+            <span class="roadmap-phase phase-future">Future</span>
+          </h4>
+          <p>Browser automation, connected MCP server marketplace, theme customization, notification integrations. The ecosystem expands.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== FOOTER ====== -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-copy">
+          <span class="fever">FeverCode</span> — MIT License
+        </div>
+        <ul class="footer-links">
+          <li><a href="https://github.com/FeverDream-dev/FeverCode" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/FeverDream-dev/FeverCode/issues" target="_blank" rel="noopener">Issues</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#install">Install</a></li>
+        </ul>
+        <div class="footer-notice">
+          Provided as-is, without warranty. This is an early-stage project. Features labeled "Planned" are on the roadmap, not yet implemented.
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

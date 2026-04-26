@@ -1,0 +1,28 @@
+name: Bug report
+about: Create a report to help fix issues
+labels: bug
+title: "[BUG] ..."
+body:
+  - type: markdown
+    value: "Please provide a concise description of the bug and steps to reproduce."
+  - type: textarea
+    id: description
+    label: Description
+  - type: textarea
+    id: steps_to_reproduce
+    label: Steps to reproduce
+  - type: textarea
+    id: expected_behavior
+    label: Expected behavior
+  - type: textarea
+    id: actual_behavior
+    label: Actual behavior
+  - type: input
+    id: fever_version
+    label: Fever version
+  - type: input
+    id: os
+    label: OS
+  - type: input
+    id: approval_mode
+    label: Approval mode

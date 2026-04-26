@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "FeverCode / fever: an Egyptian-portal inspired terminal AI coding agent."
 license-file = "LICENSE.md"
-repository = "https://github.com/YOUR_ORG/fevercode"
+repository = "https://github.com/FeverDream-dev/FeverCode"
 readme = "README.md"
 
 [[bin]]

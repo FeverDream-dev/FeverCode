@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-REPO="${FEVERCODE_REPO:-YOUR_ORG/fevercode}"
+REPO="${FEVERCODE_REPO:-FeverDream-dev/FeverCode}"
 BIN_DIR="${FEVERCODE_BIN_DIR:-$HOME/.local/bin}"
 VERSION="${FEVERCODE_VERSION:-latest}"
 

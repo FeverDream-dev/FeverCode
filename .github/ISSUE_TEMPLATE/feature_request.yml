@@ -1,0 +1,19 @@
+name: Feature request
+about: Propose a new feature for FeverCode
+labels: enhancement
+title: "[FEATURE] ..."
+body:
+  - type: markdown
+    value: "Describe the problem and your proposed solution."
+  - type: textarea
+    id: problem_description
+    label: Problem description
+  - type: textarea
+    id: proposed_solution
+    label: Proposed solution
+  - type: textarea
+    id: alternatives_considered
+    label: Alternatives considered
+  - type: textarea
+    id: additional_context
+    label: Additional context

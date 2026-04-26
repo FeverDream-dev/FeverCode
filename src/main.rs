@@ -1,12 +1,18 @@
-#![allow(dead_code)]
-
+#[allow(dead_code)]
 mod agents;
+#[allow(dead_code)]
 mod approval;
+#[allow(dead_code)]
 mod config;
+#[allow(dead_code)]
 mod mcp;
+#[allow(dead_code)]
 mod patch;
+#[allow(dead_code)]
 mod providers;
+#[allow(dead_code)]
 mod safety;
+#[allow(dead_code)]
 mod tools;
 mod tui;
 mod workspace;
@@ -16,27 +22,62 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
-#[command(name = "fever", version, about = "FeverCode terminal AI coding portal")]
+#[command(
+    name = "fever",
+    version,
+    about = "FeverCode — a terminal AI coding portal",
+    long_about = "FeverCode (fever) is a full-screen terminal AI coding agent.\n\
+    It plans, edits, tests, and reviews code inside your workspace.\n\
+    \n\
+    Safety first: FeverCode never writes outside the folder where you launch it.\n\
+    \n\
+    Run 'fever' to open the portal, or use a subcommand for non-interactive mode."
+)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 
-    #[arg(long)]
+    #[arg(long, help = "Override workspace root (defaults to current directory)")]
     workspace: Option<PathBuf>,
 
-    #[arg(long)]
+    #[arg(long, help = "Set approval mode: ask, auto, or spray")]
     mode: Option<safety::ApprovalMode>,
 }
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    #[command(about = "Create .fevercode config in the current workspace")]
     Init,
+
+    #[command(about = "Check install, workspace, safety, providers, and test detection")]
     Doctor,
-    Plan { task: Vec<String> },
-    Run { task: Vec<String> },
-    Endless { goal: Vec<String> },
+
+    #[command(about = "Plan a task without editing files")]
+    Plan {
+        #[arg(trailing_var_arg = true, help = "Task description")]
+        task: Vec<String>,
+    },
+
+    #[command(about = "Plan, approve, edit, and test a task")]
+    Run {
+        #[arg(trailing_var_arg = true, help = "Task description")]
+        task: Vec<String>,
+    },
+
+    #[command(about = "Bounded autonomous loop with checkpoints (experimental)")]
+    Endless {
+        #[arg(trailing_var_arg = true, help = "Goal description")]
+        goal: Vec<String>,
+    },
+
+    #[command(about = "List configured providers and their status")]
     Providers,
+
+    #[command(about = "List built-in agent roles")]
     Agents,
+
+    #[command(about = "Print version information")]
+    Version,
 }
 
 #[tokio::main]
@@ -57,6 +98,10 @@ async fn main() -> Result<()> {
         Some(Commands::Endless { goal }) => endless(root, cfg, goal.join(" ")).await,
         Some(Commands::Providers) => providers::print_providers(&cfg),
         Some(Commands::Agents) => agents::print_agents(),
+        Some(Commands::Version) => {
+            println!("fever {} (fevercode)", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
     }
 }
 
@@ -177,25 +222,20 @@ async fn plan_only(
     println!("Project type: {}", summary.project_type.join(", "));
     println!("Approval mode: {}", cfg.safety.mode);
     println!();
-    println!("Plan:");
+
+    if agents::find_agent("ra-planner").is_some() {
+        println!("Ra Planner active.");
+    }
+
+    println!();
+    println!("Plan outline:");
     println!("1. Clarify goal and acceptance criteria.");
     println!("2. Map relevant files and dependencies.");
     println!("3. Propose patch set.");
     println!("4. Run checks (tests, lint, typecheck).");
     println!("5. Summarize changes and verify.");
-
-    if let Some(ra) = agents::find_agent("ra-planner") {
-        println!();
-        println!("Ra Planner guidance:");
-        println!(
-            "{}",
-            ra.system_prompt
-                .lines()
-                .take(5)
-                .collect::<Vec<_>>()
-                .join("\n")
-        );
-    }
+    println!();
+    println!("Note: Connect a provider to enable AI-assisted planning.");
 
     Ok(())
 }
@@ -216,7 +256,7 @@ async fn run_task(
 
     let test_commands = cfg.detect_test_commands(&root.root);
     if !test_commands.is_empty() {
-        println!("Available test commands:");
+        println!("Detected test commands:");
         for cmd in &test_commands {
             println!("  - {}", cmd);
         }
@@ -224,14 +264,13 @@ async fn run_task(
 
     println!();
     println!("Note: Connect a provider to enable AI-assisted coding.");
-    println!("Use /run in the TUI or set a provider API key.");
 
     Ok(())
 }
 
 async fn endless(root: workspace::Workspace, cfg: config::FeverConfig, goal: String) -> Result<()> {
     let guard = safety::SafetyPolicy::new(root.root.clone(), cfg.safety.clone());
-    println!("Ra endless mode");
+    println!("Ra endless mode (experimental)");
     println!("===============");
     println!();
     println!("Goal: {}", empty_hint(&goal));

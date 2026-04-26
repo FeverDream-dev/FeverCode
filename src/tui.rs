@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use anyhow::Result;
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind},
@@ -54,11 +55,22 @@ impl App {
         provider_name: String,
         model_name: String,
     ) -> Self {
-        let chat_lines = vec![ChatLine {
-            role: "system".to_string(),
-            content: "FeverCode portal initialized. Type a message or /help for commands."
-                .to_string(),
-        }];
+        let chat_lines = vec![
+            ChatLine {
+                role: "system".to_string(),
+                content: "FeverCode Portal v0.1.0".to_string(),
+            },
+            ChatLine {
+                role: "system".to_string(),
+                content:
+                    "Workspace-only safety boundary active. All writes stay in the launch folder."
+                        .to_string(),
+            },
+            ChatLine {
+                role: "system".to_string(),
+                content: "Type a message to chat, or use /help to see commands.".to_string(),
+            },
+        ];
 
         Self {
             workspace_root,
@@ -190,8 +202,7 @@ impl App {
                 self.mode = ApprovalMode::Spray;
                 self.chat_lines.push(ChatLine {
                     role: "system".to_string(),
-                    content: "Spray mode activated. Autonomous workspace edits enabled."
-                        .to_string(),
+                    content: "WARNING: Spray mode active. Autonomous workspace edits enabled. Workspace-only boundary enforced. Type /ask to return to safe mode.".to_string(),
                 });
             }
             "/ask" => {
@@ -205,8 +216,33 @@ impl App {
                 self.mode = ApprovalMode::Auto;
                 self.chat_lines.push(ChatLine {
                     role: "system".to_string(),
-                    content: "Auto mode. Safe edits proceed automatically.".to_string(),
+                    content: "Auto mode. Safe edits and read-only commands proceed automatically."
+                        .to_string(),
                 });
+            }
+            "/mode" => {
+                let new_mode = args.trim();
+                if new_mode.is_empty() {
+                    self.chat_lines.push(ChatLine {
+                        role: "system".to_string(),
+                        content: format!(
+                            "Current mode: {}. Usage: /mode ask|auto|spray",
+                            self.mode
+                        ),
+                    });
+                } else {
+                    match new_mode {
+                        "ask" | "auto" | "spray" => {
+                            self.handle_command(&format!("/{}", new_mode));
+                        }
+                        _ => {
+                            self.chat_lines.push(ChatLine {
+                                role: "system".to_string(),
+                                content: "Unknown mode. Use: ask, auto, or spray".to_string(),
+                            });
+                        }
+                    }
+                }
             }
             "/doctor" => {
                 self.app_mode = AppMode::Doctor;
@@ -220,6 +256,24 @@ impl App {
             }
             "/approve" => {
                 self.app_mode = AppMode::Approval;
+            }
+            "/providers" => {
+                self.chat_lines.push(ChatLine {
+                    role: "system".to_string(),
+                    content: "Providers: zai, openai, ollama-local, ollama-cloud, gemini-cli\nUse 'fever providers' for details.".to_string(),
+                });
+            }
+            "/theme" => {
+                self.chat_lines.push(ChatLine {
+                    role: "system".to_string(),
+                    content: "Theme: egyptian_portal (default). Planned themes: Ra, Thoth, Anubis, Maat, Duat.".to_string(),
+                });
+            }
+            "/version" => {
+                self.chat_lines.push(ChatLine {
+                    role: "system".to_string(),
+                    content: format!("FeverCode v{}", env!("CARGO_PKG_VERSION")),
+                });
             }
             "/clear" => {
                 self.chat_lines.clear();
@@ -521,25 +575,42 @@ fn draw_help(frame: &mut ratatui::Frame, area: Rect) {
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
-        Line::from(vec![
-            Span::styled(" /plan ", Style::default().fg(Color::Cyan)),
-            Span::raw("  Switch to plan mode"),
-        ]),
-        Line::from(vec![
-            Span::styled(" /run ", Style::default().fg(Color::Cyan)),
-            Span::raw("   Switch to run mode"),
-        ]),
-        Line::from(vec![
-            Span::styled(" /spray ", Style::default().fg(Color::Magenta)),
-            Span::raw(" Enable spray mode (autonomous)"),
-        ]),
+        Line::from(Span::styled(
+            " Mode",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(vec![Span::styled(
+            " /mode ask|auto|spray",
+            Style::default().fg(Color::Cyan),
+        )]),
         Line::from(vec![
             Span::styled(" /ask ", Style::default().fg(Color::Yellow)),
-            Span::raw("   Switch to ask mode (safe)"),
+            Span::raw("  Ask before every action (safest)"),
         ]),
         Line::from(vec![
             Span::styled(" /auto ", Style::default().fg(Color::Cyan)),
-            Span::raw("  Switch to auto mode"),
+            Span::raw(" Auto-approve safe edits"),
+        ]),
+        Line::from(vec![
+            Span::styled(" /spray ", Style::default().fg(Color::Magenta)),
+            Span::raw("Autonomous workspace edits"),
+        ]),
+        Line::from(""),
+        Line::from(Span::styled(
+            " Actions",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(vec![
+            Span::styled(" /plan ", Style::default().fg(Color::Cyan)),
+            Span::raw("  Plan mode"),
+        ]),
+        Line::from(vec![
+            Span::styled(" /run ", Style::default().fg(Color::Cyan)),
+            Span::raw("   Run mode"),
         ]),
         Line::from(vec![
             Span::styled(" /doctor ", Style::default().fg(Color::Green)),
@@ -553,14 +624,34 @@ fn draw_help(frame: &mut ratatui::Frame, area: Rect) {
             Span::styled(" /approve ", Style::default().fg(Color::Green)),
             Span::raw("Approval queue"),
         ]),
+        Line::from(""),
+        Line::from(Span::styled(
+            " Info",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )),
         Line::from(vec![
             Span::styled(" /status ", Style::default().fg(Color::Cyan)),
-            Span::raw("Show current status"),
+            Span::raw("Show workspace and mode"),
         ]),
         Line::from(vec![
             Span::styled(" /model ", Style::default().fg(Color::Cyan)),
-            Span::raw(" Change model"),
+            Span::raw(" Change active model"),
         ]),
+        Line::from(vec![
+            Span::styled(" /providers ", Style::default().fg(Color::Cyan)),
+            Span::raw("List providers"),
+        ]),
+        Line::from(vec![
+            Span::styled(" /theme ", Style::default().fg(Color::Cyan)),
+            Span::raw(" Show theme info"),
+        ]),
+        Line::from(vec![
+            Span::styled(" /version ", Style::default().fg(Color::Cyan)),
+            Span::raw("Show version"),
+        ]),
+        Line::from(""),
         Line::from(vec![
             Span::styled(" /clear ", Style::default().fg(Color::Cyan)),
             Span::raw(" Clear chat"),
@@ -570,7 +661,6 @@ fn draw_help(frame: &mut ratatui::Frame, area: Rect) {
             Span::raw("  Exit FeverCode (or q)"),
         ]),
         Line::from(""),
-        Line::from(" Type a message to send to the AI assistant."),
         Line::from(" Press Esc to close this help."),
     ];
 
