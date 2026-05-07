@@ -17,4 +17,4 @@ targets = [
 pr-run-mode = "plan"
 install-path = "CARGO_HOME"
 create-release = true
-install-updater = false
+install-updater = true

@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://feverdream-dev.github.io/FeverCode/sitemap.xml

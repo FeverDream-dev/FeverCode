@@ -58,20 +58,28 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 printf '%s\n' "Downloading $URL"
+download_failed() {
+    printf '%s\n' "Download failed. No release available yet?" >&2
+    if need cargo; then
+        printf '%s\n' "Installing from source instead..." >&2
+        cargo install --git "https://github.com/${REPO}" fevercode --locked --bin fever --force || {
+            printf '%s\n' "Source install failed." >&2
+            printf '%s\n' "Try manually:" >&2
+            printf '%s\n' "  cargo install --git https://github.com/${REPO} fevercode --bin fever" >&2
+            exit 1
+        }
+        printf '%s\n' "Installed fever and fevercode via cargo."
+        exit 0
+    fi
+    printf '%s\n' "Install from source:" >&2
+    printf '%s\n' "  cargo install --git https://github.com/${REPO} fevercode --bin fever" >&2
+    exit 1
+}
+
 if need curl; then
-    curl -fsSL "$URL" -o "$TMP/$ASSET" || {
-        printf '%s\n' "Download failed. No release available yet?" >&2
-        printf '%s\n' "Install from source instead:" >&2
-        printf '%s\n' "  cargo install --git https://github.com/${REPO} fever" >&2
-        exit 1
-    }
+    curl -fsSL "$URL" -o "$TMP/$ASSET" || download_failed
 elif need wget; then
-    wget -q "$URL" -O "$TMP/$ASSET" || {
-        printf '%s\n' "Download failed. No release available yet?" >&2
-        printf '%s\n' "Install from source instead:" >&2
-        printf '%s\n' "  cargo install --git https://github.com/${REPO} fever" >&2
-        exit 1
-    }
+    wget -q "$URL" -O "$TMP/$ASSET" || download_failed
 else
     printf '%s\n' "Install curl or wget first." >&2
     exit 1

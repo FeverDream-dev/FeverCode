@@ -1,9 +1,10 @@
-# FeverCode — Terminal AI coding agent
+# FeverCode — Terminal AI Coding Agent for Vibe Coding
 
 [![CI](https://github.com/FeverDream-dev/FeverCode/actions/workflows/ci.yml/badge.svg)](https://github.com/FeverDream-dev/FeverCode/actions)
 [![License MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/FeverDream-dev/FeverCode/blob/main/LICENSE.md)
 [![Rust](https://img.shields.io/badge/Rust-1.70%2B-blue.svg)](https://www.rust-lang.org)
-[![MVP](https://img.shields.io/badge/MVP-Premium-green.svg)](https://github.com/FeverDream-dev/FeverCode)
+[![GitHub stars](https://img.shields.io/github/stars/FeverDream-dev/FeverCode?style=social)](https://github.com/FeverDream-dev/FeverCode/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/FeverDream-dev/FeverCode?style=social)](https://github.com/FeverDream-dev/FeverCode/network)
 
 ```
 ______  ______  ______  ______  ______
@@ -13,54 +14,83 @@ ______  ______  ______  ______  ______
 |_____|_|_____|__|_____|_____|__|_____|
 ```
 
-FeverCode is a Rust-powered terminal assistant that helps you write and manage code with AI-guided planning, drafting, and execution directly in your terminal. Built for **vibe coding** — ship fast, iterate loud, assume intent.
+**FeverCode** is an open-source AI coding agent that runs in your terminal. Built in Rust, it ships as a fast CLI (`fever`) with a full-screen TUI, 53 LLM provider configs, local LLM support, workspace safety guardrails, and per-LLM obedience presets.
 
-Key goals:
-- Fast, deterministic interactions with clear, auditable results
-- Local-first safety: workspace-scoped writes, explicit prompts, and guard rails
-- A pluggable provider layer with streaming AI backends
-- **Per-LLM presets** that force obedience, precision, and correct tool-use formatting
-- **llama3.2 is HARD-LOCKED to test/research/internet-only tasks**
+Use it for **vibe coding** — ship fast, iterate loud, assume intent — or run it in safe mode with full approval queues.
+
+## Table of Contents
+
+- [What is FeverCode](#what-is-fevercode)
+- [Why FeverCode](#why-fevercode)
+- [Current Status](#current-status)
+- [Per-LLM Presets](#per-llm-presets--obedience-engine)
+- [Install](#install)
+- [Quick Start](#quick-start)
+- [Fever Souls](#fever-souls)
+- [Context Economy](#context-economy)
+- [Local Mastermind RAG](#local-mastermind-rag)
+- [Commands](#commands)
+- [Architecture](#architecture)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## What is FeverCode
 
-FeverCode is a terminal AI coding agent designed to live in your shell. It exposes a tight set of commands that let you:
-- plan coding tasks, run builds, and orchestrate a lightweight agent loop
-- query AI providers, manage configuration, and inspect results
-- operate a full-screen TUI for chat, slash commands, and quick interactions
-- vibe code with `fever vibe "build me a thing"` — creative mode with spray safety
+FeverCode is a terminal-first AI coding assistant designed for developers who live in the shell. It exposes a tight CLI and a Ratatui full-screen interface that let you:
 
-The project is implemented in Rust and ships a CLI (`fever` and `fevercode`) plus a themed, in-terminal UI.
+- **Plan** coding tasks with the Ra planner agent
+- **Build** features with the Ptah builder agent and approval queue
+- **Query** 53 configured AI providers (OpenAI, Anthropic, Google, local LLMs, Chinese providers, and more)
+- **Chat** in a full-screen TUI with slash commands, themes, and agent sidebar
+- **Vibe code** with `fever vibe "build me a thing"` — creative mode with spray safety
+- **Index** your workspace docs for Local Mastermind RAG and query them with small local models
+- **Stay safe** with workspace-boundary enforcement, secret redaction, and approval queues
+
+The project is implemented in **Rust** and ships two binary names: `fever` and `fevercode`.
+
+## Why FeverCode
+
+| Feature | FeverCode | Generic AI Chat | Browser IDE AI |
+|---------|-----------|---------------|----------------|
+| Runs in terminal | ✅ Native | ❌ Web only | ❌ Browser required |
+| Local LLM support | ✅ 53 providers incl. Ollama, LM Studio | ⚠️ Limited | ⚠️ Limited |
+| Workspace safety | ✅ Architecture-level boundary | ❌ None | ⚠️ Config-dependent |
+| Per-LLM presets | ✅ Obedience engine per model class | ❌ One-size-fits-all | ❌ One-size-fits-all |
+| llama3.2 hard lock | ✅ Test/research only, cannot override | ❌ No guardrails | ❌ No guardrails |
+| Approval queue | ✅ Patch-based diff review | ❌ None | ⚠️ Varies |
+| Open source | ✅ MIT License | ❌ Proprietary | ⚠️ Varies |
 
 ## Current Status
 
 | Item | Status | Notes |
-|------|----------|-------|
-| Cargo toolchain (fmt/clippy/test) | Working | cargo fmt, cargo clippy, cargo test all pass (91 tests) |
-| Binaries | Working | fever and fevercode binary names both work |
-| fever init | Working | creates .fevercode/config.toml and .fevercode/mcp.json |
-| fever doctor | Working | runs comprehensive health checks |
-| fever plan | Working | prints a plan outline (no AI call without provider key) |
-| fever run | Working | prints build mode info (no AI call without provider key) |
-| fever vibe | Working | creative one-shot mode with spray safety |
-| fever endless | Working | prints loop outline (experimental, needs provider) |
-| fever providers | Working | lists 53 configured providers |
-| fever agents | Working | lists 7 agent roles |
-| fever version | Working | prints version |
-| fever (no args) | Working | opens full-screen Ratatui TUI with chat input and sidebar |
+|------|--------|-------|
+| Cargo toolchain (fmt/clippy/test) | Working | `cargo fmt`, `cargo clippy`, `cargo test` all pass (91 tests) |
+| Binaries | Working | `fever` and `fevercode` binary names both work |
+| `fever init` | Working | creates `.fevercode/config.toml` and `.fevercode/mcp.json` |
+| `fever doctor` | Working | runs comprehensive health checks |
+| `fever plan` | Working | prints a plan outline (no AI call without provider key) |
+| `fever run` | Working | prints build mode info (no AI call without provider key) |
+| `fever vibe` | Working | creative one-shot mode with spray safety |
+| `fever endless` | Working | prints loop outline (experimental, needs provider) |
+| `fever update` | Working | auto-update from GitHub releases or cargo |
+| `fever providers` | Working | lists 53 configured providers |
+| `fever agents` | Working | lists 7 agent roles |
+| `fever version` | Working | prints version |
+| `fever` (no args) | Working | opens full-screen Ratatui TUI with chat input and sidebar |
 | Safety model | Working | workspace-only writes, risk classification, spray guards |
-| TUI slash commands | Working | 40+ commands: /theme, /search, /file, /exec, /git, /build, /test, /mastermind, /index, /rag-status, /discover, and more |
+| TUI slash commands | Working | 40+ commands: `/theme`, `/search`, `/file`, `/exec`, `/git`, `/build`, `/test`, `/mastermind`, `/index`, `/rag-status`, `/discover`, and more |
 | Tests and lint completeness | Working | 91 tests passing, lint clean |
-| fever souls list/show/validate/init | Working | lists built-in souls and config |
-| fever context stats | Working | shows session statistics (MVP) |
-| fever context compact | Working | generates compact session summary |
+| `fever souls list/show/validate/init` | Working | lists built-in souls and config |
+| `fever context stats` | Working | shows session statistics (MVP) |
+| `fever context compact` | Working | generates compact session summary |
 | Secret redaction | Working | API keys, tokens, private keys redacted from logs |
-| Session events | Working | JSONL event log under .fevercode/session/ |
-| Release workflow | Working | cargo-dist configured, tag-triggered (no release published yet) |
+| Session events | Working | JSONL event log under `.fevercode/session/` |
+| Release workflow | Working | cargo-dist configured, `fever update` wired |
 | Per-LLM presets | Working | CloudStrong, LocalMedium, LocalSmall, Precise, VibeCoder, TestResearch |
 | llama3.2 hard lock | Working | HARD-LOCKED to TestResearch. Cannot override. |
 | Vibe Coder agent | Working | Single-agent shipping machine for `fever vibe` |
-| One-line installer | Working | `curl ... | bash` or `cargo install --git` |
+| One-line installer | Working | `curl ... \| bash` or `cargo install --git` |
 | Fever Souls | Working | see SOULS.md for agent constitution |
 | Local Mastermind RAG | Working | `/index` and `/mastermind` for 100% local AI |
 | Auto-model discovery | Working | `/discover` queries provider for available models |
@@ -68,7 +98,7 @@ The project is implemented in Rust and ships a CLI (`fever` and `fevercode`) plu
 | 10 TUI themes | Working | DarkAero, Matrix, Ocean, Nord, Dracula, and more |
 | SOULS.md | Working | agent constitution file |
 
-> Experimental: fever endless "goal" prints loop outline (requires provider)
+> Experimental: `fever endless "goal"` prints loop outline (requires provider)
 
 ## Per-LLM Presets — Obedience Engine
 
@@ -115,7 +145,7 @@ curl -fsSL https://raw.githubusercontent.com/FeverDream-dev/FeverCode/main/insta
 ### From source (all platforms)
 
 ```bash
-cargo install --git https://github.com/FeverDream-dev/FeverCode fever
+cargo install --git https://github.com/FeverDream-dev/FeverCode fevercode
 ```
 
 ### Manual build
@@ -159,16 +189,16 @@ FeverCode uses SOULS.md as its agent constitution. It defines how the coding sou
 - Seshat documents.
 - **Vibe Coder ships.**
 
-CLI: fever souls list, fever souls show ra, fever souls validate, fever souls init
+CLI: `fever souls list`, `fever souls show ra`, `fever souls validate`, `fever souls init`
 
 ## Context Economy
 
 FeverCode prefers small, targeted context over raw dumps:
 - Compact tool outputs (200-line default truncation)
-- Session event logging (.fevercode/session/events.jsonl)
+- Session event logging (`.fevercode/session/events.jsonl`)
 - Secret redaction (API keys, tokens, private keys)
 - Generated analysis scripts over reading many files
-- Session summaries (fever context compact)
+- Session summaries (`fever context compact`)
 - Searchable future memory (planned)
 
 ## Local Mastermind RAG
@@ -195,6 +225,7 @@ CLI:
 - `fever run "task"` — Build mode
 - `fever vibe "task"` — Creative one-shot with spray safety
 - `fever endless "goal"` — Bounded autonomous loop
+- `fever update` — Update to latest release
 - `fever souls list/show/validate/init` — Manage agent constitution
 - `fever context stats/compact` — Session economy
 - `fever version` — Print version
@@ -239,16 +270,16 @@ TUI slash commands (40+):
 
 ## Contributing
 
-See CONTRIBUTING.md for how to contribute:
-
-https://github.com/FeverDream-dev/FeverCode/blob/main/CONTRIBUTING.md
+See [CONTRIBUTING.md](https://github.com/FeverDream-dev/FeverCode/blob/main/CONTRIBUTING.md) for how to contribute.
 
 ## License
 
-FeverCode is released under the MIT License. See LICENSE.md for details.
-
-https://github.com/FeverDream-dev/FeverCode/blob/main/LICENSE.md
+FeverCode is released under the MIT License. See [LICENSE.md](https://github.com/FeverDream-dev/FeverCode/blob/main/LICENSE.md) for details.
 
 ## No warranty
 
 FeverCode is provided as-is. Use it responsibly, review commands before approving them, and keep backups of important work.
+
+---
+
+**Keywords:** AI coding agent, terminal AI, CLI AI tool, Rust AI, vibe coding, local LLM coding, AI code assistant, terminal IDE, open source AI coding, FeverCode, AI coding CLI, local AI coding, terminal code editor AI, AI programming assistant.

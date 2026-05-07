@@ -118,6 +118,9 @@ enum Commands {
         #[arg(trailing_var_arg = true, help = "Task or idea to build")]
         task: Vec<String>,
     },
+
+    #[command(about = "Update FeverCode to the latest release")]
+    Update,
 }
 
 #[derive(Subcommand, Debug)]
@@ -188,6 +191,7 @@ async fn main() -> Result<()> {
         Some(Commands::Context { action }) => handle_context(action, &root),
         Some(Commands::Preset { action }) => handle_preset(action, &cfg),
         Some(Commands::Vibe { task }) => vibe_task(root, cfg, task.join(" ")).await,
+        Some(Commands::Update) => update().await,
     }
 }
 
@@ -714,4 +718,104 @@ async fn vibe_task(
     }
 
     Ok(())
+}
+
+async fn update() -> Result<()> {
+    println!("FeverCode update");
+    println!("================");
+
+    let current = std::env::current_exe().ok();
+    let in_cargo = current
+        .as_ref()
+        .map(|p| p.to_string_lossy().contains(".cargo/bin"))
+        .unwrap_or(false);
+
+    if in_cargo {
+        println!("Detected cargo install. Updating via cargo...");
+        let status = std::process::Command::new("cargo")
+            .args([
+                "install",
+                "--git",
+                "https://github.com/FeverDream-dev/FeverCode",
+                "fevercode",
+                "--locked",
+                "--bin",
+                "fever",
+                "--force",
+            ])
+            .status()?;
+        if status.success() {
+            println!("Updated via cargo.");
+        } else {
+            println!("Cargo update failed.");
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
+
+    let script_url = "https://github.com/FeverDream-dev/FeverCode/releases/latest/download/fever-installer.sh";
+    let installer_ok = if command_exists("curl") {
+        println!("Running release installer via curl...");
+        let out = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(format!(
+                "set -e; TMP=$(mktemp); curl -fsSL '{}' -o \"$TMP\"; sh \"$TMP\"; rm -f \"$TMP\"",
+                script_url
+            ))
+            .status()?;
+        out.success()
+    } else if command_exists("wget") {
+        println!("Running release installer via wget...");
+        let out = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(format!(
+                "set -e; TMP=$(mktemp); wget -q '{}' -O \"$TMP\"; sh \"$TMP\"; rm -f \"$TMP\"",
+                script_url
+            ))
+            .status()?;
+        out.success()
+    } else {
+        false
+    };
+
+    if installer_ok {
+        println!("Updated via release installer.");
+        return Ok(());
+    }
+
+    println!("Release installer failed.");
+    if command_exists("cargo") {
+        println!("Falling back to cargo install...");
+        let status = std::process::Command::new("cargo")
+            .args([
+                "install",
+                "--git",
+                "https://github.com/FeverDream-dev/FeverCode",
+                "fevercode",
+                "--locked",
+                "--bin",
+                "fever",
+                "--force",
+            ])
+            .status()?;
+        if status.success() {
+            println!("Updated via cargo.");
+            return Ok(());
+        }
+    }
+
+    println!("Update failed.");
+    println!("Install cargo, curl, or wget to update automatically.");
+    println!("Or run: cargo install --git https://github.com/FeverDream-dev/FeverCode fevercode --bin fever --force");
+    std::process::exit(1);
+}
+
+fn command_exists(cmd: &str) -> bool {
+    std::process::Command::new("which")
+        .arg(cmd)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
 }
