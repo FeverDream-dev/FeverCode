@@ -70,8 +70,15 @@ pub fn find_agent(id: &str) -> Option<AgentSpec> {
 pub fn print_agents() -> Result<()> {
     println!("FeverCode built-in agents:");
     for agent in builtins() {
-        let vibe = if agent.vibe_variant.is_some() { " [vibe]" } else { "" };
-        println!("- {}: {} — {}{}", agent.id, agent.title, agent.mission, vibe);
+        let vibe = if agent.vibe_variant.is_some() {
+            " [vibe]"
+        } else {
+            ""
+        };
+        println!(
+            "- {}: {} — {}{}",
+            agent.id, agent.title, agent.mission, vibe
+        );
     }
     Ok(())
 }

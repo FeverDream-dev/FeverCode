@@ -291,7 +291,8 @@ impl SafetyPolicy {
         match tool_name {
             "write_file" | "edit_file" => {
                 if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
-                    self.is_inside_workspace(Path::new(path)) && self.cfg.allow_writes_inside_workspace
+                    self.is_inside_workspace(Path::new(path))
+                        && self.cfg.allow_writes_inside_workspace
                 } else {
                     false
                 }

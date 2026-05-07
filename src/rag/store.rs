@@ -36,10 +36,7 @@ impl VectorStore {
     }
 
     /// Search by cosine similarity. Returns top-k chunks sorted by score descending.
-    pub fn search(&self,
-        query_embedding: &[f32],
-        top_k: usize,
-    ) -> Vec<(&DocumentChunk, f32)> {
+    pub fn search(&self, query_embedding: &[f32], top_k: usize) -> Vec<(&DocumentChunk, f32)> {
         let mut scored: Vec<(&DocumentChunk, f32)> = self
             .chunks
             .iter()

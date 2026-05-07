@@ -257,7 +257,8 @@ impl Provider for OpenAiCompatProvider {
     fn chat_with_tools(
         &self,
         request: ChatRequest,
-    ) -> Pin<Box<dyn std::future::Future<Output = Result<super::AssistantResponse>> + Send + '_>> {
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<super::AssistantResponse>> + Send + '_>>
+    {
         let url = self.url();
         let body = self.build_request_body(&request, false);
         let client = self.client.clone();
@@ -291,11 +292,14 @@ impl Provider for OpenAiCompatProvider {
                 }
             }
 
-            let usage = data.usage.map(|u| super::ProviderUsage {
-                prompt_tokens: u.prompt_tokens,
-                completion_tokens: u.completion_tokens,
-                total_tokens: u.total_tokens,
-            }).unwrap_or_default();
+            let usage = data
+                .usage
+                .map(|u| super::ProviderUsage {
+                    prompt_tokens: u.prompt_tokens,
+                    completion_tokens: u.completion_tokens,
+                    total_tokens: u.total_tokens,
+                })
+                .unwrap_or_default();
 
             Ok(super::AssistantResponse {
                 content,
@@ -361,18 +365,19 @@ mod tests {
         let mut collected = String::new();
         while let Some(event) = stream.next().await {
             match event {
-                Ok(ev) => {
-                    match ev {
-                        ProviderEvent::Delta(text) => collected.push_str(&text),
-                        ProviderEvent::Done(_) => break,
-                        ProviderEvent::Error(e) => panic!("Provider error: {}", e),
-                        _ => {}
-                    }
-                }
+                Ok(ev) => match ev {
+                    ProviderEvent::Delta(text) => collected.push_str(&text),
+                    ProviderEvent::Done(_) => break,
+                    ProviderEvent::Error(e) => panic!("Provider error: {}", e),
+                    _ => {}
+                },
                 Err(e) => panic!("Stream error: {}", e),
             }
         }
-        assert!(!collected.is_empty(), "Expected non-empty response from Ollama");
+        assert!(
+            !collected.is_empty(),
+            "Expected non-empty response from Ollama"
+        );
         println!("Ollama response: '{}'", collected.trim());
     }
 

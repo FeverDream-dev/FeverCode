@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::providers::{ChatMessage, ChatRequest, MessageRole, Provider};
+use anyhow::Result;
 
 #[derive(Debug, Clone)]
 pub struct ClarificationSession {
@@ -51,23 +51,74 @@ pub fn is_vague_request(text: &str) -> bool {
     }
     let lower = trimmed.to_ascii_lowercase();
     let has_tech = [
-        "rust", "python", "js", "typescript", "go", "java", "c++", "react", "vue",
-        "angular", "svelte", "solid", "next", "nuxt", "node", "bun", "deno",
-        "flask", "django", "rails", "spring", "laravel", "express", "actix",
-        "rocket", "axum", "tauri", "electron", "flutter", "swift", "kotlin",
-        "postgres", "mysql", "mongo", "redis", "sqlite", "docker", "k8s",
+        "rust",
+        "python",
+        "js",
+        "typescript",
+        "go",
+        "java",
+        "c++",
+        "react",
+        "vue",
+        "angular",
+        "svelte",
+        "solid",
+        "next",
+        "nuxt",
+        "node",
+        "bun",
+        "deno",
+        "flask",
+        "django",
+        "rails",
+        "spring",
+        "laravel",
+        "express",
+        "actix",
+        "rocket",
+        "axum",
+        "tauri",
+        "electron",
+        "flutter",
+        "swift",
+        "kotlin",
+        "postgres",
+        "mysql",
+        "mongo",
+        "redis",
+        "sqlite",
+        "docker",
+        "k8s",
     ]
     .iter()
     .any(|kw| lower.contains(kw));
     let has_action = [
-        "build", "create", "fix", "refactor", "add", "implement", "write",
-        "delete", "update", "change", "modify", "rewrite", "convert", "migrate",
-        "integrate", "setup", "configure", "deploy", "test",
+        "build",
+        "create",
+        "fix",
+        "refactor",
+        "add",
+        "implement",
+        "write",
+        "delete",
+        "update",
+        "change",
+        "modify",
+        "rewrite",
+        "convert",
+        "migrate",
+        "integrate",
+        "setup",
+        "configure",
+        "deploy",
+        "test",
     ]
     .iter()
     .any(|kw| lower.contains(kw));
-    let has_target =
-        lower.contains(".") || lower.contains('/') || lower.contains("file") || lower.contains("folder");
+    let has_target = lower.contains(".")
+        || lower.contains('/')
+        || lower.contains("file")
+        || lower.contains("folder");
     !has_tech || !has_action || !has_target
 }
 
@@ -108,7 +159,7 @@ pub async fn generate_questions(
     };
     let resp = provider.chat_with_tools(req).await?;
     let text = resp.content.unwrap_or_default();
-    if text.trim().to_ascii_uppercase() == "READY" {
+    if text.trim().eq_ignore_ascii_case("READY") {
         return Ok(Vec::new());
     }
     let questions: Vec<String> = text
@@ -171,7 +222,10 @@ pub async fn check_readiness(
     let resp = provider.chat_with_tools(req).await?;
     let text = resp.content.unwrap_or_default();
     let json_text = crate::agent_loop::strip_markdown_code_blocks(&text);
-    let result: ReadinessResult = serde_json::from_str(&json_text)
-        .unwrap_or(ReadinessResult { certainty: 0, ready: false, missing_info: text });
+    let result: ReadinessResult = serde_json::from_str(&json_text).unwrap_or(ReadinessResult {
+        certainty: 0,
+        ready: false,
+        missing_info: text,
+    });
     Ok(result)
 }

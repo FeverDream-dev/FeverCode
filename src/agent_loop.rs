@@ -60,8 +60,10 @@ impl AgentLoop {
         mut on_delta: Box<dyn FnMut(&str) + Send>,
     ) -> Result<AgentResult> {
         // Enforce llama3.2 restriction at the agent loop level
-        if system_prompt.contains("llama3.2") || system_prompt.contains("llama-3.2")
-            || user_prompt.contains("llama3.2") || user_prompt.contains("llama-3.2")
+        if system_prompt.contains("llama3.2")
+            || system_prompt.contains("llama-3.2")
+            || user_prompt.contains("llama3.2")
+            || user_prompt.contains("llama-3.2")
         {
             // This shouldn't happen because presets hard-lock it, but defense in depth
         }
@@ -90,21 +92,31 @@ impl AgentLoop {
             let request = ChatRequest {
                 messages: messages.clone(),
                 model: None,
-                tools: if tool_defs.is_empty() { None } else { Some(tool_defs.clone()) },
+                tools: if tool_defs.is_empty() {
+                    None
+                } else {
+                    Some(tool_defs.clone())
+                },
                 temperature: Some(self.preset.temperature()),
                 max_tokens: None,
             };
 
             self.log.append(
                 &SessionEvent::new(
-                        SessionEventType::BeforeCommand,
-                        "ra",
-                        &format!("agent loop iteration {}", iteration + 1),
-                    )
-                    .with_detail(&format!("messages: {}, tools: {}", messages.len(), tool_defs.len()))
+                    SessionEventType::BeforeCommand,
+                    "ra",
+                    &format!("agent loop iteration {}", iteration + 1),
+                )
+                .with_detail(&format!(
+                    "messages: {}, tools: {}",
+                    messages.len(),
+                    tool_defs.len()
+                )),
             )?;
 
-            let response = self.fetch_with_retry(request, &mut messages, &mut on_delta).await?;
+            let response = self
+                .fetch_with_retry(request, &mut messages, &mut on_delta)
+                .await?;
             total_usage.prompt_tokens += response.usage.prompt_tokens;
             total_usage.completion_tokens += response.usage.completion_tokens;
             total_usage.total_tokens += response.usage.total_tokens;
@@ -175,44 +187,43 @@ impl AgentLoop {
                 let approval_req =
                     ApprovalRequest::new(map_action_type(&tool_name), description, risk);
 
-                if !approval_req.auto_approvable(self.safety.mode()) {
-                    if !self.safety.can_execute(&tool_name, &args) {
-                        let block_msg =
-                            format!("Tool {} blocked by safety policy.", tool_name);
-                        messages.push(ChatMessage {
-                            role: MessageRole::Tool,
-                            content: block_msg.clone(),
-                            tool_calls: None,
-                            tool_call_id: Some(tool_id),
-                        });
-                        on_delta(&format!("\n[Anubis blocked {}]\n", tool_name));
-                        continue;
-                    }
+                if !approval_req.auto_approvable(self.safety.mode())
+                    && !self.safety.can_execute(&tool_name, &args)
+                {
+                    let block_msg = format!("Tool {} blocked by safety policy.", tool_name);
+                    messages.push(ChatMessage {
+                        role: MessageRole::Tool,
+                        content: block_msg.clone(),
+                        tool_calls: None,
+                        tool_call_id: Some(tool_id),
+                    });
+                    on_delta(&format!("\n[Anubis blocked {}]\n", tool_name));
+                    continue;
                 }
 
                 let result = if let Some(tool) = self.tools.get(&tool_name) {
                     self.log.append(
                         &SessionEvent::new(
-                                SessionEventType::BeforeTool,
-                                "ptah",
-                                &format!("executing {}", tool_name),
-                            )
-                            .with_detail(&args.to_string()),
+                            SessionEventType::BeforeTool,
+                            "ptah",
+                            &format!("executing {}", tool_name),
+                        )
+                        .with_detail(&args.to_string()),
                     )?;
 
                     match tool.execute(args) {
                         Ok(tr) => {
                             self.log.append(
                                 &SessionEvent::new(
-                                        SessionEventType::AfterTool,
-                                        "ptah",
-                                        &format!(
-                                            "{} {}",
-                                            tool_name,
-                                            if tr.success { "ok" } else { "fail" }
-                                        ),
-                                    )
-                                    .with_detail(&tr.output),
+                                    SessionEventType::AfterTool,
+                                    "ptah",
+                                    &format!(
+                                        "{} {}",
+                                        tool_name,
+                                        if tr.success { "ok" } else { "fail" }
+                                    ),
+                                )
+                                .with_detail(&tr.output),
                             )?;
                             let out = context_economy::truncate_output(
                                 &tr.output,
@@ -220,7 +231,11 @@ impl AgentLoop {
                                     .context
                                     .max_tool_output_lines,
                             );
-                            if tr.success { out } else { format!("ERROR: {}", out) }
+                            if tr.success {
+                                out
+                            } else {
+                                format!("ERROR: {}", out)
+                            }
                         }
                         Err(e) => format!("ERROR: {}", e),
                     }
@@ -282,8 +297,7 @@ impl AgentLoop {
                     tool_calls: None,
                     tool_call_id: None,
                 });
-                on_delta(&format!("\n[Retry {}/{}]\n", attempt, max_retries),
-                );
+                on_delta(&format!("\n[Retry {}/{}]\n", attempt, max_retries));
             }
 
             match self.provider.chat_with_tools(req).await {
@@ -439,9 +453,7 @@ fn tool_schema(name: &str) -> Value {
 
 fn classify_tool_risk(tool_name: &str, args: &Value, safety: &SafetyPolicy) -> CommandRisk {
     match tool_name {
-        "read_file" | "list_files" | "search_text" | "git_status" | "git_diff" => {
-            CommandRisk::Safe
-        }
+        "read_file" | "list_files" | "search_text" | "git_status" | "git_diff" => CommandRisk::Safe,
         "write_file" | "edit_file" => {
             if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
                 if safety.is_inside_workspace(Path::new(path)) {
@@ -492,7 +504,9 @@ pub(crate) fn strip_markdown_code_blocks(text: &str) -> String {
 fn salvage_tool_calls_from_text(text: &str) -> Option<Vec<crate::providers::CompleteToolCall>> {
     // First strip any markdown fences that might wrap the JSON
     let cleaned = strip_markdown_code_blocks(text);
-    let re = Regex::new(r#"\{\s*"name"\s*:\s*"([^"]+)"\s*,\s*"arguments"\s*:\s*(\{[\s\S]*?\})\s*\}"#).ok()?;
+    let re =
+        Regex::new(r#"\{\s*"name"\s*:\s*"([^"]+)"\s*,\s*"arguments"\s*:\s*(\{[\s\S]*?\})\s*\}"#)
+            .ok()?;
     let mut calls = Vec::new();
     for caps in re.captures_iter(&cleaned) {
         let name = caps.get(1)?.as_str().to_string();
@@ -500,7 +514,10 @@ fn salvage_tool_calls_from_text(text: &str) -> Option<Vec<crate::providers::Comp
         // Validate it's actually JSON
         if serde_json::from_str::<Value>(&args_str).is_ok() {
             calls.push(crate::providers::CompleteToolCall {
-                id: format!("salvage-{}", uuid::Uuid::new_v4().to_string()[..8].to_string()),
+                id: format!(
+                    "salvage-{}",
+                    &uuid::Uuid::new_v4().to_string()[..8]
+                ),
                 name,
                 arguments: args_str,
             });

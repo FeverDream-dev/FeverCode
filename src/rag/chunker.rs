@@ -8,7 +8,10 @@ pub fn chunk_text(text: &str, chunk_size: usize, overlap: usize) -> Vec<String> 
     }
 
     // Try paragraph splitting first
-    let paragraphs: Vec<&str> = text.split("\n\n").filter(|p| !p.trim().is_empty()).collect();
+    let paragraphs: Vec<&str> = text
+        .split("\n\n")
+        .filter(|p| !p.trim().is_empty())
+        .collect();
     let mut current = String::new();
     for para in paragraphs {
         let trimmed = para.trim();

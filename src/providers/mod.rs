@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 
 pub mod external_cli;
-pub mod openai_compat;
 pub mod model_discovery;
+pub mod openai_compat;
 
 pub trait Provider: Send + Sync {
     fn name(&self) -> &str;

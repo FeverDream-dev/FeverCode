@@ -1,7 +1,7 @@
-use anyhow::Result;
 use crate::providers::{ChatMessage, ChatRequest, MessageRole, Provider};
-use crate::rag::store::VectorStore;
 use crate::rag::embedder::Embedder;
+use crate::rag::store::VectorStore;
+use anyhow::Result;
 
 const MAX_ITERATIONS: usize = 6;
 const TOP_K: usize = 5;
@@ -47,9 +47,16 @@ pub async fn run(
         let results = store.search(&embedding, TOP_K);
 
         if results.is_empty() {
-            context.push_str(&format!("\n[Iteration {}] No relevant documents found for: {}\n", iterations, query));
+            context.push_str(&format!(
+                "\n[Iteration {}] No relevant documents found for: {}\n",
+                iterations, query
+            ));
         } else {
-            context.push_str(&format!("\n[Iteration {}] Retrieved {} chunks:\n", iterations, results.len()));
+            context.push_str(&format!(
+                "\n[Iteration {}] Retrieved {} chunks:\n",
+                iterations,
+                results.len()
+            ));
             for (chunk, score) in &results {
                 if sources_seen.insert(chunk.source.clone()) {
                     context.push_str(&format!(
@@ -91,12 +98,12 @@ pub async fn run(
 
         let resp = provider.chat_with_tools(req).await?;
         let text = resp.content.unwrap_or_default();
-        let line = text.lines().next().unwrap_or("")
-            .trim()
-            .to_string();
+        let line = text.lines().next().unwrap_or("").trim().to_string();
 
         if line.starts_with("ANSWER:") {
-            let answer = line.strip_prefix("ANSWER:").unwrap_or("")
+            let answer = line
+                .strip_prefix("ANSWER:")
+                .unwrap_or("")
                 .trim()
                 .to_string();
             return Ok(MastermindResult {
@@ -106,7 +113,9 @@ pub async fn run(
                 queries: queries.clone(),
             });
         } else if line.starts_with("SEARCH:") {
-            let new_query = line.strip_prefix("SEARCH:").unwrap_or("")
+            let new_query = line
+                .strip_prefix("SEARCH:")
+                .unwrap_or("")
                 .trim()
                 .to_string();
             if new_query.is_empty() || queries.contains(&new_query) {

@@ -196,8 +196,16 @@ impl Theme {
 
     fn list_all() -> Vec<&'static str> {
         vec![
-            "darkaero", "egyptian_portal", "matrix", "ocean", "monokai",
-            "solarized_dark", "nord", "dracula", "gruvbox_dark", "rose_pine",
+            "darkaero",
+            "egyptian_portal",
+            "matrix",
+            "ocean",
+            "monokai",
+            "solarized_dark",
+            "nord",
+            "dracula",
+            "gruvbox_dark",
+            "rose_pine",
         ]
     }
 }
@@ -281,7 +289,8 @@ impl App {
             });
         }
 
-        let rag_store_path = std::path::PathBuf::from(&workspace_root).join(".fevercode/rag_store.json");
+        let rag_store_path =
+            std::path::PathBuf::from(&workspace_root).join(".fevercode/rag_store.json");
         let rag_store = crate::rag::store::VectorStore::load(&rag_store_path).unwrap_or_default();
         Self {
             workspace_root,
@@ -414,7 +423,8 @@ impl App {
                 self.mode = ApprovalMode::Spray;
                 self.chat_lines.push(ChatLine {
                     role: "system".to_string(),
-                    content: "Vibe mode activated. Creative coding with autonomous edits. Go wild.".to_string(),
+                    content: "Vibe mode activated. Creative coding with autonomous edits. Go wild."
+                        .to_string(),
                 });
             }
             "/spray" => {
@@ -586,7 +596,11 @@ impl App {
                     role: "system".to_string(),
                     content: format!(
                         "Token counting {}. Total this session: {}",
-                        if self.token_count_enabled { "enabled" } else { "disabled" },
+                        if self.token_count_enabled {
+                            "enabled"
+                        } else {
+                            "disabled"
+                        },
                         self.total_tokens
                     ),
                 });
@@ -603,7 +617,8 @@ impl App {
                 if !args.is_empty() {
                     self.model_name = args.to_string();
                     let lower = self.model_name.to_ascii_lowercase();
-                    self.llama32_warning = lower.contains("llama3.2") || lower.contains("llama-3.2");
+                    self.llama32_warning =
+                        lower.contains("llama3.2") || lower.contains("llama-3.2");
                     let preset = crate::presets::Preset::detect(&self.model_name);
                     self.preset_name = format!("{:?}", preset).to_ascii_lowercase();
                     let mut msg = format!("Model set to: {}\nPreset: {}", args, self.preset_name);
@@ -648,7 +663,8 @@ impl App {
                     self.clarification_session = None;
                     self.chat_lines.push(ChatLine {
                         role: "system".to_string(),
-                        content: "Clarification skipped. Proceeding with original request.".to_string(),
+                        content: "Clarification skipped. Proceeding with original request."
+                            .to_string(),
                     });
                 } else {
                     self.chat_lines.push(ChatLine {
@@ -684,9 +700,15 @@ impl App {
                         "creative" | "vibe" => Some(crate::presets::Preset::Creative),
                         "precise" => Some(crate::presets::Preset::Precise),
                         "local_small" | "local-small" => Some(crate::presets::Preset::LocalSmall),
-                        "local_medium" | "local-medium" => Some(crate::presets::Preset::LocalMedium),
-                        "cloud_strong" | "cloud-strong" => Some(crate::presets::Preset::CloudStrong),
-                        "test_research" | "test-research" => Some(crate::presets::Preset::TestResearch),
+                        "local_medium" | "local-medium" => {
+                            Some(crate::presets::Preset::LocalMedium)
+                        }
+                        "cloud_strong" | "cloud-strong" => {
+                            Some(crate::presets::Preset::CloudStrong)
+                        }
+                        "test_research" | "test-research" => {
+                            Some(crate::presets::Preset::TestResearch)
+                        }
                         "vibe_coder" | "vibe-coder" => Some(crate::presets::Preset::VibeCoder),
                         _ => None,
                     };
@@ -729,9 +751,16 @@ impl App {
             // === TOOLS ===
             "/tools" => {
                 let tool_list = [
-                    "read_file", "write_file", "edit_file", "list_files",
-                    "search_text", "run_shell", "git_status", "git_diff",
-                    "git_checkpoint", "git_branch",
+                    "read_file",
+                    "write_file",
+                    "edit_file",
+                    "list_files",
+                    "search_text",
+                    "run_shell",
+                    "git_status",
+                    "git_diff",
+                    "git_checkpoint",
+                    "git_branch",
                 ];
                 self.chat_lines.push(ChatLine {
                     role: "system".to_string(),
@@ -761,7 +790,10 @@ impl App {
                 if let Some(line) = last {
                     self.chat_lines.push(ChatLine {
                         role: "system".to_string(),
-                        content: format!("Copied last assistant message ({} chars)", line.content.len()),
+                        content: format!(
+                            "Copied last assistant message ({} chars)",
+                            line.content.len()
+                        ),
                     });
                 } else {
                     self.chat_lines.push(ChatLine {
@@ -809,7 +841,10 @@ impl App {
                         content: "Usage: /search <pattern>".to_string(),
                     });
                 } else {
-                    self.pending_request = Some(format!("Search for '{}' across the codebase and summarize findings.", args));
+                    self.pending_request = Some(format!(
+                        "Search for '{}' across the codebase and summarize findings.",
+                        args
+                    ));
                     self.chat_lines.push(ChatLine {
                         role: "system".to_string(),
                         content: format!("Searching for: {}", args),
@@ -823,7 +858,8 @@ impl App {
                         content: "Usage: /file <path>".to_string(),
                     });
                 } else {
-                    self.pending_request = Some(format!("Read file {} and summarize its contents.", args));
+                    self.pending_request =
+                        Some(format!("Read file {} and summarize its contents.", args));
                     self.chat_lines.push(ChatLine {
                         role: "system".to_string(),
                         content: format!("Reading file: {}", args),
@@ -846,7 +882,10 @@ impl App {
             }
             "/explain" => {
                 if args.is_empty() {
-                    self.pending_request = Some("Explain the most recent code changes or the current codebase structure.".to_string());
+                    self.pending_request = Some(
+                        "Explain the most recent code changes or the current codebase structure."
+                            .to_string(),
+                    );
                 } else {
                     self.pending_request = Some(format!("Explain: {}", args));
                 }
@@ -857,7 +896,10 @@ impl App {
             }
             "/refactor" => {
                 if args.is_empty() {
-                    self.pending_request = Some("Refactor the current codebase for better readability and maintainability.".to_string());
+                    self.pending_request = Some(
+                        "Refactor the current codebase for better readability and maintainability."
+                            .to_string(),
+                    );
                 } else {
                     self.pending_request = Some(format!("Refactor: {}", args));
                 }
@@ -877,35 +919,59 @@ impl App {
                 }
                 self.chat_lines.push(ChatLine {
                     role: "system".to_string(),
-                    content: format!("Git: {}", if git_cmd.is_empty() { "status" } else { git_cmd }),
+                    content: format!(
+                        "Git: {}",
+                        if git_cmd.is_empty() {
+                            "status"
+                        } else {
+                            git_cmd
+                        }
+                    ),
                 });
             }
             "/branch" => {
                 if args.is_empty() {
                     self.pending_request = Some("List git branches.".to_string());
                 } else {
-                    self.pending_request = Some(format!("Create and switch to git branch: {}", args));
+                    self.pending_request =
+                        Some(format!("Create and switch to git branch: {}", args));
                 }
                 self.chat_lines.push(ChatLine {
                     role: "system".to_string(),
-                    content: format!("Branch: {}", if args.is_empty() { "listing branches" } else { args }),
+                    content: format!(
+                        "Branch: {}",
+                        if args.is_empty() {
+                            "listing branches"
+                        } else {
+                            args
+                        }
+                    ),
                 });
             }
             "/commit" => {
                 if args.is_empty() {
-                    self.pending_request = Some("Stage all changes and commit with a generated message.".to_string());
+                    self.pending_request =
+                        Some("Stage all changes and commit with a generated message.".to_string());
                 } else {
                     self.pending_request = Some(format!("Commit with message: {}", args));
                 }
                 self.chat_lines.push(ChatLine {
                     role: "system".to_string(),
-                    content: format!("Committing: {}", if args.is_empty() { "auto-generated message" } else { args }),
+                    content: format!(
+                        "Committing: {}",
+                        if args.is_empty() {
+                            "auto-generated message"
+                        } else {
+                            args
+                        }
+                    ),
                 });
             }
 
             // === BUILD & DEV COMMANDS ===
             "/build" => {
-                self.pending_request = Some("Build the project (e.g., cargo build --release).".to_string());
+                self.pending_request =
+                    Some("Build the project (e.g., cargo build --release).".to_string());
                 self.chat_lines.push(ChatLine {
                     role: "system".to_string(),
                     content: "Building project...".to_string(),
@@ -1093,7 +1159,8 @@ impl App {
                     }
                     self.chat_lines.push(ChatLine {
                         role: "system".to_string(),
-                        content: "Answer each question in order, or type /skip to proceed anyway.".to_string(),
+                        content: "Answer each question in order, or type /skip to proceed anyway."
+                            .to_string(),
                     });
                 }
             }
@@ -1101,7 +1168,8 @@ impl App {
                 self.agent_busy = false;
                 self.status_message = "Ready".to_string();
                 let provider = self.provider_name.clone();
-                self.discovered_models.insert(provider.clone(), models.clone());
+                self.discovered_models
+                    .insert(provider.clone(), models.clone());
                 let model_str = models.join(", ");
                 self.chat_lines.push(ChatLine {
                     role: "system".to_string(),
@@ -1117,7 +1185,11 @@ impl App {
                         "Local Mastermind finished in {} iterations ({} queries). Sources: {}",
                         result.iterations,
                         result.queries.len(),
-                        if result.sources.is_empty() { "none".to_string() } else { result.sources.join(", ") }
+                        if result.sources.is_empty() {
+                            "none".to_string()
+                        } else {
+                            result.sources.join(", ")
+                        }
                     ),
                 });
                 self.chat_lines.push(ChatLine {
@@ -1140,7 +1212,7 @@ fn spawn_agent(
     let lower = model.to_ascii_lowercase();
     if lower.contains("llama3.2") || lower.contains("llama-3.2") {
         let _ = agent_tx.try_send(AgentMessage::Error(
-            "llama3.2 is TEST/RESEARCH ONLY. Use a production model for chat tasks.".to_string()
+            "llama3.2 is TEST/RESEARCH ONLY. Use a production model for chat tasks.".to_string(),
         ));
         let _ = agent_tx.try_send(AgentMessage::Done);
         return;
@@ -1156,8 +1228,8 @@ fn spawn_agent(
     let tools = crate::tools::ToolRegistry::build_default(root.root.clone());
     let log = crate::events::SessionLog::new(&root.state_dir);
     let preset = crate::presets::Preset::detect(model);
-    let mut agent = crate::agent_loop::AgentLoop::new(provider, tools, guard, log)
-        .with_preset(preset);
+    let mut agent =
+        crate::agent_loop::AgentLoop::new(provider, tools, guard, log).with_preset(preset);
     let agent_id = if mode == ApprovalMode::Spray {
         "vibe-coder"
     } else {
@@ -1177,13 +1249,15 @@ fn spawn_agent(
     let tx2 = tx.clone();
 
     tokio::spawn(async move {
-        let result = agent.run(
-            &system_prompt,
-            &user_text,
-            Box::new(move |delta: &str| {
-                let _ = tx2.try_send(AgentMessage::Delta(delta.to_string()));
-            }),
-        ).await;
+        let result = agent
+            .run(
+                &system_prompt,
+                &user_text,
+                Box::new(move |delta: &str| {
+                    let _ = tx2.try_send(AgentMessage::Delta(delta.to_string()));
+                }),
+            )
+            .await;
 
         match result {
             Ok(_) => {
@@ -1512,7 +1586,11 @@ fn draw_header(frame: &mut ratatui::Frame, app: &App, area: Rect) {
 
     let mode_str = format!("{}", app.mode);
     let busy_indicator = if app.agent_busy { " [working]" } else { "" };
-    let llama_marker = if app.llama32_warning { " [TEST-ONLY]" } else { "" };
+    let llama_marker = if app.llama32_warning {
+        " [TEST-ONLY]"
+    } else {
+        ""
+    };
     let title = Line::from(vec![
         Span::styled(
             "  FeverCode Portal",
@@ -1528,7 +1606,11 @@ fn draw_header(frame: &mut ratatui::Frame, app: &App, area: Rect) {
         Span::raw("  "),
         Span::styled(
             format!("{}:{}{}", app.provider_name, app.model_name, llama_marker),
-            Style::default().fg(if app.llama32_warning { Color::Red } else { Color::DarkGray }),
+            Style::default().fg(if app.llama32_warning {
+                Color::Red
+            } else {
+                Color::DarkGray
+            }),
         ),
     ]);
 
@@ -1714,7 +1796,10 @@ fn draw_help(frame: &mut ratatui::Frame, app: &App, area: Rect) {
             Span::raw(" Auto-approve safe edits"),
         ]),
         Line::from(vec![
-            Span::styled(" /spray ", Style::default().fg(app.theme.spray_mode_color())),
+            Span::styled(
+                " /spray ",
+                Style::default().fg(app.theme.spray_mode_color()),
+            ),
             Span::raw("Autonomous workspace edits"),
         ]),
         Line::from(""),
@@ -1741,7 +1826,10 @@ fn draw_help(frame: &mut ratatui::Frame, app: &App, area: Rect) {
             Span::raw("  View pending diffs"),
         ]),
         Line::from(vec![
-            Span::styled(" /approve ", Style::default().fg(app.theme.chat_assistant())),
+            Span::styled(
+                " /approve ",
+                Style::default().fg(app.theme.chat_assistant()),
+            ),
             Span::raw("Approval queue"),
         ]),
         Line::from(""),

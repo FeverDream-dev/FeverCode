@@ -170,7 +170,11 @@ impl Default for FeverConfig {
                         api_key_env: Some("OPENAI_API_KEY".into()),
                         command: None,
                         model: None,
-                        models: Some(vec!["gpt-5.5-codex".into(), "gpt-5.5".into(), "gpt-4o".into()]),
+                        models: Some(vec![
+                            "gpt-5.5-codex".into(),
+                            "gpt-5.5".into(),
+                            "gpt-4o".into(),
+                        ]),
                     },
                     ProviderConfig {
                         name: "anthropic".into(),
@@ -184,7 +188,9 @@ impl Default for FeverConfig {
                     ProviderConfig {
                         name: "google-gemini".into(),
                         kind: "openai_compatible".into(),
-                        base_url: Some("https://generativelanguage.googleapis.com/v1beta/openai".into()),
+                        base_url: Some(
+                            "https://generativelanguage.googleapis.com/v1beta/openai".into(),
+                        ),
                         api_key_env: Some("GOOGLE_API_KEY".into()),
                         command: None,
                         model: None,
@@ -193,7 +199,9 @@ impl Default for FeverConfig {
                     ProviderConfig {
                         name: "azure-openai".into(),
                         kind: "openai_compatible".into(),
-                        base_url: Some("https://your-resource.openai.azure.com/openai/deployments".into()),
+                        base_url: Some(
+                            "https://your-resource.openai.azure.com/openai/deployments".into(),
+                        ),
                         api_key_env: Some("AZURE_OPENAI_KEY".into()),
                         command: None,
                         model: None,
@@ -206,7 +214,10 @@ impl Default for FeverConfig {
                         api_key_env: None,
                         command: Some("aws bedrock-runtime invoke-model".into()),
                         model: None,
-                        models: Some(vec!["anthropic.claude-3-5-sonnet".into(), "amazon.nova-pro".into()]),
+                        models: Some(vec![
+                            "anthropic.claude-3-5-sonnet".into(),
+                            "amazon.nova-pro".into(),
+                        ]),
                     },
                     ProviderConfig {
                         name: "cohere".into(),
@@ -224,7 +235,10 @@ impl Default for FeverConfig {
                         api_key_env: Some("MISTRAL_API_KEY".into()),
                         command: None,
                         model: None,
-                        models: Some(vec!["mistral-large-latest".into(), "codestral-latest".into()]),
+                        models: Some(vec![
+                            "mistral-large-latest".into(),
+                            "codestral-latest".into(),
+                        ]),
                     },
                     ProviderConfig {
                         name: "perplexity".into(),
@@ -242,7 +256,10 @@ impl Default for FeverConfig {
                         api_key_env: Some("GROQ_API_KEY".into()),
                         command: None,
                         model: None,
-                        models: Some(vec!["llama-3.3-70b-versatile".into(), "mixtral-8x7b".into()]),
+                        models: Some(vec![
+                            "llama-3.3-70b-versatile".into(),
+                            "mixtral-8x7b".into(),
+                        ]),
                     },
                     ProviderConfig {
                         name: "together".into(),
@@ -251,7 +268,10 @@ impl Default for FeverConfig {
                         api_key_env: Some("TOGETHER_API_KEY".into()),
                         command: None,
                         model: None,
-                        models: Some(vec!["meta-llama/Llama-3.3-70B".into(), "Qwen/Qwen2.5-72B".into()]),
+                        models: Some(vec![
+                            "meta-llama/Llama-3.3-70B".into(),
+                            "Qwen/Qwen2.5-72B".into(),
+                        ]),
                     },
                     ProviderConfig {
                         name: "ai21".into(),
@@ -269,7 +289,9 @@ impl Default for FeverConfig {
                         api_key_env: Some("FIREWORKS_API_KEY".into()),
                         command: None,
                         model: None,
-                        models: Some(vec!["accounts/fireworks/models/llama-v3p3-70b-instruct".into()]),
+                        models: Some(vec![
+                            "accounts/fireworks/models/llama-v3p3-70b-instruct".into()
+                        ]),
                     },
                     ProviderConfig {
                         name: "xai".into(),
@@ -288,7 +310,12 @@ impl Default for FeverConfig {
                         api_key_env: None,
                         command: None,
                         model: None,
-                        models: Some(vec!["qwen2.5-coder".into(), "deepseek-coder".into(), "llama3.2".into(), "phi4".into()]),
+                        models: Some(vec![
+                            "qwen2.5-coder".into(),
+                            "deepseek-coder".into(),
+                            "llama3.2".into(),
+                            "phi4".into(),
+                        ]),
                     },
                     ProviderConfig {
                         name: "lm-studio".into(),
@@ -379,7 +406,10 @@ impl Default for FeverConfig {
                         api_key_env: Some("DASHSCOPE_API_KEY".into()),
                         command: None,
                         model: None,
-                        models: Some(vec!["qwen2.5-72b-instruct".into(), "qwen-coder-plus".into()]),
+                        models: Some(vec![
+                            "qwen2.5-72b-instruct".into(),
+                            "qwen-coder-plus".into(),
+                        ]),
                     },
                     ProviderConfig {
                         name: "baichuan".into(),
@@ -461,7 +491,11 @@ impl Default for FeverConfig {
                         api_key_env: Some("OPENROUTER_API_KEY".into()),
                         command: None,
                         model: None,
-                        models: Some(vec!["openai/gpt-4o".into(), "anthropic/claude-3.5-sonnet".into(), "meta-llama/llama-3.3-70b".into()]),
+                        models: Some(vec![
+                            "openai/gpt-4o".into(),
+                            "anthropic/claude-3.5-sonnet".into(),
+                            "meta-llama/llama-3.3-70b".into(),
+                        ]),
                     },
                     ProviderConfig {
                         name: "venice".into(),
@@ -503,11 +537,17 @@ impl Default for FeverConfig {
                     ProviderConfig {
                         name: "cloudflare-workers-ai".into(),
                         kind: "openai_compatible".into(),
-                        base_url: Some("https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1".into()),
+                        base_url: Some(
+                            "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"
+                                .into(),
+                        ),
                         api_key_env: Some("CLOUDFLARE_API_TOKEN".into()),
                         command: None,
                         model: None,
-                        models: Some(vec!["@cf/meta/llama-3.1-70b".into(), "@cf/mistral/mistral-7b".into()]),
+                        models: Some(vec![
+                            "@cf/meta/llama-3.1-70b".into(),
+                            "@cf/mistral/mistral-7b".into(),
+                        ]),
                     },
                     ProviderConfig {
                         name: "predibase".into(),
@@ -521,7 +561,9 @@ impl Default for FeverConfig {
                     ProviderConfig {
                         name: "baseten".into(),
                         kind: "openai_compatible".into(),
-                        base_url: Some("https://model-{model_id}.api.baseten.co/production/predict".into()),
+                        base_url: Some(
+                            "https://model-{model_id}.api.baseten.co/production/predict".into(),
+                        ),
                         api_key_env: Some("BASETEN_API_KEY".into()),
                         command: None,
                         model: None,
@@ -552,7 +594,10 @@ impl Default for FeverConfig {
                         api_key_env: Some("SILICONFLOW_API_KEY".into()),
                         command: None,
                         model: None,
-                        models: Some(vec!["deepseek-ai/DeepSeek-V2.5".into(), "Qwen/Qwen2.5-72B".into()]),
+                        models: Some(vec![
+                            "deepseek-ai/DeepSeek-V2.5".into(),
+                            "Qwen/Qwen2.5-72B".into(),
+                        ]),
                     },
                     ProviderConfig {
                         name: "novita".into(),

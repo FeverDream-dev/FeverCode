@@ -1,15 +1,13 @@
 #[allow(dead_code)]
-mod agents;
-#[allow(dead_code)]
 mod agent_loop;
+#[allow(dead_code)]
+mod agents;
 #[allow(dead_code)]
 mod approval;
 #[allow(dead_code)]
 mod clarification;
 #[allow(dead_code)]
 mod config;
-#[allow(dead_code)]
-mod rag;
 #[allow(dead_code)]
 mod context_economy;
 #[allow(dead_code)]
@@ -22,6 +20,8 @@ mod patch;
 mod presets;
 #[allow(dead_code)]
 mod providers;
+#[allow(dead_code)]
+mod rag;
 #[allow(dead_code)]
 mod safety;
 #[allow(dead_code)]
@@ -160,7 +160,9 @@ enum PresetAction {
 
     #[command(about = "Set a preset by name")]
     Set {
-        #[arg(help = "Preset name: default, creative, precise, local_small, local_medium, cloud_strong, test_research, vibe_coder")]
+        #[arg(
+            help = "Preset name: default, creative, precise, local_small, local_medium, cloud_strong, test_research, vibe_coder"
+        )]
         name: String,
     },
 }
@@ -326,8 +328,7 @@ async fn plan_only(
     let log = events::SessionLog::new(&root.state_dir);
     let model = cfg.providers.default.model.as_deref().unwrap_or("unknown");
     let preset = presets::Preset::detect(model);
-    let mut agent = agent_loop::AgentLoop::new(provider, tools, guard, log)
-        .with_preset(preset);
+    let mut agent = agent_loop::AgentLoop::new(provider, tools, guard, log).with_preset(preset);
 
     let base_prompt = agents::find_agent("ra-planner")
         .map(|a| a.system_prompt.to_string())
@@ -340,7 +341,11 @@ async fn plan_only(
     };
     let system_prompt = preset.build_system_prompt(&full_base);
 
-    println!("Ra is planning... (preset: {:?}, temp: {})\n", preset, preset.temperature());
+    println!(
+        "Ra is planning... (preset: {:?}, temp: {})\n",
+        preset,
+        preset.temperature()
+    );
     let result = agent
         .run(
             &system_prompt,
@@ -352,7 +357,10 @@ async fn plan_only(
         )
         .await?;
 
-    println!("\n\nPlan complete. Tools used: {:?}", result.tool_calls_made);
+    println!(
+        "\n\nPlan complete. Tools used: {:?}",
+        result.tool_calls_made
+    );
     Ok(())
 }
 
@@ -382,8 +390,8 @@ async fn run_task(
     let log = events::SessionLog::new(&root.state_dir);
     let model = cfg.providers.default.model.as_deref().unwrap_or("unknown");
     let preset = presets::Preset::detect(model);
-    let mut agent = agent_loop::AgentLoop::new(provider, tools, guard.clone(), log)
-        .with_preset(preset);
+    let mut agent =
+        agent_loop::AgentLoop::new(provider, tools, guard.clone(), log).with_preset(preset);
 
     let base_prompt = agents::find_agent("ptah-builder")
         .map(|a| a.system_prompt.to_string())
@@ -398,15 +406,15 @@ async fn run_task(
 
     // Auto-create a branch before editing
     if cfg.safety.allow_git_commit || guard.mode() == safety::ApprovalMode::Spray {
-        let branch_name = format!("fever/{}-{}-{}",
+        let branch_name = format!(
+            "fever/{}-{}-{}",
             sanitize_branch_name(&task),
             chrono::Utc::now().format("%Y%m%d"),
-            uuid::Uuid::new_v4().to_string()[..4].to_string()
+            &uuid::Uuid::new_v4().to_string()[..4]
         );
         println!("Creating branch: {}", branch_name);
-        let _ = tools::git_tools::GitBranchTool::new(root.root.clone()).execute(
-            serde_json::json!({"name": branch_name})
-        );
+        let _ = tools::git_tools::GitBranchTool::new(root.root.clone())
+            .execute(serde_json::json!({"name": branch_name}));
     }
 
     println!("\nPtah is building...\n");
@@ -421,14 +429,16 @@ async fn run_task(
         )
         .await?;
 
-    println!("\n\nBuild complete. Tools used: {:?}", result.tool_calls_made);
+    println!(
+        "\n\nBuild complete. Tools used: {:?}",
+        result.tool_calls_made
+    );
 
     // Auto-commit if enabled
     if cfg.safety.allow_git_commit || guard.mode() == safety::ApprovalMode::Spray {
         println!("Creating checkpoint...");
-        let checkpoint = tools::git_tools::GitCheckpointTool::new(root.root.clone()).execute(
-            serde_json::json!({"message": format!("fever: {}", task)})
-        );
+        let checkpoint = tools::git_tools::GitCheckpointTool::new(root.root.clone())
+            .execute(serde_json::json!({"message": format!("fever: {}", task)}));
         match checkpoint {
             Ok(r) if r.success => println!("{}", r.output),
             Ok(r) => println!("Checkpoint note: {}", r.output),
@@ -477,8 +487,8 @@ async fn endless(root: workspace::Workspace, cfg: config::FeverConfig, goal: Str
     let log = events::SessionLog::new(&root.state_dir);
     let model = cfg.providers.default.model.as_deref().unwrap_or("unknown");
     let preset = presets::Preset::detect(model);
-    let mut agent = agent_loop::AgentLoop::new(provider, tools, guard.clone(), log)
-        .with_preset(preset);
+    let mut agent =
+        agent_loop::AgentLoop::new(provider, tools, guard.clone(), log).with_preset(preset);
 
     let base_prompt = agents::find_agent("ra-planner")
         .map(|a| a.system_prompt.to_string())
@@ -499,7 +509,10 @@ async fn endless(root: workspace::Workspace, cfg: config::FeverConfig, goal: Str
         let iter_goal = if i == 0 {
             goal.clone()
         } else {
-            format!("Continue working toward: {}. Review progress and pick the next step.", goal)
+            format!(
+                "Continue working toward: {}. Review progress and pick the next step.",
+                goal
+            )
         };
 
         let result = agent
@@ -513,12 +526,16 @@ async fn endless(root: workspace::Workspace, cfg: config::FeverConfig, goal: Str
             )
             .await?;
 
-        println!("\n[Iteration {} complete. Tools: {:?}]", i + 1, result.tool_calls_made);
+        println!(
+            "\n[Iteration {} complete. Tools: {:?}]",
+            i + 1,
+            result.tool_calls_made
+        );
 
         if (i + 1) % checkpoint_every == 0 {
             println!("[Checkpoint...]");
             let checkpoint = tools::git_tools::GitCheckpointTool::new(root.root.clone()).execute(
-                serde_json::json!({"message": format!("fever endless checkpoint {}", i + 1)})
+                serde_json::json!({"message": format!("fever endless checkpoint {}", i + 1)}),
             );
             match checkpoint {
                 Ok(r) if r.success => println!("Checkpoint: {}", r.output),
@@ -564,7 +581,11 @@ fn handle_preset(action: PresetAction, cfg: &config::FeverConfig) -> anyhow::Res
         PresetAction::List => {
             println!("Available presets:");
             for (preset, slug) in presets::PresetRegistry::list_all() {
-                let marker = if preset == detected { " <- detected" } else { "" };
+                let marker = if preset == detected {
+                    " <- detected"
+                } else {
+                    ""
+                };
                 println!("  {} — {}{}", slug, preset.description(), marker);
             }
             Ok(())
@@ -575,7 +596,10 @@ fn handle_preset(action: PresetAction, cfg: &config::FeverConfig) -> anyhow::Res
             println!("Temperature: {}", detected.temperature());
             println!("Max retries: {}", detected.max_retries());
             println!("Few-shot: {}", detected.needs_few_shot());
-            println!("Grammar constraints: {}", detected.wants_grammar_constraints());
+            println!(
+                "Grammar constraints: {}",
+                detected.wants_grammar_constraints()
+            );
             Ok(())
         }
         PresetAction::Set { name } => {
@@ -614,7 +638,8 @@ fn handle_context(action: ContextAction, root: &workspace::Workspace) -> anyhow:
             if !ctx.is_empty() {
                 println!("Sources:");
                 for line in ctx.lines() {
-                    if line.starts_with("## Project context") || line.starts_with("## Cursor rule") {
+                    if line.starts_with("## Project context") || line.starts_with("## Cursor rule")
+                    {
                         println!("  - {}", line.trim_start_matches("## "));
                     }
                 }
@@ -666,14 +691,16 @@ async fn vibe_task(
     let guard = safety::SafetyPolicy::new(root.root.clone(), cfg.safety.clone());
     let tools = tools::ToolRegistry::build_default(root.root.clone());
     let log = events::SessionLog::new(&root.state_dir);
-    let mut agent = agent_loop::AgentLoop::new(provider, tools, guard.clone(), log)
-        .with_preset(preset);
+    let mut agent =
+        agent_loop::AgentLoop::new(provider, tools, guard.clone(), log).with_preset(preset);
 
     let base_prompt = agents::find_agent("vibe-coder")
         .map(|a| a.system_prompt.to_string())
-        .unwrap_or_else(|| agents::find_agent("ptah-builder")
-            .map(|a| a.system_prompt.to_string())
-            .unwrap_or_else(|| "You are a helpful coding assistant.".to_string()));
+        .unwrap_or_else(|| {
+            agents::find_agent("ptah-builder")
+                .map(|a| a.system_prompt.to_string())
+                .unwrap_or_else(|| "You are a helpful coding assistant.".to_string())
+        });
     let project_ctx = workspace::load_project_context(&root.root);
     let full_base = if project_ctx.is_empty() {
         base_prompt.clone()
@@ -686,12 +713,11 @@ async fn vibe_task(
     let branch_name = format!(
         "vibe/{}-{}",
         sanitize_branch_name(&task),
-        uuid::Uuid::new_v4().to_string()[..6].to_string()
+        &uuid::Uuid::new_v4().to_string()[..6]
     );
     println!("Branch: {}", branch_name);
-    let _ = tools::git_tools::GitBranchTool::new(root.root.clone()).execute(
-        serde_json::json!({"name": branch_name})
-    );
+    let _ = tools::git_tools::GitBranchTool::new(root.root.clone())
+        .execute(serde_json::json!({"name": branch_name}));
 
     println!("\nVibe Coder is shipping...\n");
     let result = agent
@@ -705,12 +731,14 @@ async fn vibe_task(
         )
         .await?;
 
-    println!("\n\nVibe complete. Tools used: {:?}", result.tool_calls_made);
+    println!(
+        "\n\nVibe complete. Tools used: {:?}",
+        result.tool_calls_made
+    );
 
     // Auto-commit
-    let checkpoint = tools::git_tools::GitCheckpointTool::new(root.root.clone()).execute(
-        serde_json::json!({"message": format!("vibe: {}", task)})
-    );
+    let checkpoint = tools::git_tools::GitCheckpointTool::new(root.root.clone())
+        .execute(serde_json::json!({"message": format!("vibe: {}", task)}));
     match checkpoint {
         Ok(r) if r.success => println!("Checkpoint: {}", r.output),
         Ok(r) => println!("Checkpoint note: {}", r.output),
@@ -753,7 +781,8 @@ async fn update() -> Result<()> {
         return Ok(());
     }
 
-    let script_url = "https://github.com/FeverDream-dev/FeverCode/releases/latest/download/fever-installer.sh";
+    let script_url =
+        "https://github.com/FeverDream-dev/FeverCode/releases/latest/download/fever-installer.sh";
     let installer_ok = if command_exists("curl") {
         println!("Running release installer via curl...");
         let out = std::process::Command::new("sh")

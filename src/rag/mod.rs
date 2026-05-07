@@ -30,8 +30,8 @@ pub async fn index_directory(
             .to_ascii_lowercase();
         let text = match ext.as_str() {
             "txt" | "md" | "rs" | "py" | "js" | "ts" | "jsx" | "tsx" | "go" | "java" | "c"
-            | "cpp" | "h" | "hpp" | "json" | "toml" | "yaml" | "yml" | "css" | "html"
-            | "htm" | "sql" | "sh" | "bash" | "zsh" | "fish" | "dockerfile" => {
+            | "cpp" | "h" | "hpp" | "json" | "toml" | "yaml" | "yml" | "css" | "html" | "htm"
+            | "sql" | "sh" | "bash" | "zsh" | "fish" | "dockerfile" => {
                 std::fs::read_to_string(path).ok()
             }
             "pdf" => ingest::extract_pdf_text(path).ok(),

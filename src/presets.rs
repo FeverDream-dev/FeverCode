@@ -3,10 +3,11 @@ use std::collections::HashMap;
 
 /// Presets define how FeverCode interacts with a specific model class.
 /// They control system prompts, sampling, retry behavior, and output formatting.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum Preset {
     /// Generic balanced preset. Works for most capable models.
+    #[default]
     Default,
     /// Creative / vibe coding mode. Higher temperature, relaxed constraints.
     Creative,
@@ -22,12 +23,6 @@ pub enum Preset {
     TestResearch,
     /// Vibe coder mode. Ship fast, assume intent, iterate in public.
     VibeCoder,
-}
-
-impl Default for Preset {
-    fn default() -> Self {
-        Preset::Default
-    }
 }
 
 impl Preset {
@@ -118,29 +113,37 @@ impl Preset {
 
     /// Whether to add a few-shot tool-use example block to the system prompt.
     pub fn needs_few_shot(&self) -> bool {
-        matches!(self, Preset::LocalSmall | Preset::LocalMedium | Preset::Precise | Preset::TestResearch)
+        matches!(
+            self,
+            Preset::LocalSmall | Preset::LocalMedium | Preset::Precise | Preset::TestResearch
+        )
     }
 
     /// Whether to request grammar-constrained JSON from the provider.
     pub fn wants_grammar_constraints(&self) -> bool {
-        matches!(self, Preset::LocalSmall | Preset::LocalMedium | Preset::Precise | Preset::TestResearch)
+        matches!(
+            self,
+            Preset::LocalSmall | Preset::LocalMedium | Preset::Precise | Preset::TestResearch
+        )
     }
 
     /// Whether to prepend chain-of-thought instructions.
     pub fn wants_cot(&self) -> bool {
-        matches!(self, Preset::LocalSmall | Preset::LocalMedium | Preset::TestResearch)
+        matches!(
+            self,
+            Preset::LocalSmall | Preset::LocalMedium | Preset::TestResearch
+        )
     }
 
     /// Build the full system prompt for this preset, appending tool-use rules.
     pub fn build_system_prompt(&self, base_prompt: &str) -> String {
-        let mut parts = Vec::new();
-
-        // Obedience preamble — forces the model to comply with output format
-        parts.push(self.obedience_preamble().to_string());
-        parts.push(String::new());
-        parts.push(base_prompt.to_string());
-        parts.push(String::new());
-        parts.push(self.tool_use_rules().to_string());
+        let mut parts = vec![
+            self.obedience_preamble().to_string(),
+            String::new(),
+            base_prompt.to_string(),
+            String::new(),
+            self.tool_use_rules().to_string(),
+        ];
 
         if self.wants_cot() {
             parts.push(String::new());

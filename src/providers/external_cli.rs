@@ -68,7 +68,8 @@ impl Provider for ExternalCliProvider {
     fn chat_with_tools(
         &self,
         request: ChatRequest,
-    ) -> Pin<Box<dyn std::future::Future<Output = Result<super::AssistantResponse>> + Send + '_>> {
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<super::AssistantResponse>> + Send + '_>>
+    {
         let command = self.command.clone();
         let prompt = request
             .messages
@@ -80,7 +81,11 @@ impl Provider for ExternalCliProvider {
         Box::pin(async move {
             let result = tokio::process::Command::new("sh")
                 .arg("-c")
-                .arg(format!("echo '{}' | {}", prompt.replace('\'', "'\\''"), command))
+                .arg(format!(
+                    "echo '{}' | {}",
+                    prompt.replace('\'', "'\\''"),
+                    command
+                ))
                 .output()
                 .await;
 
@@ -93,9 +98,7 @@ impl Provider for ExternalCliProvider {
                         usage: super::ProviderUsage::default(),
                     })
                 }
-                Err(e) => {
-                    Err(anyhow::anyhow!("CLI provider failed: {}", e))
-                }
+                Err(e) => Err(anyhow::anyhow!("CLI provider failed: {}", e)),
             }
         })
     }
