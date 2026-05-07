@@ -205,6 +205,54 @@ impl super::Tool for WriteFileTool {
     }
 }
 
+pub struct EditFileTool {
+    workspace_root: PathBuf,
+}
+
+impl EditFileTool {
+    pub fn new(workspace_root: PathBuf) -> Self {
+        Self { workspace_root }
+    }
+}
+
+impl super::Tool for EditFileTool {
+    fn name(&self) -> &str {
+        "edit_file"
+    }
+
+    fn execute(&self, args: Value) -> Result<ToolResult> {
+        let path_str = args["path"].as_str().unwrap_or("");
+        let old_string = args["old_string"].as_str().unwrap_or("");
+        let new_string = args["new_string"].as_str().unwrap_or("");
+
+        if path_str.is_empty() {
+            return Ok(ToolResult::err("path is required"));
+        }
+
+        let full_path = self.workspace_root.join(path_str);
+        if !full_path.exists() {
+            return Ok(ToolResult::err(format!("file not found: {}", path_str)));
+        }
+
+        let current = std::fs::read_to_string(&full_path)?;
+        if !current.contains(old_string) {
+            return Ok(ToolResult::err(format!(
+                "original text not found in {}. The file may have changed.",
+                path_str
+            )));
+        }
+
+        let updated = current.replacen(old_string, new_string, 1);
+        std::fs::write(&full_path, updated)?;
+        Ok(ToolResult::ok(format!(
+            "edited {}: replaced {} bytes with {} bytes",
+            path_str,
+            old_string.len(),
+            new_string.len()
+        )))
+    }
+}
+
 fn glob_matches_path(glob: &str, ext: &str, _path: &Path) -> bool {
     if glob == "*" || glob.is_empty() {
         return true;

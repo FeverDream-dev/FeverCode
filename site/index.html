@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FeverCode — Terminal AI Coding Portal</title>
-  <meta name="description" content="A Rust terminal AI coding agent with Egyptian precision. Full-screen TUI, workspace safety, 5 providers, 6 agent roles.">
+  <title>FeverCode — Vibe Coding Terminal Agent</title>
+  <meta name="description" content="A Rust terminal AI coding agent built for vibe coding. Full-screen TUI, per-LLM presets, llama3.2 test-only safety, 7 agent roles, Dark Aero UI.">
   <link rel="stylesheet" href="styles.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⌘</text></svg>">
 </head>
 <body>
 
@@ -14,7 +14,7 @@
   <nav class="nav">
     <div class="nav-inner">
       <a href="#" class="nav-logo">
-        <span class="logo-icon">𓂀</span>
+        <span class="logo-icon">⌘</span>
         FeverCode
       </a>
       <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation">☰</button>
@@ -31,13 +31,14 @@
 
   <!-- ====== HERO ====== -->
   <section class="hero">
+    <div class="aurora"></div>
     <div class="container hero-content">
       <h1 class="hero-title">
         <span class="accent">FeverCode</span>
       </h1>
       <p class="hero-subtitle">
-        <span class="tagline">A terminal AI coding portal for builders.</span><br>
-        Rust-powered. Full-screen TUI. Workspace-safe. 70 tests passing.
+        <span class="tagline">Vibe coding from the terminal. No browser. No bloat.</span><br>
+        Rust-powered TUI. Per-LLM presets. llama3.2 test-only safety. Ship fast.
       </p>
       <div class="hero-actions">
         <a href="#install" class="btn btn-primary">
@@ -67,24 +68,24 @@
         <div class="terminal-body">
 <pre>
 <span class="t-gold">╭──────────────────────────────────────────────────────────────────────────────────╮</span>
-<span class="t-gold">│</span>  <span class="t-amber">Workspace:</span> <span class="t-white">~/projects/my-app</span>    <span class="t-amber">Mode:</span> <span class="t-green">ask</span>    <span class="t-amber">Provider:</span> <span class="t-white">zai</span>    <span class="t-amber">Agent:</span> <span class="t-white">builder</span>  <span class="t-gold">│</span>
+<span class="t-gold">│</span>  <span class="t-amber">Workspace:</span> <span class="t-white">~/projects/my-app</span>    <span class="t-amber">Mode:</span> <span class="t-green">vibe</span>    <span class="t-amber">Provider:</span> <span class="t-white">zai</span>    <span class="t-amber">Preset:</span> <span class="t-white">vibe_coder</span>  <span class="t-gold">│</span>
 <span class="t-gold">╰──────────────────────────────────────────────────────────────────────────────────╯</span>
 
 <span class="t-muted">┌─ Agents ─────────────────┐</span>  <span class="t-muted">┌─ Chat ──────────────────────────────────────────────────────────────┐</span>
-<span class="t-muted">│</span>  <span class="t-green">●</span> <span class="t-white">builder</span>              <span class="t-muted">│</span>  <span class="t-muted">│</span>                                                                    <span class="t-muted">│</span>
-<span class="t-muted">│</span>  <span class="t-dim">○</span> <span class="t-sec">planner</span>              <span class="t-muted">│</span>  <span class="t-muted">│</span>  <span class="t-gold">You:</span> <span class="t-white">Add error handling to the parse_config function</span>          <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-green">●</span> <span class="t-white">vibe-coder</span>           <span class="t-muted">│</span>  <span class="t-muted">│</span>                                                                    <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-dim">○</span> <span class="t-sec">planner</span>              <span class="t-muted">│</span>  <span class="t-muted">│</span>  <span class="t-gold">You:</span> <span class="t-white">Build a REST API for user auth</span>                        <span class="t-muted">│</span>
 <span class="t-muted">│</span>  <span class="t-dim">○</span> <span class="t-sec">architect</span>             <span class="t-muted">│</span>  <span class="t-muted">│</span>                                                                    <span class="t-muted">│</span>
-<span class="t-muted">│</span>  <span class="t-dim">○</span> <span class="t-sec">reviewer</span>              <span class="t-muted">│</span>  <span class="t-muted">│</span>  <span class="t-gold">FeverCode:</span> <span class="t-green">Analyzed src/config.rs (line 42-78)</span>                   <span class="t-muted">│</span>
-<span class="t-muted">│</span>  <span class="t-dim">○</span> <span class="t-sec">fixer</span>                 <span class="t-muted">│</span>  <span class="t-muted">│</span>             <span class="t-sec">Planning 3 changes:</span>                                  <span class="t-muted">│</span>
-<span class="t-muted">│</span>  <span class="t-dim">○</span> <span class="t-sec">explorer</span>              <span class="t-muted">│</span>  <span class="t-muted">│</span>             <span class="t-sec">1. Wrap parse() in Result&lt;Config, ConfigError&gt;</span>             <span class="t-muted">│</span>
-<span class="t-muted">│</span>                          <span class="t-muted">│</span>  <span class="t-muted">│</span>             <span class="t-sec">2. Add custom error variants</span>                             <span class="t-muted">│</span>
-<span class="t-muted">│</span>  <span class="t-amber">[↑↓] select</span>  <span class="t-amber">[⏎] use</span>  <span class="t-muted">│</span>  <span class="t-muted">│</span>             <span class="t-sec">3. Update call sites with ? operator</span>                     <span class="t-muted">│</span>
-<span class="t-muted">└──────────────────────────┘</span>  <span class="t-muted">│</span>                                                                    <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-dim">○</span> <span class="t-sec">guardian</span>              <span class="t-muted">│</span>  <span class="t-muted">│</span>  <span class="t-gold">VibeCoder:</span> <span class="t-green">Writing src/auth.rs...</span>                            <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-dim">○</span> <span class="t-sec">checker</span>               <span class="t-muted">│</span>  <span class="t-muted">│</span>             <span class="t-sec">Running cargo check... ✓</span>                          <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-dim">○</span> <span class="t-sec">docs</span>                  <span class="t-muted">│</span>  <span class="t-muted">│</span>             <span class="t-sec">Writing tests... ✓</span>                                 <span class="t-muted">│</span>
+<span class="t-muted">│</span>                          <span class="t-muted">│</span>  <span class="t-muted">│</span>             <span class="t-sec">Git branch: vibe/auth-api-a7f3e2</span>                  <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-amber">[↑↓] select</span>  <span class="t-amber">[⏎] use</span>  <span class="t-muted">│</span>  <span class="t-muted">│</span>                                                                    <span class="t-muted">│</span>
+<span class="t-muted">└──────────────────────────┘</span>  <span class="t-muted">│</span>  <span class="t-muted">│</span>  <span class="t-green">✓ Shipped in 3 tool calls. 0 questions asked.</span>              <span class="t-muted">│</span>
 <span class="t-muted">│</span>  <span class="t-amber">── Approval Queue ──</span>                                        <span class="t-muted">│</span>
-<span class="t-muted">│</span>  <span class="t-dim">[1] src/config.rs</span>  <span class="t-green">+12 -3</span>   <span class="t-amber">[y/n/e]</span>                     <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-dim">[1] src/auth.rs</span>  <span class="t-green">+89 -0</span>   <span class="t-amber">[y/n/e]</span>                      <span class="t-muted">│</span>
 <span class="t-muted">│</span>                                                                    <span class="t-muted">│</span>
 <span class="t-muted">│</span>  <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span> <span class="t-muted">│</span>
-<span class="t-muted">│</span>  <span class="t-gold">❯</span> <span class="t-white">Add error handling to the parse_config function_</span>                <span class="t-muted">│</span>
+<span class="t-muted">│</span>  <span class="t-gold">❯</span> <span class="t-white">Build a REST API for user auth_</span>                        <span class="t-muted">│</span>
 <span class="t-muted">└─────────────────────────────────────────────────────────────────────┘</span>
 </pre>
         </div>
@@ -116,14 +117,26 @@
 
         <div class="feature-card">
           <div class="card-icon">⚡</div>
-          <h3>5 Provider Configs <span class="badge badge-available">Available</span></h3>
-          <p>Pre-configured for Z.ai, OpenAI, Ollama Local, Ollama Cloud, and Gemini CLI. Set your API key, pick a provider, go.</p>
+          <h3>53 Provider Configs <span class="badge badge-available">Available</span></h3>
+          <p>Major cloud, local self-hosted, Chinese providers, aggregators, and specialty endpoints. Set your API key, pick a provider, go.</p>
         </div>
 
         <div class="feature-card">
           <div class="card-icon">🤖</div>
-          <h3>6 Agent Roles <span class="badge badge-available">Available</span></h3>
-          <p>Builder, Planner, Architect, Reviewer, Fixer, Explorer — each agent has a defined role and system prompt.</p>
+          <h3>7 Agent Roles <span class="badge badge-available">Available</span></h3>
+          <p>Builder, Planner, Architect, Guardian, Checker, Docs, and Vibe Coder — each with defined identity and behavioral contract.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">🎛</div>
+          <h3>Per-LLM Presets <span class="badge badge-available">Available</span></h3>
+          <p>Aggressive obedience rules tailored per model: CloudStrong, LocalMedium, LocalSmall, Precise, VibeCoder, and TestResearch.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">🚫</div>
+          <h3>llama3.2 Hard Lock <span class="badge badge-available">Available</span></h3>
+          <p>llama3.2 is HARD-LOCKED to TestResearch preset. Cannot be overridden. Blocked from production coding. Test/internet/research only.</p>
         </div>
 
         <div class="feature-card">
@@ -140,20 +153,44 @@
 
         <div class="feature-card">
           <div class="card-icon">🧪</div>
-          <h3>70 Passing Tests <span class="badge badge-available">Available</span></h3>
-          <p>CLI parsing, provider configs, agent definitions, workspace validation — tested and green. Run <code>cargo test</code> yourself.</p>
+          <h3>91 Passing Tests <span class="badge badge-available">Available</span></h3>
+          <p>CLI parsing, provider configs, agent definitions, workspace validation, preset detection, RAG chunker, model discovery — tested and green. Run <code>cargo test</code> yourself.</p>
         </div>
 
         <div class="feature-card">
           <div class="card-icon">📡</div>
           <h3>CLI Commands <span class="badge badge-available">Available</span></h3>
-          <p><code>fever</code>, <code>init</code>, <code>doctor</code>, <code>plan</code>, <code>run</code>, <code>endless</code>, <code>providers</code>, <code>agents</code>, <code>version</code> — all wired up.</p>
+          <p><code>fever</code>, <code>init</code>, <code>doctor</code>, <code>plan</code>, <code>run</code>, <code>vibe</code>, <code>endless</code>, <code>providers</code>, <code>agents</code>, <code>preset</code> — all wired up.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">🧠</div>
+          <h3>Local Mastermind RAG <span class="badge badge-available">Available</span></h3>
+          <p>Small local models (Phi4 1.5B) match top LLMs through iterative document retrieval. Index workspace docs, query with `/mastermind`, get cited answers.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">🔍</div>
+          <h3>Auto-Model Discovery <span class="badge badge-available">Available</span></h3>
+          <p>`/discover` queries your provider's `/models` endpoint automatically. No more guessing model names. Works with Ollama, Z.ai, OpenAI, and all 53 providers.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">❓</div>
+          <h3>Questionnaire Clarification <span class="badge badge-available">Available</span></h3>
+          <p>Vague request detected? FeverCode asks 1-3 focused questions, collects answers, and checks readiness before generating a plan. No more guessing user intent.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="card-icon">🎨</div>
+          <h3>10 TUI Themes <span class="badge badge-available">Available</span></h3>
+          <p>DarkAero, EgyptianPortal, Matrix, Ocean, Monokai, SolarizedDark, Nord, Dracula, GruvboxDark, RosePine. Switch with `/theme`.</p>
         </div>
 
         <div class="feature-card">
           <div class="card-icon">📜</div>
           <h3>SOULS.md <span class="badge badge-available">Available</span></h3>
-          <p>Agent constitution for Ra, Thoth, Ptah, Maat, Anubis, and Seshat souls. Each agent has a defined identity and behavioral contract.</p>
+          <p>Agent constitution for Ra, Thoth, Ptah, Maat, Anubis, Seshat, and Vibe Coder. Each agent has a defined identity and behavioral contract.</p>
         </div>
 
         <div class="feature-card">
@@ -189,8 +226,8 @@
 
         <div class="feature-card">
           <div class="card-icon">🧠</div>
-          <h3>Memory & Context <span class="badge badge-planned">Planned</span></h3>
-          <p>Persistent memory across sessions. Remember project conventions, past decisions, and your coding preferences.</p>
+          <h3>Persistent Memory <span class="badge badge-planned">Planned</span></h3>
+          <p>Cross-session memory for project conventions, past decisions, and coding preferences.</p>
         </div>
 
         <div class="feature-card">
@@ -270,45 +307,45 @@
 
       <div class="provider-grid">
         <div class="provider-card">
-          <h4>Z.ai</h4>
-          <code class="env-var">ZAI_API_KEY</code>
-          <p>Z.ai's coding-optimized models. Default provider.</p>
+          <h4>53 Providers</h4>
+          <code class="env-var">All major + local + Chinese</code>
+          <p>Major Cloud: OpenAI, Anthropic, Google, Azure, AWS, Cohere, Mistral, Groq, Together, xAI, DeepSeek, and more.</p>
           <div class="provider-status">
             <span class="status-dot active"></span> Configured
           </div>
         </div>
 
         <div class="provider-card">
-          <h4>OpenAI</h4>
-          <code class="env-var">OPENAI_API_KEY</code>
-          <p>GPT-4o and o-series models. Industry standard.</p>
-          <div class="provider-status">
-            <span class="status-dot active"></span> Configured
-          </div>
-        </div>
-
-        <div class="provider-card">
-          <h4>Ollama Local</h4>
+          <h4>Local / Self-Hosted</h4>
           <code class="env-var">OLLAMA_HOST</code>
-          <p>Run models locally. Zero cost, full privacy. Default: localhost:11434.</p>
+          <p>Ollama, LM Studio, LocalAI, llama.cpp, vLLM, TabbyAPI, KoboldCPP. Zero cost, full privacy.</p>
           <div class="provider-status">
             <span class="status-dot active"></span> Configured
           </div>
         </div>
 
         <div class="provider-card">
-          <h4>Ollama Cloud</h4>
-          <code class="env-var">OLLAMA_CLOUD_KEY</code>
-          <p>Managed Ollama endpoint. Local model quality without local hardware.</p>
+          <h4>Chinese Providers</h4>
+          <code class="env-var">DeepSeek, Qwen, Moonshot</code>
+          <p>DeepSeek, Qwen, Moonshot, Baichuan, Zhipu, Yi, Minimax, Hunyuan, and more.</p>
           <div class="provider-status">
             <span class="status-dot active"></span> Configured
           </div>
         </div>
 
         <div class="provider-card">
-          <h4>Gemini CLI</h4>
-          <code class="env-var">GEMINI_API_KEY</code>
-          <p>Google's Gemini models via CLI integration.</p>
+          <h4>Aggregators</h4>
+          <code class="env-var">OPENROUTER_API_KEY</code>
+          <p>OpenRouter, Venice, OpenPipe, Unify. Route to any model behind one API key.</p>
+          <div class="provider-status">
+            <span class="status-dot active"></span> Configured
+          </div>
+        </div>
+
+        <div class="provider-card">
+          <h4>Z.ai Coding Plan</h4>
+          <code class="env-var">ZAI_API_KEY</code>
+          <p>Z.ai's coding-optimized models with automatic model discovery.</p>
           <div class="provider-status">
             <span class="status-dot active"></span> Configured
           </div>
@@ -411,15 +448,7 @@
             Foundation
             <span class="roadmap-phase phase-current">Current</span>
           </h4>
-          <p>CLI skeleton, provider configs, agent role definitions, TUI layout, MCP stdio client, workspace safety boundary, 70 tests passing. This is where we are today.</p>
-        </div>
-
-        <div class="roadmap-item">
-          <h4>
-            Agent Loop
-            <span class="roadmap-phase phase-next">Next</span>
-          </h4>
-          <p>Wire the full autonomous coding loop: prompt → plan → execute → verify. Connect providers to agent roles. Make the portal actually think and act.</p>
+          <p>53 providers, 7 agents, 10 TUI themes, 91 tests, safety boundary, per-LLM presets, llama3.2 hard lock, Local Mastermind RAG, auto-model discovery, questionnaire system.</p>
         </div>
 
         <div class="roadmap-item">
@@ -428,6 +457,14 @@
             <span class="roadmap-phase phase-next">Next</span>
           </h4>
           <p>crates.io publication, pre-built release binaries for Linux/macOS/Windows, homebrew tap. One-command install for everyone.</p>
+        </div>
+
+        <div class="roadmap-item">
+          <h4>
+            MCP Wiring
+            <span class="roadmap-phase phase-next">Next</span>
+          </h4>
+          <p>Connect stdio MCP client to the TUI flow. External tool servers extend FeverCode's capabilities.</p>
         </div>
 
         <div class="roadmap-item future">

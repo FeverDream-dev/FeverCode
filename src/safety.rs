@@ -282,6 +282,30 @@ impl SafetyPolicy {
     pub fn checkpoint_interval(&self) -> u32 {
         self.cfg.checkpoint_every_iterations
     }
+
+    pub fn is_inside_workspace(&self, candidate: &Path) -> bool {
+        self.ensure_inside_workspace(candidate).is_ok()
+    }
+
+    pub fn can_execute(&self, tool_name: &str, args: &serde_json::Value) -> bool {
+        match tool_name {
+            "write_file" | "edit_file" => {
+                if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
+                    self.is_inside_workspace(Path::new(path)) && self.cfg.allow_writes_inside_workspace
+                } else {
+                    false
+                }
+            }
+            "run_shell" => {
+                if let Some(cmd) = args.get("command").and_then(|v| v.as_str()) {
+                    self.can_run_command(cmd).is_ok()
+                } else {
+                    false
+                }
+            }
+            _ => true,
+        }
+    }
 }
 
 fn normalize_path(path: &Path) -> PathBuf {

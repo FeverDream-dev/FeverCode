@@ -1,9 +1,15 @@
 #[allow(dead_code)]
 mod agents;
 #[allow(dead_code)]
+mod agent_loop;
+#[allow(dead_code)]
 mod approval;
 #[allow(dead_code)]
+mod clarification;
+#[allow(dead_code)]
 mod config;
+#[allow(dead_code)]
+mod rag;
 #[allow(dead_code)]
 mod context_economy;
 #[allow(dead_code)]
@@ -12,6 +18,8 @@ mod events;
 mod mcp;
 #[allow(dead_code)]
 mod patch;
+#[allow(dead_code)]
+mod presets;
 #[allow(dead_code)]
 mod providers;
 #[allow(dead_code)]
@@ -26,6 +34,8 @@ mod workspace;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
+
+use crate::tools::Tool;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -96,6 +106,18 @@ enum Commands {
         #[command(subcommand)]
         action: ContextAction,
     },
+
+    #[command(about = "Manage LLM presets for tool-use reliability")]
+    Preset {
+        #[command(subcommand)]
+        action: PresetAction,
+    },
+
+    #[command(about = "Vibe coding: creative one-shot mode with relaxed safety")]
+    Vibe {
+        #[arg(trailing_var_arg = true, help = "Task or idea to build")]
+        task: Vec<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -125,6 +147,21 @@ enum ContextAction {
     Compact,
 }
 
+#[derive(Subcommand, Debug)]
+enum PresetAction {
+    #[command(about = "List all available presets")]
+    List,
+
+    #[command(about = "Show the current preset for the default model")]
+    Show,
+
+    #[command(about = "Set a preset by name")]
+    Set {
+        #[arg(help = "Preset name: default, creative, precise, local_small, local_medium, cloud_strong, test_research, vibe_coder")]
+        name: String,
+    },
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -149,6 +186,8 @@ async fn main() -> Result<()> {
         }
         Some(Commands::Souls { action }) => handle_souls(action, &root.root),
         Some(Commands::Context { action }) => handle_context(action, &root),
+        Some(Commands::Preset { action }) => handle_preset(action, &cfg),
+        Some(Commands::Vibe { task }) => vibe_task(root, cfg, task.join(" ")).await,
     }
 }
 
@@ -270,20 +309,46 @@ async fn plan_only(
     println!("Approval mode: {}", cfg.safety.mode);
     println!();
 
-    if agents::find_agent("ra-planner").is_some() {
-        println!("Ra Planner active.");
-    }
+    let provider = match providers::build_provider(cfg.default_provider()) {
+        Ok(p) => p,
+        Err(e) => {
+            println!("No provider available: {}", e);
+            return Ok(());
+        }
+    };
 
-    println!();
-    println!("Plan outline:");
-    println!("1. Clarify goal and acceptance criteria.");
-    println!("2. Map relevant files and dependencies.");
-    println!("3. Propose patch set.");
-    println!("4. Run checks (tests, lint, typecheck).");
-    println!("5. Summarize changes and verify.");
-    println!();
-    println!("Note: Connect a provider to enable AI-assisted planning.");
+    let guard = safety::SafetyPolicy::new(root.root.clone(), cfg.safety.clone());
+    let tools = tools::ToolRegistry::build_default(root.root.clone());
+    let log = events::SessionLog::new(&root.state_dir);
+    let model = cfg.providers.default.model.as_deref().unwrap_or("unknown");
+    let preset = presets::Preset::detect(model);
+    let mut agent = agent_loop::AgentLoop::new(provider, tools, guard, log)
+        .with_preset(preset);
 
+    let base_prompt = agents::find_agent("ra-planner")
+        .map(|a| a.system_prompt.to_string())
+        .unwrap_or_else(|| "You are a helpful planner.".to_string());
+    let project_ctx = workspace::load_project_context(&root.root);
+    let full_base = if project_ctx.is_empty() {
+        base_prompt.clone()
+    } else {
+        format!("{}\n\n## Project Context\n{}", base_prompt, project_ctx)
+    };
+    let system_prompt = preset.build_system_prompt(&full_base);
+
+    println!("Ra is planning... (preset: {:?}, temp: {})\n", preset, preset.temperature());
+    let result = agent
+        .run(
+            &system_prompt,
+            &task,
+            Box::new(|delta| {
+                print!("{}", delta);
+                let _ = std::io::Write::flush(&mut std::io::stdout());
+            }),
+        )
+        .await?;
+
+    println!("\n\nPlan complete. Tools used: {:?}", result.tool_calls_made);
     Ok(())
 }
 
@@ -301,18 +366,84 @@ async fn run_task(
     println!("Workspace: {}", root.root.display());
     println!();
 
-    let test_commands = cfg.detect_test_commands(&root.root);
-    if !test_commands.is_empty() {
-        println!("Detected test commands:");
-        for cmd in &test_commands {
-            println!("  - {}", cmd);
+    let provider = match providers::build_provider(cfg.default_provider()) {
+        Ok(p) => p,
+        Err(e) => {
+            println!("No provider available: {}", e);
+            return Ok(());
+        }
+    };
+
+    let tools = tools::ToolRegistry::build_default(root.root.clone());
+    let log = events::SessionLog::new(&root.state_dir);
+    let model = cfg.providers.default.model.as_deref().unwrap_or("unknown");
+    let preset = presets::Preset::detect(model);
+    let mut agent = agent_loop::AgentLoop::new(provider, tools, guard.clone(), log)
+        .with_preset(preset);
+
+    let base_prompt = agents::find_agent("ptah-builder")
+        .map(|a| a.system_prompt.to_string())
+        .unwrap_or_else(|| "You are a helpful coding assistant.".to_string());
+    let project_ctx = workspace::load_project_context(&root.root);
+    let full_base = if project_ctx.is_empty() {
+        base_prompt.clone()
+    } else {
+        format!("{}\n\n## Project Context\n{}", base_prompt, project_ctx)
+    };
+    let system_prompt = preset.build_system_prompt(&full_base);
+
+    // Auto-create a branch before editing
+    if cfg.safety.allow_git_commit || guard.mode() == safety::ApprovalMode::Spray {
+        let branch_name = format!("fever/{}-{}-{}",
+            sanitize_branch_name(&task),
+            chrono::Utc::now().format("%Y%m%d"),
+            uuid::Uuid::new_v4().to_string()[..4].to_string()
+        );
+        println!("Creating branch: {}", branch_name);
+        let _ = tools::git_tools::GitBranchTool::new(root.root.clone()).execute(
+            serde_json::json!({"name": branch_name})
+        );
+    }
+
+    println!("\nPtah is building...\n");
+    let result = agent
+        .run(
+            &system_prompt,
+            &task,
+            Box::new(|delta| {
+                print!("{}", delta);
+                let _ = std::io::Write::flush(&mut std::io::stdout());
+            }),
+        )
+        .await?;
+
+    println!("\n\nBuild complete. Tools used: {:?}", result.tool_calls_made);
+
+    // Auto-commit if enabled
+    if cfg.safety.allow_git_commit || guard.mode() == safety::ApprovalMode::Spray {
+        println!("Creating checkpoint...");
+        let checkpoint = tools::git_tools::GitCheckpointTool::new(root.root.clone()).execute(
+            serde_json::json!({"message": format!("fever: {}", task)})
+        );
+        match checkpoint {
+            Ok(r) if r.success => println!("{}", r.output),
+            Ok(r) => println!("Checkpoint note: {}", r.output),
+            Err(e) => println!("Checkpoint skipped: {}", e),
         }
     }
 
-    println!();
-    println!("Note: Connect a provider to enable AI-assisted coding.");
-
     Ok(())
+}
+
+fn sanitize_branch_name(task: &str) -> String {
+    task.to_ascii_lowercase()
+        .replace(|c: char| !c.is_alphanumeric() && c != '-' && c != '_', "-")
+        .replace("--", "-")
+        .trim_matches('-')
+        .to_string()
+        .chars()
+        .take(40)
+        .collect()
 }
 
 async fn endless(root: workspace::Workspace, cfg: config::FeverConfig, goal: String) -> Result<()> {
@@ -329,9 +460,70 @@ async fn endless(root: workspace::Workspace, cfg: config::FeverConfig, goal: Str
     );
     println!("Workspace: {}", root.root.display());
     println!();
-    println!("Loop: plan -> edit -> test -> doctor -> checkpoint -> continue/stop.");
-    println!("Note: Connect a provider to enable autonomous execution.");
 
+    let provider = match providers::build_provider(cfg.default_provider()) {
+        Ok(p) => p,
+        Err(e) => {
+            println!("No provider available: {}", e);
+            return Ok(());
+        }
+    };
+
+    let tools = tools::ToolRegistry::build_default(root.root.clone());
+    let log = events::SessionLog::new(&root.state_dir);
+    let model = cfg.providers.default.model.as_deref().unwrap_or("unknown");
+    let preset = presets::Preset::detect(model);
+    let mut agent = agent_loop::AgentLoop::new(provider, tools, guard.clone(), log)
+        .with_preset(preset);
+
+    let base_prompt = agents::find_agent("ra-planner")
+        .map(|a| a.system_prompt.to_string())
+        .unwrap_or_else(|| "You are a helpful autonomous agent.".to_string());
+    let project_ctx = workspace::load_project_context(&root.root);
+    let full_base = if project_ctx.is_empty() {
+        base_prompt.clone()
+    } else {
+        format!("{}\n\n## Project Context\n{}", base_prompt, project_ctx)
+    };
+    let system_prompt = preset.build_system_prompt(&full_base);
+
+    let max_loops = guard.max_endless_iterations();
+    let checkpoint_every = guard.checkpoint_interval();
+
+    for i in 0..max_loops {
+        println!("\n--- Iteration {} ---", i + 1);
+        let iter_goal = if i == 0 {
+            goal.clone()
+        } else {
+            format!("Continue working toward: {}. Review progress and pick the next step.", goal)
+        };
+
+        let result = agent
+            .run(
+                &system_prompt,
+                &iter_goal,
+                Box::new(|delta| {
+                    print!("{}", delta);
+                    let _ = std::io::Write::flush(&mut std::io::stdout());
+                }),
+            )
+            .await?;
+
+        println!("\n[Iteration {} complete. Tools: {:?}]", i + 1, result.tool_calls_made);
+
+        if (i + 1) % checkpoint_every == 0 {
+            println!("[Checkpoint...]");
+            let checkpoint = tools::git_tools::GitCheckpointTool::new(root.root.clone()).execute(
+                serde_json::json!({"message": format!("fever endless checkpoint {}", i + 1)})
+            );
+            match checkpoint {
+                Ok(r) if r.success => println!("Checkpoint: {}", r.output),
+                _ => println!("Checkpoint skipped."),
+            }
+        }
+    }
+
+    println!("\nEndless loop complete after {} iterations.", max_loops);
     Ok(())
 }
 
@@ -360,32 +552,166 @@ fn handle_souls(action: SoulsAction, root: &std::path::Path) -> anyhow::Result<(
     }
 }
 
-fn handle_context(action: ContextAction, root: &workspace::Workspace) -> anyhow::Result<()> {
-    let log = events::SessionLog::new(&root.state_dir);
+fn handle_preset(action: PresetAction, cfg: &config::FeverConfig) -> anyhow::Result<()> {
+    let model = cfg.providers.default.model.as_deref().unwrap_or("unknown");
+    let detected = presets::Preset::detect(model);
+
     match action {
-        ContextAction::Stats => {
-            let events = log.read_events()?;
-            let summary_exists = log.summary_path().exists();
-            let stats = context_economy::format_context_stats(
-                events.len(),
-                summary_exists,
-                log.events_path(),
-                log.summary_path(),
-            );
-            print!("{}", stats);
+        PresetAction::List => {
+            println!("Available presets:");
+            for (preset, slug) in presets::PresetRegistry::list_all() {
+                let marker = if preset == detected { " <- detected" } else { "" };
+                println!("  {} — {}{}", slug, preset.description(), marker);
+            }
             Ok(())
         }
-        ContextAction::Compact => {
-            let summary = log.generate_summary()?;
-            log.write_summary(&summary)?;
-            let redacted = context_economy::redact_secrets(&summary);
-            println!(
-                "Session summary written to: {}",
-                log.summary_path().display()
-            );
-            println!();
-            print!("{}", redacted);
+        PresetAction::Show => {
+            println!("Default model: {}", model);
+            println!("Detected preset: {:?}", detected);
+            println!("Temperature: {}", detected.temperature());
+            println!("Max retries: {}", detected.max_retries());
+            println!("Few-shot: {}", detected.needs_few_shot());
+            println!("Grammar constraints: {}", detected.wants_grammar_constraints());
+            Ok(())
+        }
+        PresetAction::Set { name } => {
+            let preset = match name.as_str() {
+                "default" => presets::Preset::Default,
+                "creative" | "vibe" => presets::Preset::Creative,
+                "precise" => presets::Preset::Precise,
+                "local_small" | "local-small" => presets::Preset::LocalSmall,
+                "local_medium" | "local-medium" => presets::Preset::LocalMedium,
+                "cloud_strong" | "cloud-strong" | "cloud" => presets::Preset::CloudStrong,
+                "test_research" | "test-research" | "test" => presets::Preset::TestResearch,
+                "vibe_coder" | "vibe-coder" => presets::Preset::VibeCoder,
+                other => {
+                    println!("Unknown preset: {}", other);
+                    return Ok(());
+                }
+            };
+            println!("Preset set to: {:?} — {}", preset, preset.description());
+            println!("Note: Store 'preset = \"{}\"' in .fevercode/config.toml under [providers.default] to persist.", name);
             Ok(())
         }
     }
+}
+
+fn handle_context(action: ContextAction, root: &workspace::Workspace) -> anyhow::Result<()> {
+    match action {
+        ContextAction::Stats => {
+            let summary = workspace::summarize(&root.root)?;
+            println!("Workspace: {}", root.root.display());
+            println!("Files scanned: {}", summary.files_seen);
+            println!("Languages: {}", summary.languages.join(", "));
+            println!("Project type: {}", summary.project_type.join(", "));
+            println!("Git repo: {}", if summary.has_git { "yes" } else { "no" });
+            let ctx = workspace::load_project_context(&root.root);
+            println!("Project context loaded: {} chars", ctx.len());
+            if !ctx.is_empty() {
+                println!("Sources:");
+                for line in ctx.lines() {
+                    if line.starts_with("## Project context") || line.starts_with("## Cursor rule") {
+                        println!("  - {}", line.trim_start_matches("## "));
+                    }
+                }
+            }
+            Ok(())
+        }
+        ContextAction::Compact => {
+            println!("Session compaction is not yet implemented.");
+            Ok(())
+        }
+    }
+}
+
+async fn vibe_task(
+    root: workspace::Workspace,
+    mut cfg: config::FeverConfig,
+    task: String,
+) -> Result<()> {
+    // Force vibe coder preset and spray mode for maximum flow
+    let model = cfg.providers.default.model.clone().unwrap_or_default();
+    let preset = presets::Preset::VibeCoder;
+    cfg.safety.mode = safety::ApprovalMode::Spray;
+
+    // llama3.2 hard lock check
+    let lower = model.to_ascii_lowercase();
+    if lower.contains("llama3.2") || lower.contains("llama-3.2") {
+        println!("ERROR: llama3.2 is HARD-LOCKED to test/research mode only.");
+        println!("Switch to a production-capable model to use vibe coding.");
+        return Ok(());
+    }
+
+    println!("Vibe coding mode");
+    println!("==================");
+    println!();
+    println!("Task: {}", empty_hint(&task));
+    println!("Model: {}", model);
+    println!("Preset: {:?} (temp={})", preset, preset.temperature());
+    println!("Mode: spray — autonomous workspace edits enabled");
+    println!();
+
+    let provider = match providers::build_provider(cfg.default_provider()) {
+        Ok(p) => p,
+        Err(e) => {
+            println!("No provider available: {}", e);
+            return Ok(());
+        }
+    };
+
+    let guard = safety::SafetyPolicy::new(root.root.clone(), cfg.safety.clone());
+    let tools = tools::ToolRegistry::build_default(root.root.clone());
+    let log = events::SessionLog::new(&root.state_dir);
+    let mut agent = agent_loop::AgentLoop::new(provider, tools, guard.clone(), log)
+        .with_preset(preset);
+
+    let base_prompt = agents::find_agent("vibe-coder")
+        .map(|a| a.system_prompt.to_string())
+        .unwrap_or_else(|| agents::find_agent("ptah-builder")
+            .map(|a| a.system_prompt.to_string())
+            .unwrap_or_else(|| "You are a helpful coding assistant.".to_string()));
+    let project_ctx = workspace::load_project_context(&root.root);
+    let full_base = if project_ctx.is_empty() {
+        base_prompt.clone()
+    } else {
+        format!("{}\n\n## Project Context\n{}", base_prompt, project_ctx)
+    };
+    let system_prompt = preset.build_system_prompt(&full_base);
+
+    // Auto-create branch
+    let branch_name = format!(
+        "vibe/{}-{}",
+        sanitize_branch_name(&task),
+        uuid::Uuid::new_v4().to_string()[..6].to_string()
+    );
+    println!("Branch: {}", branch_name);
+    let _ = tools::git_tools::GitBranchTool::new(root.root.clone()).execute(
+        serde_json::json!({"name": branch_name})
+    );
+
+    println!("\nVibe Coder is shipping...\n");
+    let result = agent
+        .run(
+            &system_prompt,
+            &task,
+            Box::new(|delta| {
+                print!("{}", delta);
+                let _ = std::io::Write::flush(&mut std::io::stdout());
+            }),
+        )
+        .await?;
+
+    println!("\n\nVibe complete. Tools used: {:?}", result.tool_calls_made);
+
+    // Auto-commit
+    let checkpoint = tools::git_tools::GitCheckpointTool::new(root.root.clone()).execute(
+        serde_json::json!({"message": format!("vibe: {}", task)})
+    );
+    match checkpoint {
+        Ok(r) if r.success => println!("Checkpoint: {}", r.output),
+        Ok(r) => println!("Checkpoint note: {}", r.output),
+        Err(e) => println!("Checkpoint skipped: {}", e),
+    }
+
+    Ok(())
 }

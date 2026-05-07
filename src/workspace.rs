@@ -144,6 +144,67 @@ fn normalize_path_buf(path: &Path) -> PathBuf {
     out
 }
 
+/// Load persistent project context files if they exist.
+/// Searches for AGENTS.md, CLAUDE.md, and .cursor/rules/*.mdc in the workspace.
+/// Returns concatenated content up to a reasonable size limit.
+pub fn load_project_context(root: &Path) -> String {
+    let mut parts = Vec::new();
+    let candidates = [
+        root.join(".fevercode/AGENTS.md"),
+        root.join("AGENTS.md"),
+        root.join("CLAUDE.md"),
+        root.join(".cursor/rules/default.mdc"),
+        root.join(".cursor/rules/global.mdc"),
+    ];
+
+    for path in &candidates {
+        if let Ok(content) = std::fs::read_to_string(path) {
+            let trimmed = content.trim();
+            if !trimmed.is_empty() {
+                parts.push(format!(
+                    "## Project context from {}\n{}",
+                    path.file_name().unwrap_or_default().to_string_lossy(),
+                    trimmed
+                ));
+            }
+        }
+    }
+
+    // Also check for any .mdc files in .cursor/rules/
+    let cursor_rules = root.join(".cursor/rules");
+    if cursor_rules.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(cursor_rules) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) == Some("mdc") {
+                    if let Ok(content) = std::fs::read_to_string(&path) {
+                        let trimmed = content.trim();
+                        if !trimmed.is_empty() {
+                            parts.push(format!(
+                                "## Cursor rule: {}\n{}",
+                                path.file_name().unwrap_or_default().to_string_lossy(),
+                                trimmed
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let combined = parts.join("\n\n");
+    // Cap at ~8k chars to avoid flooding small model contexts
+    if combined.len() > 8192 {
+        format!(
+            "{}\n\n[Context truncated; total would be {} chars]",
+            &combined[..8192],
+            combined.len()
+        )
+    } else {
+        combined
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -145,3 +145,56 @@ impl super::Tool for GitCheckpointTool {
         }
     }
 }
+
+pub struct GitBranchTool {
+    workspace_root: PathBuf,
+}
+
+impl GitBranchTool {
+    pub fn new(workspace_root: PathBuf) -> Self {
+        Self { workspace_root }
+    }
+}
+
+impl super::Tool for GitBranchTool {
+    fn name(&self) -> &str {
+        "git_branch"
+    }
+
+    fn execute(&self, args: Value) -> Result<ToolResult> {
+        let name = args["name"].as_str().unwrap_or("");
+        if name.is_empty() {
+            return Ok(ToolResult::err("branch name is required"));
+        }
+
+        let is_git_repo = std::process::Command::new("git")
+            .args(["rev-parse", "--is-inside-work-tree"])
+            .current_dir(&self.workspace_root)
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !is_git_repo {
+            return Ok(ToolResult::err("not a git repository"));
+        }
+
+        let result = std::process::Command::new("git")
+            .args(["checkout", "-b", name])
+            .current_dir(&self.workspace_root)
+            .output();
+
+        match result {
+            Ok(out) => {
+                if out.status.success() {
+                    Ok(ToolResult::ok(format!("switched to branch {}", name)))
+                } else {
+                    Ok(ToolResult::err(format!(
+                        "git checkout failed: {}",
+                        String::from_utf8_lossy(&out.stderr)
+                    )))
+                }
+            }
+            Err(e) => Ok(ToolResult::err(format!("git checkout failed: {}", e))),
+        }
+    }
+}

@@ -5,6 +5,7 @@ use std::pin::Pin;
 
 pub mod external_cli;
 pub mod openai_compat;
+pub mod model_discovery;
 
 pub trait Provider: Send + Sync {
     fn name(&self) -> &str;
@@ -13,6 +14,29 @@ pub trait Provider: Send + Sync {
         &self,
         request: ChatRequest,
     ) -> Pin<Box<dyn Stream<Item = Result<ProviderEvent>> + Send>>;
+
+    fn chat_with_tools(
+        &self,
+        request: ChatRequest,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<AssistantResponse>> + Send + '_>>;
+
+    fn list_models(
+        &self,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<Vec<String>>> + Send + '_>>;
+}
+
+#[derive(Debug, Clone)]
+pub struct AssistantResponse {
+    pub content: Option<String>,
+    pub tool_calls: Vec<CompleteToolCall>,
+    pub usage: ProviderUsage,
+}
+
+#[derive(Debug, Clone)]
+pub struct CompleteToolCall {
+    pub id: String,
+    pub name: String,
+    pub arguments: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -62,6 +62,7 @@ impl ToolRegistry {
         registry.register(Box::new(files::ListFilesTool::new(workspace_root.clone())));
         registry.register(Box::new(files::SearchTextTool::new(workspace_root.clone())));
         registry.register(Box::new(files::WriteFileTool::new(workspace_root.clone())));
+        registry.register(Box::new(files::EditFileTool::new(workspace_root.clone())));
         registry.register(Box::new(shell::RunShellTool::new(workspace_root.clone())));
         registry.register(Box::new(git_tools::GitStatusTool::new(
             workspace_root.clone(),
@@ -69,7 +70,10 @@ impl ToolRegistry {
         registry.register(Box::new(git_tools::GitDiffTool::new(
             workspace_root.clone(),
         )));
-        registry.register(Box::new(git_tools::GitCheckpointTool::new(workspace_root)));
+        registry.register(Box::new(git_tools::GitCheckpointTool::new(
+            workspace_root.clone(),
+        )));
+        registry.register(Box::new(git_tools::GitBranchTool::new(workspace_root)));
         registry
     }
 }

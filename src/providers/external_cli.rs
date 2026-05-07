@@ -58,6 +58,47 @@ impl Provider for ExternalCliProvider {
 
         Box::pin(s)
     }
+
+    fn list_models(
+        &self,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<Vec<String>>> + Send + '_>> {
+        Box::pin(async move { Ok(Vec::new()) })
+    }
+
+    fn chat_with_tools(
+        &self,
+        request: ChatRequest,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<super::AssistantResponse>> + Send + '_>> {
+        let command = self.command.clone();
+        let prompt = request
+            .messages
+            .iter()
+            .map(|m| format!("{}: {}", m.role_str(), m.content))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+
+        Box::pin(async move {
+            let result = tokio::process::Command::new("sh")
+                .arg("-c")
+                .arg(format!("echo '{}' | {}", prompt.replace('\'', "'\\''"), command))
+                .output()
+                .await;
+
+            match result {
+                Ok(output) => {
+                    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                    Ok(super::AssistantResponse {
+                        content: Some(stdout),
+                        tool_calls: Vec::new(),
+                        usage: super::ProviderUsage::default(),
+                    })
+                }
+                Err(e) => {
+                    Err(anyhow::anyhow!("CLI provider failed: {}", e))
+                }
+            }
+        })
+    }
 }
 
 impl super::ChatMessage {

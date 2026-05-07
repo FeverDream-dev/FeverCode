@@ -43,6 +43,23 @@ struct StreamChoice {
 #[derive(Deserialize)]
 struct DeltaResponse {
     content: Option<String>,
+    #[serde(default)]
+    tool_calls: Option<Vec<StreamToolCall>>,
+}
+
+#[derive(Deserialize, Debug)]
+struct StreamToolCall {
+    index: usize,
+    id: Option<String>,
+    #[serde(rename = "type")]
+    call_type: Option<String>,
+    function: Option<StreamToolCallFunction>,
+}
+
+#[derive(Deserialize, Debug)]
+struct StreamToolCallFunction {
+    name: Option<String>,
+    arguments: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -66,6 +83,22 @@ struct NonStreamChoice {
 #[derive(Deserialize, Debug)]
 struct NonStreamMessage {
     content: Option<String>,
+    #[serde(default)]
+    tool_calls: Option<Vec<ResponseToolCall>>,
+}
+
+#[derive(Deserialize, Debug)]
+struct ResponseToolCall {
+    id: String,
+    #[serde(rename = "type")]
+    call_type: String,
+    function: ResponseToolCallFunction,
+}
+
+#[derive(Deserialize, Debug)]
+struct ResponseToolCallFunction {
+    name: String,
+    arguments: String,
 }
 
 impl OpenAiCompatProvider {
@@ -210,6 +243,67 @@ impl Provider for OpenAiCompatProvider {
 
         Box::pin(s)
     }
+
+    fn list_models(
+        &self,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<Vec<String>>> + Send + '_>> {
+        let base_url = self.base_url.clone();
+        let api_key = self.api_key.clone();
+        Box::pin(async move {
+            crate::providers::model_discovery::fetch_models(&base_url, api_key.as_deref()).await
+        })
+    }
+
+    fn chat_with_tools(
+        &self,
+        request: ChatRequest,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<super::AssistantResponse>> + Send + '_>> {
+        let url = self.url();
+        let body = self.build_request_body(&request, false);
+        let client = self.client.clone();
+        let api_key = self.api_key.clone();
+
+        Box::pin(async move {
+            let mut req = client.post(&url);
+            if let Some(key) = &api_key {
+                req = req.bearer_auth(key);
+            }
+            let resp = req.json(&body).send().await?;
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let text = resp.text().await.unwrap_or_default();
+                anyhow::bail!("provider error {}: {}", status, text);
+            }
+            let data: ChatCompletionResponse = resp.json().await?;
+            let message = data.choices.into_iter().next().and_then(|c| c.message);
+
+            let content = message.as_ref().and_then(|m| m.content.clone());
+            let mut tool_calls = Vec::new();
+            if let Some(msg) = message {
+                if let Some(calls) = msg.tool_calls {
+                    for call in calls {
+                        tool_calls.push(super::CompleteToolCall {
+                            id: call.id,
+                            name: call.function.name,
+                            arguments: call.function.arguments,
+                        });
+                    }
+                }
+            }
+
+            let usage = data.usage.map(|u| super::ProviderUsage {
+                prompt_tokens: u.prompt_tokens,
+                completion_tokens: u.completion_tokens,
+                total_tokens: u.total_tokens,
+            }).unwrap_or_default();
+
+            Ok(super::AssistantResponse {
+                content,
+                tool_calls,
+                usage,
+            })
+        })
+    }
 }
 
 pub async fn chat_once(provider: &OpenAiCompatProvider, request: ChatRequest) -> Result<String> {
@@ -233,4 +327,81 @@ pub async fn chat_once(provider: &OpenAiCompatProvider, request: ChatRequest) ->
         .and_then(|m| m.content.clone())
         .unwrap_or_default();
     Ok(content)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::providers::{ChatMessage, MessageRole, ProviderEvent};
+    use futures::StreamExt;
+
+    #[tokio::test]
+    #[ignore = "requires local ollama"]
+    async fn ollama_local_streaming_works() {
+        let provider = OpenAiCompatProvider::new(
+            "ollama-local".to_string(),
+            "http://localhost:11434/v1".to_string(),
+            None,
+            "llama3.2:latest".to_string(),
+        );
+        let request = ChatRequest {
+            messages: vec![ChatMessage {
+                role: MessageRole::User,
+                content: "Say exactly 'hello world' and nothing else".to_string(),
+                tool_calls: None,
+                tool_call_id: None,
+            }],
+            model: Some("llama3.2:latest".to_string()),
+            tools: None,
+            temperature: Some(0.0),
+            max_tokens: Some(10),
+        };
+
+        let mut stream = provider.chat_stream(request);
+        let mut collected = String::new();
+        while let Some(event) = stream.next().await {
+            match event {
+                Ok(ev) => {
+                    match ev {
+                        ProviderEvent::Delta(text) => collected.push_str(&text),
+                        ProviderEvent::Done(_) => break,
+                        ProviderEvent::Error(e) => panic!("Provider error: {}", e),
+                        _ => {}
+                    }
+                }
+                Err(e) => panic!("Stream error: {}", e),
+            }
+        }
+        assert!(!collected.is_empty(), "Expected non-empty response from Ollama");
+        println!("Ollama response: '{}'", collected.trim());
+    }
+
+    #[tokio::test]
+    #[ignore = "requires local ollama"]
+    async fn ollama_local_chat_once_works() {
+        let provider = OpenAiCompatProvider::new(
+            "ollama-local".to_string(),
+            "http://localhost:11434/v1".to_string(),
+            None,
+            "llama3.2:latest".to_string(),
+        );
+        let request = ChatRequest {
+            messages: vec![ChatMessage {
+                role: MessageRole::User,
+                content: "Say exactly 'hello world' and nothing else".to_string(),
+                tool_calls: None,
+                tool_call_id: None,
+            }],
+            model: Some("llama3.2:latest".to_string()),
+            tools: None,
+            temperature: Some(0.0),
+            max_tokens: Some(10),
+        };
+
+        let result = chat_once(&provider, request).await;
+        assert!(result.is_ok(), "chat_once failed: {:?}", result.err());
+        let text = result.unwrap();
+        assert!(!text.is_empty(), "Expected non-empty response");
+        println!("Ollama chat_once: '{}'", text.trim());
+    }
 }
