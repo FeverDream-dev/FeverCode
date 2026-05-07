@@ -5,15 +5,23 @@ mod agents;
 #[allow(dead_code)]
 mod approval;
 #[allow(dead_code)]
+mod audit;
+#[allow(dead_code)]
 mod clarification;
 #[allow(dead_code)]
 mod config;
 #[allow(dead_code)]
 mod context_economy;
 #[allow(dead_code)]
+mod custom_souls;
+#[allow(dead_code)]
 mod events;
 #[allow(dead_code)]
+mod license;
+#[allow(dead_code)]
 mod mcp;
+#[allow(dead_code)]
+mod memory;
 #[allow(dead_code)]
 mod patch;
 #[allow(dead_code)]
@@ -26,6 +34,14 @@ mod rag;
 mod safety;
 #[allow(dead_code)]
 mod souls;
+#[allow(dead_code)]
+mod sync;
+#[allow(dead_code)]
+mod analytics;
+#[allow(dead_code)]
+mod telemetry;
+#[allow(dead_code)]
+mod team;
 #[allow(dead_code)]
 mod tools;
 mod tui;
@@ -121,6 +137,182 @@ enum Commands {
 
     #[command(about = "Update FeverCode to the latest release")]
     Update,
+
+    #[command(about = "Manage license keys and subscription tiers")]
+    Auth {
+        #[command(subcommand)]
+        action: AuthAction,
+    },
+
+    #[command(about = "Show session analytics and usage statistics")]
+    Analytics,
+
+    #[command(about = "Manage opt-in telemetry")]
+    Telemetry {
+        #[command(subcommand)]
+        action: TelemetryAction,
+    },
+
+    #[command(about = "Cloud session sync across machines")]
+    Sync {
+        #[command(subcommand)]
+        action: SyncAction,
+    },
+
+    #[command(about = "Manage custom souls (Pro+)")]
+    CustomSoul {
+        #[command(subcommand)]
+        action: CustomSoulAction,
+    },
+
+    #[command(about = "Audit log export and management (Team+)")]
+    AuditLog {
+        #[command(subcommand)]
+        action: AuditLogAction,
+    },
+
+    #[command(about = "Team configuration management")]
+    Team {
+        #[command(subcommand)]
+        action: TeamAction,
+    },
+
+    #[command(about = "Persistent memory across sessions")]
+    Memory {
+        #[command(subcommand)]
+        action: MemoryAction,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum AuthAction {
+    #[command(about = "Activate a license key")]
+    Login {
+        #[arg(help = "Base64-encoded license key")]
+        key: String,
+    },
+    #[command(about = "Show current license status")]
+    Status,
+    #[command(about = "Remove current license")]
+    Logout,
+}
+
+#[derive(Subcommand, Debug)]
+enum TelemetryAction {
+    #[command(about = "Enable telemetry (opt-in)")]
+    Enable,
+    #[command(about = "Disable telemetry")]
+    Disable,
+    #[command(about = "Show telemetry status")]
+    Status,
+}
+
+#[derive(Subcommand, Debug)]
+enum SyncAction {
+    #[command(about = "Save session to local sync file")]
+    Push,
+    #[command(about = "Load session from local sync file")]
+    Pull,
+    #[command(about = "Show sync status")]
+    Status,
+}
+
+#[derive(Subcommand, Debug)]
+enum CustomSoulAction {
+    #[command(about = "List custom souls")]
+    List,
+    #[command(about = "Create a custom soul")]
+    Create {
+        #[arg(help = "Soul name")]
+        name: String,
+        #[arg(help = "Soul role description")]
+        role: String,
+        #[arg(help = "System prompt for the soul")]
+        prompt: String,
+    },
+    #[command(about = "Show a custom soul")]
+    Show {
+        #[arg(help = "Soul name")]
+        name: String,
+    },
+    #[command(about = "Delete a custom soul")]
+    Delete {
+        #[arg(help = "Soul name")]
+        name: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum AuditLogAction {
+    #[command(about = "Export audit log as JSON")]
+    ExportJson {
+        #[arg(help = "Output file path")]
+        path: String,
+    },
+    #[command(about = "Export audit log as CSV")]
+    ExportCsv {
+        #[arg(help = "Output file path")]
+        path: String,
+    },
+    #[command(about = "Show audit log statistics")]
+    Stats,
+    #[command(about = "Remove entries older than N days")]
+    Prune {
+        #[arg(help = "Number of days to retain")]
+        days: u32,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum TeamAction {
+    #[command(about = "Show team configuration")]
+    Config,
+    #[command(about = "List team members")]
+    Members,
+    #[command(about = "Add a team member")]
+    AddMember {
+        #[arg(help = "Member email")]
+        email: String,
+        #[arg(help = "Role: admin, member, viewer", default_value = "member")]
+        role: String,
+    },
+    #[command(about = "Remove a team member")]
+    RemoveMember {
+        #[arg(help = "Member email")]
+        email: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum MemoryAction {
+    #[command(about = "Store a memory entry")]
+    Store {
+        #[arg(help = "Category: convention, decision, style, preference, context")]
+        category: String,
+        #[arg(help = "Memory key")]
+        key: String,
+        #[arg(help = "Memory value")]
+        value: String,
+    },
+    #[command(about = "Retrieve a memory entry")]
+    Retrieve {
+        #[arg(help = "Category")]
+        category: String,
+        #[arg(help = "Memory key")]
+        key: String,
+    },
+    #[command(about = "Search memories")]
+    Search {
+        #[arg(help = "Search query")]
+        query: String,
+    },
+    #[command(about = "Show memory statistics")]
+    Stats,
+    #[command(about = "Remove old memories")]
+    Compact {
+        #[arg(help = "Remove entries not accessed in N days", default_value = "90")]
+        days: u32,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -194,6 +386,14 @@ async fn main() -> Result<()> {
         Some(Commands::Preset { action }) => handle_preset(action, &cfg),
         Some(Commands::Vibe { task }) => vibe_task(root, cfg, task.join(" ")).await,
         Some(Commands::Update) => update().await,
+        Some(Commands::Auth { action }) => handle_auth(action, &root.state_dir),
+        Some(Commands::Analytics) => handle_analytics(&root.root),
+        Some(Commands::Telemetry { action }) => handle_telemetry(action, &root.root),
+        Some(Commands::Sync { action }) => handle_sync(action, &root.root),
+        Some(Commands::CustomSoul { action }) => handle_custom_soul(action, &root.root),
+        Some(Commands::AuditLog { action }) => handle_audit_log(action, &root.root),
+        Some(Commands::Team { action }) => handle_team(action, &root.root),
+        Some(Commands::Memory { action }) => handle_memory(action, &root.root),
     }
 }
 
@@ -847,4 +1047,263 @@ fn command_exists(cmd: &str) -> bool {
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
+}
+
+fn handle_auth(action: AuthAction, state_dir: &std::path::Path) -> Result<()> {
+    let secret = b"fevercode-license-secret-v1";
+    let auth_file = state_dir.join("auth.json");
+    match action {
+        AuthAction::Login { key } => {
+            let mut mgr = license::LicenseManager::new(secret);
+            let tier = mgr.activate(&key)?;
+            mgr.save_to_file(&auth_file)?;
+            println!("License activated: {}", tier);
+            Ok(())
+        }
+        AuthAction::Status => {
+            let tier = if let Ok(Some(lk)) = license::LicenseManager::load_from_file(&auth_file) {
+                if lk.is_valid(secret) {
+                    lk.display_tier()
+                } else {
+                    "expired".to_string()
+                }
+            } else {
+                "community (free)".to_string()
+            };
+            println!("License: {}", tier);
+            Ok(())
+        }
+        AuthAction::Logout => {
+            let _ = std::fs::remove_file(&auth_file);
+            println!("License removed. Reverted to Community tier.");
+            Ok(())
+        }
+    }
+}
+
+fn handle_analytics(workspace_root: &std::path::Path) -> Result<()> {
+    let collector = analytics::AnalyticsCollector::load(workspace_root)?;
+    println!("{}", collector.format_report());
+    Ok(())
+}
+
+fn handle_telemetry(action: TelemetryAction, workspace_root: &std::path::Path) -> Result<()> {
+    match action {
+        TelemetryAction::Enable => {
+            telemetry::TelemetryCollector::opt_in(workspace_root)?;
+            println!("Telemetry enabled. Thank you!");
+        }
+        TelemetryAction::Disable => {
+            telemetry::TelemetryCollector::opt_out(workspace_root)?;
+            println!("Telemetry disabled.");
+        }
+        TelemetryAction::Status => {
+            let config = telemetry::TelemetryCollector::load_config(workspace_root)?;
+            let collector = telemetry::TelemetryCollector::new(config, workspace_root);
+            println!("{}", collector.format_status());
+        }
+    }
+    Ok(())
+}
+
+fn handle_sync(action: SyncAction, workspace_root: &std::path::Path) -> Result<()> {
+    let mgr = sync::SyncManager::new(workspace_root);
+    match action {
+        SyncAction::Push => {
+            let events = vec![sync::SyncEvent {
+                event_type: "manual_sync".to_string(),
+                data: serde_json::json!({"source": "cli"}),
+                timestamp: chrono::Utc::now(),
+            }];
+            let payload = mgr.create_payload("manual", &events)?;
+            mgr.save_local(&payload)?;
+            println!("Session synced locally.");
+        }
+        SyncAction::Pull => {
+            match mgr.load_local()? {
+                Some(payload) => {
+                    println!("Loaded sync: session {} from {}", payload.session_id, payload.machine_id);
+                }
+                None => println!("No local sync found."),
+            }
+        }
+        SyncAction::Status => {
+            match mgr.load_local()? {
+                Some(payload) => {
+                    println!("Last sync: {} ({})", payload.timestamp, payload.machine_id);
+                }
+                None => println!("No sync data."),
+            }
+        }
+    }
+    Ok(())
+}
+
+fn handle_custom_soul(action: CustomSoulAction, workspace_root: &std::path::Path) -> Result<()> {
+    let mgr = custom_souls::CustomSoulManager::new(workspace_root);
+    match action {
+        CustomSoulAction::List => {
+            let souls = mgr.list()?;
+            if souls.is_empty() {
+                println!("No custom souls.");
+            } else {
+                for name in &souls {
+                    println!("  - {}", name);
+                }
+            }
+        }
+        CustomSoulAction::Create { name, role, prompt } => {
+            let soul = custom_souls::CustomSoulManager::create_default(&name, &role, &prompt, "cli");
+            let warnings = mgr.validate(&soul);
+            if !warnings.is_empty() {
+                for w in &warnings {
+                    eprintln!("Warning: {}", w);
+                }
+            }
+            mgr.create(soul)?;
+            println!("Custom soul '{}' created.", name);
+        }
+        CustomSoulAction::Show { name } => {
+            let soul = mgr.load(&name)?;
+            println!("Name: {}", soul.name);
+            println!("Role: {}", soul.role);
+            println!("Prompt: {}", soul.system_prompt);
+            println!("Risk: {}", soul.risk_level);
+            println!("Budget: {} tokens", soul.context_budget);
+        }
+        CustomSoulAction::Delete { name } => {
+            let deleted = mgr.delete(&name)?;
+            if deleted {
+                println!("Custom soul '{}' deleted.", name);
+            } else {
+                println!("Custom soul '{}' not found.", name);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn handle_audit_log(action: AuditLogAction, workspace_root: &std::path::Path) -> Result<()> {
+    let log = audit::AuditLog::new(workspace_root);
+    match action {
+        AuditLogAction::ExportJson { path } => {
+            log.export_json(std::path::Path::new(&path))?;
+            println!("Exported audit log to {}", path);
+        }
+        AuditLogAction::ExportCsv { path } => {
+            log.export_csv(std::path::Path::new(&path))?;
+            println!("Exported audit log to {}", path);
+        }
+        AuditLogAction::Stats => {
+            let filters = audit::AuditFilters {
+                since: None,
+                until: None,
+                user: None,
+                action: None,
+                risk_level: None,
+            };
+            let entries = log.query(filters)?;
+            println!("Audit log entries: {}", entries.len());
+        }
+        AuditLogAction::Prune { days } => {
+            let removed = log.prune(days)?;
+            println!("Pruned {} entries older than {} days.", removed, days);
+        }
+    }
+    Ok(())
+}
+
+fn handle_team(action: TeamAction, workspace_root: &std::path::Path) -> Result<()> {
+    let mgr = team::TeamManager::new(workspace_root);
+    match action {
+        TeamAction::Config => {
+            match mgr.load_config()? {
+                Some(config) => {
+                    println!("Team: {} ({})", config.team_name, config.team_id);
+                    println!("Admin: {}", config.admin_email);
+                    println!("Seats: {}", config.seats);
+                    println!("Shared souls: {:?}", config.shared_souls);
+                    println!("Approved providers: {:?}", config.approved_providers);
+                }
+                None => println!("No team configuration found."),
+            }
+        }
+        TeamAction::Members => {
+            let members = mgr.load_members()?;
+            if members.is_empty() {
+                println!("No team members.");
+            } else {
+                for m in &members {
+                    println!("  {} [{:?}] — joined {}", m.email, m.role, m.joined_at.format("%Y-%m-%d"));
+                }
+            }
+        }
+        TeamAction::AddMember { email, role } => {
+            let team_role = match role.to_ascii_lowercase().as_str() {
+                "admin" => team::TeamRole::Admin,
+                "viewer" => team::TeamRole::Viewer,
+                _ => team::TeamRole::Member,
+            };
+            mgr.add_member(&email, team_role.clone())?;
+            println!("Added {} as {:?}", email, team_role);
+        }
+        TeamAction::RemoveMember { email } => {
+            let removed = mgr.remove_member(&email)?;
+            if removed {
+                println!("Removed {} from team.", email);
+            } else {
+                println!("{} not found in team.", email);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn handle_memory(action: MemoryAction, workspace_root: &std::path::Path) -> Result<()> {
+    let mut store = memory::MemoryStore::load(workspace_root)?;
+    match action {
+        MemoryAction::Store { category, key, value } => {
+            let cat = parse_memory_category(&category);
+            store.store(cat, &key, &value)?;
+            store.save()?;
+            println!("Stored: [{}] {} = {}", category, key, if value.len() > 80 { &value[..80] } else { &value });
+        }
+        MemoryAction::Retrieve { category, key } => {
+            let cat = parse_memory_category(&category);
+            match store.retrieve(cat, &key)? {
+                Some(val) => println!("{}", val),
+                None => println!("Not found: [{}] {}", category, key),
+            }
+        }
+        MemoryAction::Search { query } => {
+            let results = store.search(&query);
+            if results.is_empty() {
+                println!("No memories matching '{}'.", query);
+            } else {
+                for entry in &results {
+                    println!("[{:?}] {} = {}", entry.category, entry.key, if entry.value.len() > 60 { &entry.value[..60] } else { &entry.value });
+                }
+            }
+        }
+        MemoryAction::Stats => {
+            println!("{}", store.stats());
+        }
+        MemoryAction::Compact { days } => {
+            let removed = store.compact(days);
+            store.save()?;
+            println!("Compacted {} entries older than {} days.", removed, days);
+        }
+    }
+    Ok(())
+}
+
+fn parse_memory_category(s: &str) -> memory::MemoryCategory {
+    match s.to_ascii_lowercase().as_str() {
+        "convention" => memory::MemoryCategory::ProjectConvention,
+        "decision" => memory::MemoryCategory::PastDecision,
+        "style" => memory::MemoryCategory::CodingStyle,
+        "preference" => memory::MemoryCategory::UserPreference,
+        "context" => memory::MemoryCategory::ProjectContext,
+        _ => memory::MemoryCategory::UserPreference,
+    }
 }
