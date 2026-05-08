@@ -182,6 +182,12 @@ enum Commands {
         #[command(subcommand)]
         action: MemoryAction,
     },
+
+    #[command(about = "Manage MCP (Model Context Protocol) servers")]
+    Mcp {
+        #[command(subcommand)]
+        action: McpAction,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -316,6 +322,28 @@ enum MemoryAction {
 }
 
 #[derive(Subcommand, Debug)]
+enum McpAction {
+    #[command(about = "Initialize default MCP servers config")]
+    Init,
+    #[command(about = "List configured MCP servers and their status")]
+    List,
+    #[command(about = "Add a new MCP server")]
+    Add {
+        #[arg(help = "Server name")]
+        name: String,
+        #[arg(help = "Command to run (e.g., npx, node, python)")]
+        command: String,
+        #[arg(help = "Command arguments", num_args = 0..)]
+        args: Vec<String>,
+    },
+    #[command(about = "Remove an MCP server")]
+    Remove {
+        #[arg(help = "Server name")]
+        name: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 enum SoulsAction {
     #[command(about = "List all built-in and configured souls")]
     List,
@@ -394,6 +422,7 @@ async fn main() -> Result<()> {
         Some(Commands::AuditLog { action }) => handle_audit_log(action, &root.root),
         Some(Commands::Team { action }) => handle_team(action, &root.root),
         Some(Commands::Memory { action }) => handle_memory(action, &root.root),
+        Some(Commands::Mcp { action }) => handle_mcp(action, &root.root),
     }
 }
 
@@ -1341,4 +1370,52 @@ fn parse_memory_category(s: &str) -> memory::MemoryCategory {
         "context" => memory::MemoryCategory::ProjectContext,
         _ => memory::MemoryCategory::UserPreference,
     }
+}
+
+fn handle_mcp(action: McpAction, workspace_root: &std::path::Path) -> Result<()> {
+    let mcp_config_path = workspace_root.join(".fevercode").join("mcp.json");
+    match action {
+        McpAction::Init => {
+            let path = mcp::generate_default_config(workspace_root)?;
+            println!("MCP config initialized: {}", path.display());
+            println!("\nDefault servers configured:");
+            let servers = mcp::list_configured(&mcp_config_path)?;
+            for (name, cfg) in &servers {
+                let status = if cfg.disabled { "disabled" } else { "enabled" };
+                println!("  {} — {} {} ({})", name, cfg.command, cfg.args.join(" "), status);
+            }
+            println!("\nEdit .fevercode/mcp.json to customize. Run 'fever mcp list' to see status.");
+        }
+        McpAction::List => {
+            if !mcp_config_path.exists() {
+                println!("No MCP config found. Run 'fever mcp init' to create one.");
+                return Ok(());
+            }
+            let servers = mcp::list_configured(&mcp_config_path)?;
+            if servers.is_empty() {
+                println!("No MCP servers configured.");
+                return Ok(());
+            }
+            println!("MCP servers ({}):\n", servers.len());
+            for (name, cfg) in &servers {
+                let status = if cfg.disabled { "DISABLED" } else { "ENABLED" };
+                println!("  [{}] {}", status, name);
+                println!("    command: {} {}", cfg.command, cfg.args.join(" "));
+                if !cfg.env.is_empty() {
+                    let env_keys: Vec<&str> = cfg.env.keys().map(|s| s.as_str()).collect();
+                    println!("    env vars: {}", env_keys.join(", "));
+                }
+                println!();
+            }
+        }
+        McpAction::Add { name, command, args } => {
+            mcp::add_server(&mcp_config_path, &name, &command, args, std::collections::HashMap::new())?;
+            println!("Added MCP server: {} ({})", name, command);
+        }
+        McpAction::Remove { name } => {
+            mcp::remove_server(&mcp_config_path, &name)?;
+            println!("Removed MCP server: {}", name);
+        }
+    }
+    Ok(())
 }

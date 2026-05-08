@@ -356,16 +356,78 @@ fn build_tool_defs(registry: &ToolRegistry) -> Vec<ToolDef> {
 
 fn tool_description(name: &str) -> Option<String> {
     match name {
-        "read_file" => Some("Read a file from the workspace. Optionally specify offset (line number) and limit (max lines).".to_string()),
-        "list_files" => Some("List files in a directory within the workspace. Optionally specify max_depth.".to_string()),
-        "search_text" => Some("Search for text pattern across files in the workspace. Supports glob filtering and case insensitivity.".to_string()),
-        "write_file" => Some("Write content to a file in the workspace. Creates parent directories if needed.".to_string()),
-        "edit_file" => Some("Edit a specific region of a file by replacing exact original text with new text.".to_string()),
-        "run_shell" => Some("Run a shell command inside the workspace. Timeout defaults to 30 seconds.".to_string()),
+        "read_file" => Some("Read a file from the workspace.".to_string()),
+        "list_files" => Some("List files in a directory within the workspace.".to_string()),
+        "search_text" => Some("Search for text pattern across files.".to_string()),
+        "write_file" => Some("Write content to a file in the workspace.".to_string()),
+        "edit_file" => Some("Edit a file by replacing exact original text.".to_string()),
+        "run_shell" => Some("Run a shell command inside the workspace.".to_string()),
         "git_status" => Some("Show git status for the workspace.".to_string()),
         "git_diff" => Some("Show git diff for the workspace.".to_string()),
-        "git_checkpoint" => Some("Create a git checkpoint commit with a given message.".to_string()),
+        "git_checkpoint" => Some("Create a git checkpoint commit.".to_string()),
         "git_branch" => Some("Create and switch to a new git branch.".to_string()),
+        "copy_file" => Some("Copy a file within the workspace.".to_string()),
+        "move_file" => Some("Move or rename a file within the workspace.".to_string()),
+        "delete_file" => Some("Delete a file from the workspace.".to_string()),
+        "mkdir" => Some("Create a directory (and parents) in the workspace.".to_string()),
+        "file_exists" => Some("Check if a file or directory exists.".to_string()),
+        "directory_tree" => Some("Display directory tree structure.".to_string()),
+        "code_stats" => Some("Count lines of code by file extension.".to_string()),
+        "env_var" => Some("Read environment variables.".to_string()),
+        "find_todos" => Some("Find TODO/FIXME/HACK comments across the workspace.".to_string()),
+        "find_duplicates" => Some("Find duplicate files by content hash.".to_string()),
+        "analyze_imports" => Some("Analyze import/dependency graph for a file.".to_string()),
+        "file_stat" => Some("Get file metadata (size, modified time, permissions).".to_string()),
+        "append_file" => Some("Append content to an existing file.".to_string()),
+        "head_tail" => Some("Read first N or last N lines of a file.".to_string()),
+        "regex_search" => Some("Search files using a regex pattern.".to_string()),
+        "replace_in_file" => Some("Replace all occurrences of a pattern in a file.".to_string()),
+        "diff_files" => Some("Compare two files line by line.".to_string()),
+        "git_log" => Some("Show git commit log.".to_string()),
+        "git_blame" => Some("Show git blame for a file.".to_string()),
+        "git_stash" => Some("Stash or pop git changes.".to_string()),
+        "git_cherry_pick" => Some("Cherry-pick a commit.".to_string()),
+        "git_merge" => Some("Merge a branch into current.".to_string()),
+        "git_remote" => Some("Manage git remotes (list, add, remove).".to_string()),
+        "git_tag" => Some("Create, list, or delete git tags.".to_string()),
+        "git_rebase" => Some("Rebase current branch onto another.".to_string()),
+        "git_reset" => Some("Reset to a specific commit (soft/mixed/hard).".to_string()),
+        "git_show" => Some("Show commit details.".to_string()),
+        "git_add_commit" => Some("Stage files and commit in one step.".to_string()),
+        "git_conflict" => Some("List or resolve merge conflicts.".to_string()),
+        "github_cli" => Some("Run GitHub CLI (gh) commands.".to_string()),
+        "run_tests" => Some("Run tests (auto-detects framework: cargo, npm, pytest, go).".to_string()),
+        "coverage_report" => Some("Generate test coverage report.".to_string()),
+        "complexity" => Some("Analyze code complexity (function length, nesting).".to_string()),
+        "security_scan" => Some("Scan for common vulnerability patterns.".to_string()),
+        "find_dead_code" => Some("Find potentially dead/unused code.".to_string()),
+        "audit_deps" => Some("Audit dependencies for known vulnerabilities.".to_string()),
+        "scaffold_project" => Some("Scaffold a new project from templates.".to_string()),
+        "generate_changelog" => Some("Generate changelog from git log.".to_string()),
+        "analyze_architecture" => Some("Analyze project architecture and directory structure.".to_string()),
+        "docker" => Some("Run Docker commands (build, run, ps, images, logs, compose).".to_string()),
+        "web_fetch" => Some("Fetch a URL and return content.".to_string()),
+        "package_json" => Some("Read and manage package.json.".to_string()),
+        "ci_status" => Some("Check CI/CD pipeline status.".to_string()),
+        "snippet_exec" => Some("Execute a code snippet in a given language.".to_string()),
+        "render_markdown" => Some("Render markdown with terminal-friendly formatting.".to_string()),
+        "session_export" => Some("Export session events to markdown or JSON.".to_string()),
+        "session_resume" => Some("Resume a previous session.".to_string()),
+        "undo_redo" => Some("Undo/redo file changes using git stash.".to_string()),
+        "theme_palette" => Some("List or apply terminal themes.".to_string()),
+        "diff_viewer" => Some("Compare two files with diff output.".to_string()),
+        "syntax_highlight" => Some("Show a file with line numbers and language tag.".to_string()),
+        "progress" => Some("Track task progress with progress bars.".to_string()),
+        "bookmark" => Some("Manage code bookmarks (add, list, get, remove).".to_string()),
+        "notes" => Some("Manage workspace notes.".to_string()),
+        "snapshot" => Some("Create/restore/list git snapshots.".to_string()),
+        "github_issues" => Some("Manage GitHub issues (list, create, comment, close).".to_string()),
+        "github_pr" => Some("Manage GitHub pull requests (list, create, merge, review).".to_string()),
+        "gitlab" => Some("GitLab integration (info, pipeline status).".to_string()),
+        "slack_notify" => Some("Send notifications to Slack via webhook.".to_string()),
+        "jira" => Some("Manage Jira issues (search, get, comment, transitions).".to_string()),
+        "database" => Some("Execute SQL queries (postgres, mysql, sqlite).".to_string()),
+        "k8s" => Some("Kubernetes commands (pods, deployments, services, logs).".to_string()),
         _ => None,
     }
 }
@@ -392,69 +454,78 @@ fn tool_schema(name: &str) -> Value {
             "type": "object",
             "properties": {
                 "pattern": { "type": "string", "description": "Text pattern to search for" },
-                "glob": { "type": "string", "description": "File extension glob, e.g. '*.rs'" },
-                "case_insensitive": { "type": "boolean", "description": "Case-insensitive search" }
+                "glob": { "type": "string", "description": "File extension glob" },
+                "case_insensitive": { "type": "boolean" }
             },
             "required": ["pattern"]
         }),
         "write_file" => serde_json::json!({
             "type": "object",
             "properties": {
-                "path": { "type": "string", "description": "Relative path to file" },
-                "content": { "type": "string", "description": "File content to write" }
+                "path": { "type": "string" },
+                "content": { "type": "string" }
             },
             "required": ["path", "content"]
         }),
         "edit_file" => serde_json::json!({
             "type": "object",
             "properties": {
-                "path": { "type": "string", "description": "Relative path to file" },
-                "old_string": { "type": "string", "description": "Exact text to replace" },
-                "new_string": { "type": "string", "description": "Replacement text" }
+                "path": { "type": "string" },
+                "old_string": { "type": "string" },
+                "new_string": { "type": "string" }
             },
             "required": ["path", "old_string", "new_string"]
         }),
         "run_shell" => serde_json::json!({
             "type": "object",
             "properties": {
-                "command": { "type": "string", "description": "Shell command to execute" },
-                "timeout": { "type": "integer", "description": "Timeout in seconds" }
+                "command": { "type": "string" },
+                "timeout": { "type": "integer" }
             },
             "required": ["command"]
         }),
-        "git_status" => serde_json::json!({
-            "type": "object",
-            "properties": {}
-        }),
-        "git_diff" => serde_json::json!({
-            "type": "object",
-            "properties": {
-                "staged": { "type": "boolean", "description": "Show staged diff" },
-                "path": { "type": "string", "description": "Path filter" }
-            }
-        }),
+        "git_status" | "git_diff" | "file_exists" | "directory_tree" | "code_stats" |
+        "find_todos" | "analyze_architecture" | "ci_status" | "session_resume" |
+        "analyze_imports" | "find_dead_code" | "coverage_report" | "complexity" => {
+            serde_json::json!({ "type": "object", "properties": {} })
+        }
         "git_checkpoint" => serde_json::json!({
             "type": "object",
-            "properties": {
-                "message": { "type": "string", "description": "Commit message" }
-            },
+            "properties": { "message": { "type": "string" } },
             "required": ["message"]
         }),
-        "git_branch" => serde_json::json!({
+        "git_branch" | "git_show" => serde_json::json!({
             "type": "object",
-            "properties": {
-                "name": { "type": "string", "description": "Branch name to create and checkout" }
-            },
+            "properties": { "name": { "type": "string" } },
             "required": ["name"]
         }),
-        _ => Value::Null,
+        _ => generic_tool_schema(),
     }
+}
+
+fn generic_tool_schema() -> Value {
+    serde_json::json!({
+        "type": "object",
+        "properties": {
+            "action": { "type": "string", "description": "Action to perform" }
+        }
+    })
 }
 
 fn classify_tool_risk(tool_name: &str, args: &Value, safety: &SafetyPolicy) -> CommandRisk {
     match tool_name {
-        "read_file" | "list_files" | "search_text" | "git_status" | "git_diff" => CommandRisk::Safe,
-        "write_file" | "edit_file" => {
+        "read_file" | "list_files" | "search_text" | "git_status" | "git_diff" |
+        "file_exists" | "directory_tree" | "code_stats" | "env_var" | "find_todos" |
+        "find_duplicates" | "analyze_imports" | "file_stat" | "head_tail" | "regex_search" |
+        "git_log" | "git_blame" | "git_remote" | "git_show" | "git_conflict" |
+        "run_tests" | "coverage_report" | "complexity" | "security_scan" | "find_dead_code" |
+        "audit_deps" | "analyze_architecture" | "ci_status" | "session_resume" |
+        "diff_viewer" | "syntax_highlight" | "progress" | "bookmark" | "notes" |
+        "github_issues" | "github_pr" | "gitlab" | "jira" | "k8s" |
+        "session_export" | "theme_palette" | "web_fetch" | "render_markdown" |
+        "snippet_exec" | "docker" | "generate_changelog" | "scaffold_project" |
+        "diff_files" => CommandRisk::Safe,
+        "write_file" | "edit_file" | "append_file" | "replace_in_file" => {
             if let Some(path) = args.get("path").and_then(|v| v.as_str()) {
                 if safety.is_inside_workspace(Path::new(path)) {
                     CommandRisk::WorkspaceEdit
@@ -464,6 +535,9 @@ fn classify_tool_risk(tool_name: &str, args: &Value, safety: &SafetyPolicy) -> C
             } else {
                 CommandRisk::WorkspaceEdit
             }
+        }
+        "copy_file" | "move_file" | "delete_file" | "mkdir" => {
+            CommandRisk::WorkspaceEdit
         }
         "run_shell" => {
             if let Some(cmd) = args.get("command").and_then(|v| v.as_str()) {
@@ -479,16 +553,21 @@ fn classify_tool_risk(tool_name: &str, args: &Value, safety: &SafetyPolicy) -> C
                 CommandRisk::ShellRead
             }
         }
-        "git_checkpoint" | "git_branch" => CommandRisk::Safe,
+        "git_checkpoint" | "git_branch" | "git_stash" | "git_cherry_pick" | "git_merge" |
+        "git_tag" | "git_rebase" | "git_reset" | "git_add_commit" | "github_cli" |
+        "snapshot" | "undo_redo" => CommandRisk::Safe,
+        "slack_notify" | "database" | "package_json" => CommandRisk::Safe,
         _ => CommandRisk::Safe,
     }
 }
 
 fn map_action_type(tool_name: &str) -> ActionType {
     match tool_name {
-        "write_file" | "edit_file" => ActionType::FileWrite,
-        "run_shell" => ActionType::ShellCommand,
-        "git_checkpoint" => ActionType::GitCommit,
+        "write_file" | "edit_file" | "append_file" | "replace_in_file" |
+        "copy_file" | "move_file" | "delete_file" | "mkdir" |
+        "scaffold_project" => ActionType::FileWrite,
+        "run_shell" | "snippet_exec" => ActionType::ShellCommand,
+        "git_checkpoint" | "git_add_commit" | "snapshot" => ActionType::GitCommit,
         _ => ActionType::ShellCommand,
     }
 }

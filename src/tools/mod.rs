@@ -5,6 +5,7 @@ pub mod external_integrations;
 pub mod files;
 pub mod git_tools;
 pub mod integrations;
+pub mod mcp_bridge;
 pub mod shell;
 pub mod ux_tools;
 
