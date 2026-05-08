@@ -252,6 +252,8 @@ pub struct App {
     discovered_models: std::collections::HashMap<String, Vec<String>>,
     rag_store: crate::rag::store::VectorStore,
     rag_store_path: std::path::PathBuf,
+    license_tier: String,
+    auth_file: std::path::PathBuf,
 }
 
 impl App {
@@ -292,6 +294,16 @@ impl App {
         let rag_store_path =
             std::path::PathBuf::from(&workspace_root).join(".fevercode/rag_store.json");
         let rag_store = crate::rag::store::VectorStore::load(&rag_store_path).unwrap_or_default();
+        let auth_file = std::path::PathBuf::from(&workspace_root).join(".fevercode/auth.json");
+        let license_tier = if let Ok(Some(lk)) = crate::license::LicenseManager::load_from_file(&auth_file) {
+            if lk.is_valid(b"fevercode-license-secret-v1") {
+                lk.display_tier()
+            } else {
+                "community".to_string()
+            }
+        } else {
+            "community".to_string()
+        };
         Self {
             workspace_root,
             mode,
@@ -317,6 +329,8 @@ impl App {
             discovered_models: std::collections::HashMap::new(),
             rag_store,
             rag_store_path,
+            license_tier,
+            auth_file,
         }
     }
 
@@ -578,9 +592,9 @@ impl App {
                 self.chat_lines.push(ChatLine {
                     role: "system".to_string(),
                     content: format!(
-                        "Workspace: {}\nMode: {}\nProvider: {}\nModel: {}\nPreset: {}\nTheme: {}{}{}",
+                        "Workspace: {}\nMode: {}\nProvider: {}\nModel: {}\nPreset: {}\nTheme: {}\nLicense: {}{}{}",
                         self.workspace_root, self.mode, self.provider_name, self.model_name,
-                        self.preset_name, self.theme.name(), warn, tok
+                        self.preset_name, self.theme.name(), self.license_tier, warn, tok
                     ),
                 });
             }
@@ -1097,10 +1111,263 @@ impl App {
                 self.chat_lines.push(ChatLine {
                     role: "system".to_string(),
                     content: format!(
-                        "Config loaded from .fevercode/config.toml\nTheme: {}\nMode: {}\nProvider: {}\nModel: {}\nPreset: {}",
-                        self.theme.name(), self.mode, self.provider_name, self.model_name, self.preset_name
+                        "Config loaded from .fevercode/config.toml\nTheme: {}\nMode: {}\nProvider: {}\nModel: {}\nPreset: {}\nLicense: {}",
+                        self.theme.name(), self.mode, self.provider_name, self.model_name, self.preset_name, self.license_tier
                     ),
                 });
+            }
+
+            // === LICENSE & AUTH ===
+            "/auth" | "/license" => {
+                let arg = args.trim();
+                if arg.starts_with("login ") {
+                    let key = arg.strip_prefix("login ").unwrap_or("").trim();
+                    if key.is_empty() {
+                        self.chat_lines.push(ChatLine {
+                            role: "system".to_string(),
+                            content: "Usage: /auth login <license-key>".to_string(),
+                        });
+                    } else {
+                        let mut mgr = crate::license::LicenseManager::new(b"fevercode-license-secret-v1");
+                        match mgr.activate(key) {
+                            Ok(tier) => {
+                                let _ = mgr.save_to_file(&self.auth_file);
+                                self.license_tier = tier.to_string();
+                                self.chat_lines.push(ChatLine {
+                                    role: "system".to_string(),
+                                    content: format!("License activated: {}", tier),
+                                });
+                            }
+                            Err(e) => {
+                                self.chat_lines.push(ChatLine {
+                                    role: "system".to_string(),
+                                    content: format!("License activation failed: {}", e),
+                                });
+                            }
+                        }
+                    }
+                } else if arg == "logout" {
+                    let _ = std::fs::remove_file(&self.auth_file);
+                    self.license_tier = "community".to_string();
+                    self.chat_lines.push(ChatLine {
+                        role: "system".to_string(),
+                        content: "License removed. Reverted to Community tier.".to_string(),
+                    });
+                } else {
+                    self.chat_lines.push(ChatLine {
+                        role: "system".to_string(),
+                        content: format!(
+                            "License: {}\nUsage: /auth login <key> | /auth logout",
+                            self.license_tier
+                        ),
+                    });
+                }
+            }
+
+            // === ANALYTICS (Pro+) ===
+            "/analytics" => {
+                if self.license_tier == "community" {
+                    self.chat_lines.push(ChatLine {
+                        role: "system".to_string(),
+                        content: "Analytics requires FeverCode Pro ($19/mo). Visit fevercode.dev to upgrade.".to_string(),
+                    });
+                } else {
+                    let ws = std::path::PathBuf::from(&self.workspace_root);
+                    match crate::analytics::AnalyticsCollector::load(&ws) {
+                        Ok(collector) => {
+                            self.chat_lines.push(ChatLine {
+                                role: "system".to_string(),
+                                content: collector.format_report(),
+                            });
+                        }
+                        Err(e) => {
+                            self.chat_lines.push(ChatLine {
+                                role: "system".to_string(),
+                                content: format!("Analytics error: {}", e),
+                            });
+                        }
+                    }
+                }
+            }
+
+            // === SYNC (Pro+) ===
+            "/sync" => {
+                if self.license_tier == "community" {
+                    self.chat_lines.push(ChatLine {
+                        role: "system".to_string(),
+                        content: "Cloud sync requires FeverCode Pro ($19/mo). Visit fevercode.dev to upgrade.".to_string(),
+                    });
+                } else {
+                    let subcmd = args.trim();
+                    let ws = std::path::PathBuf::from(&self.workspace_root);
+                    let mgr = crate::sync::SyncManager::new(&ws);
+                    if subcmd == "push" {
+                        let events = vec![crate::sync::SyncEvent {
+                            event_type: "tui_sync".to_string(),
+                            data: serde_json::json!({"source": "tui"}),
+                            timestamp: chrono::Utc::now(),
+                        }];
+                        match mgr.create_payload("tui", &events).and_then(|p| mgr.save_local(&p)) {
+                            Ok(_) => {
+                                self.chat_lines.push(ChatLine {
+                                    role: "system".to_string(),
+                                    content: "Session synced.".to_string(),
+                                });
+                            }
+                            Err(e) => {
+                                self.chat_lines.push(ChatLine {
+                                    role: "system".to_string(),
+                                    content: format!("Sync error: {}", e),
+                                });
+                            }
+                        }
+                    } else {
+                        match mgr.load_local() {
+                            Ok(Some(payload)) => {
+                                self.chat_lines.push(ChatLine {
+                                    role: "system".to_string(),
+                                    content: format!("Last sync: {} ({})", payload.timestamp, payload.machine_id),
+                                });
+                            }
+                            _ => {
+                                self.chat_lines.push(ChatLine {
+                                    role: "system".to_string(),
+                                    content: "No sync data. Use /sync push to sync.".to_string(),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            // === MEMORY (free tier) ===
+            "/memory" => {
+                let ws = std::path::PathBuf::from(&self.workspace_root);
+                let subcmd = args.trim();
+                if subcmd.is_empty() || subcmd == "stats" {
+                    match crate::memory::MemoryStore::load(&ws) {
+                        Ok(store) => {
+                            self.chat_lines.push(ChatLine {
+                                role: "system".to_string(),
+                                content: store.stats(),
+                            });
+                        }
+                        Err(e) => {
+                            self.chat_lines.push(ChatLine {
+                                role: "system".to_string(),
+                                content: format!("Memory error: {}", e),
+                            });
+                        }
+                    }
+                } else if subcmd.starts_with("search ") {
+                    let query = subcmd.strip_prefix("search ").unwrap_or("");
+                    match crate::memory::MemoryStore::load(&ws) {
+                        Ok(store) => {
+                            let results = store.search(query);
+                            if results.is_empty() {
+                                self.chat_lines.push(ChatLine {
+                                    role: "system".to_string(),
+                                    content: format!("No memories matching '{}'.", query),
+                                });
+                            } else {
+                                let lines: Vec<String> = results.iter().map(|e| {
+                                    format!("[{:?}] {} = {}", e.category, e.key,
+                                        if e.value.len() > 60 { &e.value[..60] } else { &e.value })
+                                }).collect();
+                                self.chat_lines.push(ChatLine {
+                                    role: "system".to_string(),
+                                    content: format!("Found {} memories:\n{}", results.len(), lines.join("\n")),
+                                });
+                            }
+                        }
+                        Err(e) => {
+                            self.chat_lines.push(ChatLine {
+                                role: "system".to_string(),
+                                content: format!("Memory error: {}", e),
+                            });
+                        }
+                    }
+                } else if subcmd.starts_with("store ") {
+                    let parts: Vec<&str> = subcmd.strip_prefix("store ").unwrap_or("").splitn(3, ' ').collect();
+                    if parts.len() < 3 {
+                        self.chat_lines.push(ChatLine {
+                            role: "system".to_string(),
+                            content: "Usage: /memory store <category> <key> <value>".to_string(),
+                        });
+                    } else {
+                        match crate::memory::MemoryStore::load(&ws) {
+                            Ok(mut store) => {
+                                let cat = match parts[0].to_ascii_lowercase().as_str() {
+                                    "convention" => crate::memory::MemoryCategory::ProjectConvention,
+                                    "decision" => crate::memory::MemoryCategory::PastDecision,
+                                    "style" => crate::memory::MemoryCategory::CodingStyle,
+                                    "preference" => crate::memory::MemoryCategory::UserPreference,
+                                    "context" => crate::memory::MemoryCategory::ProjectContext,
+                                    _ => crate::memory::MemoryCategory::UserPreference,
+                                };
+                                let _ = store.store(cat, parts[1], parts[2]);
+                                let _ = store.save();
+                                self.chat_lines.push(ChatLine {
+                                    role: "system".to_string(),
+                                    content: format!("Stored: [{}] {}", parts[0], parts[1]),
+                                });
+                            }
+                            Err(e) => {
+                                self.chat_lines.push(ChatLine {
+                                    role: "system".to_string(),
+                                    content: format!("Memory error: {}", e),
+                                });
+                            }
+                        }
+                    }
+                } else {
+                    self.chat_lines.push(ChatLine {
+                        role: "system".to_string(),
+                        content: "Usage: /memory [stats|search <q>|store <cat> <key> <val>]".to_string(),
+                    });
+                }
+            }
+
+            // === CUSTOM SOULS (Pro+) ===
+            "/customsoul" | "/custom-soul" => {
+                if self.license_tier == "community" {
+                    self.chat_lines.push(ChatLine {
+                        role: "system".to_string(),
+                        content: "Custom souls require FeverCode Pro ($19/mo). Visit fevercode.dev to upgrade.".to_string(),
+                    });
+                } else {
+                    let subcmd = args.trim();
+                    let ws = std::path::PathBuf::from(&self.workspace_root);
+                    let mgr = crate::custom_souls::CustomSoulManager::new(&ws);
+                    if subcmd.is_empty() || subcmd == "list" {
+                        match mgr.list() {
+                            Ok(souls) => {
+                                if souls.is_empty() {
+                                    self.chat_lines.push(ChatLine {
+                                        role: "system".to_string(),
+                                        content: "No custom souls. Use /customsoul create <name> <role> <prompt>".to_string(),
+                                    });
+                                } else {
+                                    self.chat_lines.push(ChatLine {
+                                        role: "system".to_string(),
+                                        content: format!("Custom souls:\n{}", souls.iter().map(|s| format!("  - {}", s)).collect::<Vec<_>>().join("\n")),
+                                    });
+                                }
+                            }
+                            Err(e) => {
+                                self.chat_lines.push(ChatLine {
+                                    role: "system".to_string(),
+                                    content: format!("Error: {}", e),
+                                });
+                            }
+                        }
+                    } else {
+                        self.chat_lines.push(ChatLine {
+                            role: "system".to_string(),
+                            content: "Usage: /customsoul [list]".to_string(),
+                        });
+                    }
+                }
             }
 
             // === FALLBACK ===
@@ -1591,6 +1858,11 @@ fn draw_header(frame: &mut ratatui::Frame, app: &App, area: Rect) {
     } else {
         ""
     };
+    let tier_badge = if app.license_tier != "community" {
+        format!(" [{}]", app.license_tier.to_ascii_uppercase())
+    } else {
+        String::new()
+    };
     let title = Line::from(vec![
         Span::styled(
             "  FeverCode Portal",
@@ -1612,6 +1884,16 @@ fn draw_header(frame: &mut ratatui::Frame, app: &App, area: Rect) {
                 Color::DarkGray
             }),
         ),
+        if !tier_badge.is_empty() {
+            Span::styled(
+                tier_badge,
+                Style::default()
+                    .fg(app.theme.header_accent())
+                    .add_modifier(Modifier::BOLD),
+            )
+        } else {
+            Span::raw("")
+        },
     ]);
 
     let path_line = Line::from(vec![
@@ -1858,6 +2140,37 @@ fn draw_help(frame: &mut ratatui::Frame, app: &App, area: Rect) {
         Line::from(vec![
             Span::styled(" /version ", Style::default().fg(app.theme.chat_user())),
             Span::raw("Show version"),
+        ]),
+        Line::from(""),
+        Line::from(Span::styled(
+            " License & Pro",
+            Style::default()
+                .fg(app.theme.header_accent())
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(vec![
+            Span::styled(" /auth ", Style::default().fg(app.theme.chat_user())),
+            Span::raw(" Show license status"),
+        ]),
+        Line::from(vec![
+            Span::styled(" /auth login <key> ", Style::default().fg(app.theme.chat_user())),
+            Span::raw(" Activate license"),
+        ]),
+        Line::from(vec![
+            Span::styled(" /analytics ", Style::default().fg(app.theme.chat_user())),
+            Span::raw(" Session analytics (Pro+)"),
+        ]),
+        Line::from(vec![
+            Span::styled(" /sync ", Style::default().fg(app.theme.chat_user())),
+            Span::raw(" Cloud sync (Pro+)"),
+        ]),
+        Line::from(vec![
+            Span::styled(" /memory ", Style::default().fg(app.theme.chat_user())),
+            Span::raw(" Persistent memory"),
+        ]),
+        Line::from(vec![
+            Span::styled(" /customsoul ", Style::default().fg(app.theme.chat_user())),
+            Span::raw(" Custom souls (Pro+)"),
         ]),
         Line::from(""),
         Line::from(vec![
