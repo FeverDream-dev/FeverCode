@@ -1049,12 +1049,43 @@ fn command_exists(cmd: &str) -> bool {
         .unwrap_or(false)
 }
 
+fn license_secret() -> Vec<u8> {
+    std::env::var("FEVER_LICENSE_SECRET")
+        .unwrap_or_else(|_| "fevercode-license-secret-v1".to_string())
+        .into_bytes()
+}
+
+fn require_feature(state_dir: &std::path::Path, feature: license::Feature) -> Result<()> {
+    let secret = license_secret();
+    let auth_file = state_dir.join("auth.json");
+    if let Ok(Some(lk)) = license::LicenseManager::load_from_file(&auth_file) {
+        if lk.is_valid(&secret) {
+            let mut mgr = license::LicenseManager::new(&secret);
+            let encoded = lk.encode()?;
+            mgr.activate(&encoded)?;
+            if mgr.check_feature(feature) {
+                return Ok(());
+            }
+        }
+    }
+    let tier_needed = feature.min_tier();
+    let price = match tier_needed {
+        license::LicenseTier::Pro => "$19/mo",
+        license::LicenseTier::Team => "$39/seat/mo",
+        license::LicenseTier::Enterprise => "custom pricing",
+        _ => "unknown",
+    };
+    println!("This feature requires FeverCode {} ({}).", tier_needed, price);
+    println!("Visit fevercode.dev to upgrade.");
+    std::process::exit(1);
+}
+
 fn handle_auth(action: AuthAction, state_dir: &std::path::Path) -> Result<()> {
-    let secret = b"fevercode-license-secret-v1";
+    let secret = license_secret();
     let auth_file = state_dir.join("auth.json");
     match action {
         AuthAction::Login { key } => {
-            let mut mgr = license::LicenseManager::new(secret);
+            let mut mgr = license::LicenseManager::new(&secret);
             let tier = mgr.activate(&key)?;
             mgr.save_to_file(&auth_file)?;
             println!("License activated: {}", tier);
@@ -1062,7 +1093,7 @@ fn handle_auth(action: AuthAction, state_dir: &std::path::Path) -> Result<()> {
         }
         AuthAction::Status => {
             let tier = if let Ok(Some(lk)) = license::LicenseManager::load_from_file(&auth_file) {
-                if lk.is_valid(secret) {
+                if lk.is_valid(&secret) {
                     lk.display_tier()
                 } else {
                     "expired".to_string()
@@ -1082,6 +1113,7 @@ fn handle_auth(action: AuthAction, state_dir: &std::path::Path) -> Result<()> {
 }
 
 fn handle_analytics(workspace_root: &std::path::Path) -> Result<()> {
+    require_feature(&workspace_root.join(".fevercode"), license::Feature::Analytics)?;
     let collector = analytics::AnalyticsCollector::load(workspace_root)?;
     println!("{}", collector.format_report());
     Ok(())
@@ -1107,6 +1139,7 @@ fn handle_telemetry(action: TelemetryAction, workspace_root: &std::path::Path) -
 }
 
 fn handle_sync(action: SyncAction, workspace_root: &std::path::Path) -> Result<()> {
+    require_feature(&workspace_root.join(".fevercode"), license::Feature::CloudSync)?;
     let mgr = sync::SyncManager::new(workspace_root);
     match action {
         SyncAction::Push => {
@@ -1140,6 +1173,7 @@ fn handle_sync(action: SyncAction, workspace_root: &std::path::Path) -> Result<(
 }
 
 fn handle_custom_soul(action: CustomSoulAction, workspace_root: &std::path::Path) -> Result<()> {
+    require_feature(&workspace_root.join(".fevercode"), license::Feature::CustomSouls)?;
     let mgr = custom_souls::CustomSoulManager::new(workspace_root);
     match action {
         CustomSoulAction::List => {
@@ -1184,6 +1218,7 @@ fn handle_custom_soul(action: CustomSoulAction, workspace_root: &std::path::Path
 }
 
 fn handle_audit_log(action: AuditLogAction, workspace_root: &std::path::Path) -> Result<()> {
+    require_feature(&workspace_root.join(".fevercode"), license::Feature::AuditLog)?;
     let log = audit::AuditLog::new(workspace_root);
     match action {
         AuditLogAction::ExportJson { path } => {
