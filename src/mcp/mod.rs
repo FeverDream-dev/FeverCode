@@ -330,6 +330,90 @@ pub fn default_mcp_config() -> McpServersConfig {
         disabled: false,
     });
 
+    servers.insert("context7".to_string(), McpServerConfig {
+        command: "npx".to_string(),
+        args: vec!["-y".to_string(), "@upstash/context7-mcp@latest".to_string()],
+        env: HashMap::new(),
+        disabled: false,
+    });
+
+    servers.insert("playwright".to_string(), McpServerConfig {
+        command: "npx".to_string(),
+        args: vec!["-y".to_string(), "@anthropic-ai/mcp-playwright@latest".to_string()],
+        env: HashMap::new(),
+        disabled: false,
+    });
+
+    servers.insert("mempalace".to_string(), McpServerConfig {
+        command: "npx".to_string(),
+        args: vec!["-y".to_string(), "mempalace-mcp@latest".to_string()],
+        env: HashMap::new(),
+        disabled: false,
+    });
+
+    servers.insert("chrome-devtools".to_string(), McpServerConfig {
+        command: "npx".to_string(),
+        args: vec!["-y".to_string(), "@anthropic-ai/mcp-chrome-devtools@latest".to_string()],
+        env: HashMap::new(),
+        disabled: true,
+    });
+
+    servers.insert("postman".to_string(), McpServerConfig {
+        command: "npx".to_string(),
+        args: vec!["-y".to_string(), "@anthropic-ai/mcp-postman@latest".to_string()],
+        env: HashMap::new(),
+        disabled: true,
+    });
+
+    servers.insert("figma".to_string(), McpServerConfig {
+        command: "npx".to_string(),
+        args: vec!["-y".to_string(), "@anthropic-ai/mcp-figma@latest".to_string()],
+        env: {
+            let mut e = HashMap::new();
+            e.insert("FIGMA_ACCESS_TOKEN".to_string(), "${FIGMA_ACCESS_TOKEN}".to_string());
+            e
+        },
+        disabled: true,
+    });
+
+    servers.insert("google-workspace".to_string(), McpServerConfig {
+        command: "npx".to_string(),
+        args: vec!["-y".to_string(), "@anthropic-ai/mcp-google-workspace@latest".to_string()],
+        env: HashMap::new(),
+        disabled: true,
+    });
+
+    servers.insert("atlassian".to_string(), McpServerConfig {
+        command: "npx".to_string(),
+        args: vec!["-y".to_string(), "@anthropic-ai/mcp-atlassian@latest".to_string()],
+        env: {
+            let mut e = HashMap::new();
+            e.insert("JIRA_BASE_URL".to_string(), "${JIRA_BASE_URL}".to_string());
+            e.insert("JIRA_API_TOKEN".to_string(), "${JIRA_API_TOKEN}".to_string());
+            e.insert("JIRA_EMAIL".to_string(), "${JIRA_EMAIL}".to_string());
+            e
+        },
+        disabled: true,
+    });
+
+    servers.insert("linear".to_string(), McpServerConfig {
+        command: "npx".to_string(),
+        args: vec!["-y".to_string(), "@anthropic-ai/mcp-linear@latest".to_string()],
+        env: {
+            let mut e = HashMap::new();
+            e.insert("LINEAR_API_KEY".to_string(), "${LINEAR_API_KEY}".to_string());
+            e
+        },
+        disabled: true,
+    });
+
+    servers.insert("prompts-chat".to_string(), McpServerConfig {
+        command: "npx".to_string(),
+        args: vec!["-y".to_string(), "prompts-chat-mcp@latest".to_string()],
+        env: HashMap::new(),
+        disabled: true,
+    });
+
     McpServersConfig { mcp_servers: servers }
 }
 
@@ -403,7 +487,17 @@ mod tests {
         assert!(config.mcp_servers.contains_key("brave-search"));
         assert!(config.mcp_servers.contains_key("puppeteer"));
         assert!(config.mcp_servers.contains_key("sequential-thinking"));
-        assert_eq!(config.mcp_servers.len(), 8);
+        assert!(config.mcp_servers.contains_key("context7"));
+        assert!(config.mcp_servers.contains_key("playwright"));
+        assert!(config.mcp_servers.contains_key("mempalace"));
+        assert!(config.mcp_servers.contains_key("chrome-devtools"));
+        assert!(config.mcp_servers.contains_key("postman"));
+        assert!(config.mcp_servers.contains_key("figma"));
+        assert!(config.mcp_servers.contains_key("google-workspace"));
+        assert!(config.mcp_servers.contains_key("atlassian"));
+        assert!(config.mcp_servers.contains_key("linear"));
+        assert!(config.mcp_servers.contains_key("prompts-chat"));
+        assert_eq!(config.mcp_servers.len(), 18);
     }
 
     #[test]

@@ -1,4 +1,6 @@
+pub mod ai_power_tools;
 pub mod code_quality;
+pub mod dev_workflow;
 pub mod extended_files;
 pub mod extended_git;
 pub mod external_integrations;
@@ -145,7 +147,24 @@ impl ToolRegistry {
         registry.register(Box::new(external_integrations::SlackNotifyTool::new(workspace_root.clone())));
         registry.register(Box::new(external_integrations::JiraTool::new(workspace_root.clone())));
         registry.register(Box::new(external_integrations::DatabaseTool::new(workspace_root.clone())));
-        registry.register(Box::new(external_integrations::KubernetesTool::new(workspace_root)));
+        registry.register(Box::new(external_integrations::KubernetesTool::new(workspace_root.clone())));
+        // Dev workflow tools (8)
+        registry.register(Box::new(dev_workflow::TddEnforcementTool::new(workspace_root.clone())));
+        registry.register(Box::new(dev_workflow::PlanningTool::new(workspace_root.clone())));
+        registry.register(Box::new(dev_workflow::C4ArchitectureTool::new(workspace_root.clone())));
+        registry.register(Box::new(dev_workflow::CodeReviewTool::new(workspace_root.clone())));
+        registry.register(Box::new(dev_workflow::PerfProfilerTool::new(workspace_root.clone())));
+        registry.register(Box::new(dev_workflow::GitFlowTool::new(workspace_root.clone())));
+        registry.register(Box::new(dev_workflow::N8nWorkflowTool::new(workspace_root.clone())));
+        registry.register(Box::new(dev_workflow::LinearTool::new(workspace_root.clone())));
+        // AI power tools (7)
+        registry.register(Box::new(ai_power_tools::TokenCompressionTool::new(workspace_root.clone())));
+        registry.register(Box::new(ai_power_tools::PromptsLibraryTool::new(workspace_root.clone())));
+        registry.register(Box::new(ai_power_tools::ParallelDispatchTool::new(workspace_root.clone())));
+        registry.register(Box::new(ai_power_tools::ContextManagerTool::new(workspace_root.clone())));
+        registry.register(Box::new(ai_power_tools::SmartContextTool::new(workspace_root.clone())));
+        registry.register(Box::new(ai_power_tools::AgentMemoryTool::new(workspace_root.clone())));
+        registry.register(Box::new(ai_power_tools::WorkspaceAnalyzerTool::new(workspace_root)));
         registry
     }
 }

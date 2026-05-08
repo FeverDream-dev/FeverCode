@@ -428,6 +428,22 @@ fn tool_description(name: &str) -> Option<String> {
         "jira" => Some("Manage Jira issues (search, get, comment, transitions).".to_string()),
         "database" => Some("Execute SQL queries (postgres, mysql, sqlite).".to_string()),
         "k8s" => Some("Kubernetes commands (pods, deployments, services, logs).".to_string()),
+        "tdd_cycle" => Some("TDD enforcement: red-green-refactor cycle with test/build/lint verification.".to_string()),
+        "planning" => Some("Manage persistent markdown plans with tasks, progress tracking.".to_string()),
+        "c4_diagram" => Some("Generate C4 architecture diagrams (context, container, component).".to_string()),
+        "code_review" => Some("Automated code review: diff analysis, file review, security scanning.".to_string()),
+        "perf_profile" => Some("Performance profiling: file size analysis, bundle analysis.".to_string()),
+        "git_flow" => Some("Git flow workflow: feature/release/hotfix branches with merge.".to_string()),
+        "n8n" => Some("n8n workflow automation integration.".to_string()),
+        "linear" => Some("Linear issue tracker integration (list issues, create).".to_string()),
+        "token_compress" => Some("Token compression: compress/decompress text to reduce token usage. Levels: lite, medium, ultra.".to_string()),
+        "prompts" => Some("Prompts library: manage reusable prompt templates with list, get, save, delete, render.".to_string()),
+        "parallel_dispatch" => Some("Parallel tool execution: plan dependency graphs, dispatch tasks, batch operations.".to_string()),
+        "context_manager" => Some("Context window management: status, compact, export session events.".to_string()),
+        "smart_context" => Some("Smart context selection: relevance-scored file search, code summarization.".to_string()),
+        "agent_memory" => Some("Cross-session agent memory: store, recall, list, forget persistent memories.".to_string()),
+        "llm_router" => Some("LLM router: classify task complexity and recommend optimal model tier.".to_string()),
+        "workspace_analyzer" => Some("Workspace analysis: project overview, dependency analysis, health checks.".to_string()),
         _ => None,
     }
 }
@@ -557,6 +573,8 @@ fn classify_tool_risk(tool_name: &str, args: &Value, safety: &SafetyPolicy) -> C
         "git_tag" | "git_rebase" | "git_reset" | "git_add_commit" | "github_cli" |
         "snapshot" | "undo_redo" => CommandRisk::Safe,
         "slack_notify" | "database" | "package_json" => CommandRisk::Safe,
+        "token_compress" | "prompts" | "context_manager" | "smart_context" |
+        "agent_memory" | "llm_router" | "workspace_analyzer" | "parallel_dispatch" => CommandRisk::Safe,
         _ => CommandRisk::Safe,
     }
 }
